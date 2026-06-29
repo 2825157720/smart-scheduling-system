@@ -1,0 +1,159 @@
+[
+  {
+    "id": "p1",
+    "name": "专员2",
+    "workload": 10,
+    "default_person": "赵创",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p2",
+    "name": "专员3",
+    "workload": 10,
+    "default_person": "爱萍",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p14",
+    "name": "专员15",
+    "workload": 10,
+    "default_person": "款色组",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p4",
+    "name": "专员5",
+    "workload": 10,
+    "default_person": "玉兰",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p6",
+    "name": "专员7",
+    "workload": 10,
+    "default_person": "志才",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p16",
+    "name": "次品北",
+    "workload": 12,
+    "default_person": "鞋包组",
+    "category": "次品",
+    "split_allowed": true
+  },
+  {
+    "id": "p8",
+    "name": "专员9",
+    "workload": 10,
+    "default_person": "徐昊",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p12",
+    "name": "专员13",
+    "workload": 10,
+    "default_person": "曼诗",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p7",
+    "name": "专员8",
+    "workload": 10,
+    "default_person": "特价组",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p9",
+    "name": "专员10",
+    "workload": 10,
+    "default_person": "林灏",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p10",
+    "name": "专员11",
+    "workload": 10,
+    "default_person": "龙泽",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p11",
+    "name": "专员12",
+    "workload": 10,
+    "default_person": "大分类组1",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p5",
+    "name": "专员6",
+    "workload": 10,
+    "default_person": "岐峰",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p13",
+    "name": "专员14",
+    "workload": 10,
+    "default_person": "丽彬",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p3",
+    "name": "专员4",
+    "workload": 10,
+    "default_person": "大分类组2",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p15",
+    "name": "专员16",
+    "workload": 14,
+    "default_person": "春华",
+    "category": "",
+    "split_allowed": true
+  },
+  {
+    "id": "p17",
+    "name": "次品中",
+    "workload": 8,
+    "default_person": "",
+    "category": "次品",
+    "split_allowed": true
+  },
+  {
+    "id": "p18",
+    "name": "京东北",
+    "workload": 2,
+    "default_person": "龙泽",
+    "category": "京东"
+  },
+  {
+    "id": "p19",
+    "name": "京东中",
+    "workload": 2,
+    "default_person": "林灏",
+    "category": "京东"
+  },
+  {
+    "id": "p20",
+    "name": "京东南",
+    "workload": 2,
+    "default_person": "丽彬",
+    "category": "京东"
+  }
+]

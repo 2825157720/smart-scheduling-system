@@ -1,0 +1,2944 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能排班系统</title>
+<style>
+/* 鈹€鈹€鈹€ 鍏ㄥ眬 鈹€鈹€鈹€ */
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:'Microsoft YaHei',Arial,sans-serif;
+  font-size:12px;
+  background:
+    linear-gradient(180deg,#f6fdff 0%,#eefbf8 42%,#eaf6ff 100%),
+    repeating-linear-gradient(135deg, rgba(255,255,255,.26) 0 12px, rgba(255,255,255,0) 12px 24px);
+  background-attachment:fixed;
+  color:#17324d;
+  overflow-x:auto;
+}
+:root{
+  --green:#2ecc71;--red:#e74c3c;--orange:#f39c12;--blue:#3498db;
+  --yellow:#f1c40f;--purple:#9b59b6;--gray:#95a5a6;
+  --dark:#2c3e50;--light:#ecf0f1;
+}
+
+/* 鈹€鈹€鈹€ 椤舵爮 鈹€鈹€鈹€ */
+#topbar{
+  background:linear-gradient(135deg,#1a7fd8 0%,#18b6c6 48%,#7ad3a6 100%);
+  color:#fff;
+  padding:8px 14px;
+  display:flex;
+  align-items:center;
+  gap:10px;
+  position:sticky;
+  top:0;
+  z-index:100;
+  box-shadow:0 2px 14px rgba(31,98,132,.22);
+  flex-wrap:wrap;
+  min-height:48px;
+  border-bottom:3px solid rgba(255,255,255,.18);
+}
+#topbar .logo{
+  font-size:15px;
+  font-weight:bold;
+  white-space:nowrap;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  line-height:1;
+}
+#topbar .logo svg{width:20px;height:20px;flex-shrink:0}
+.ctrl-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ctrl-group label{font-size:12px;opacity:.9;line-height:1}
+.ctrl-group select{
+  padding:4px 10px;
+  height:28px;
+  border-radius:4px;
+  border:none;
+  font-size:12px;
+  background:#fff;
+  color:#333;
+}
+.btn{
+  padding:5px 12px;
+  min-height:28px;
+  border:none;
+  border-radius:4px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:500;
+  line-height:1;
+  transition:.15s;
+}
+.btn-orange{background:#ff7043;color:#fff}.btn-orange:hover{background:#e64a19}
+.btn-green{background:#43a047;color:#fff}.btn-green:hover{background:#2e7d32}
+.btn-blue{background:#1976d2;color:#fff}.btn-blue:hover{background:#0d47a1}
+.btn-red{background:#e53935;color:#fff}.btn-red:hover{background:#b71c1c}
+.btn-gray{background:#607d8b;color:#fff}.btn-gray:hover{background:#455a64}
+.btn-teal{background:#00897b;color:#fff}.btn-teal:hover{background:#00695c}
+.ip-hint{font-size:11px;opacity:.7;white-space:nowrap;line-height:1;display:inline-flex;align-items:center}
+
+/* 鈹€鈹€鈹€ 璁块棶鍦板潃妯箙 鈹€鈹€鈹€ */
+#access-banner{
+  display:none;background:#fff3cd;border:1px solid #ffc107;
+  color:#856404;padding:8px 16px;text-align:center;font-size:13px;
+}
+#access-banner a{color:#1976d2;font-weight:bold;text-decoration:none}
+#access-banner a:hover{text-decoration:underline}
+
+/* 杞鍚屾鎸囩ず鍣?*/
+#poll-indicator{
+  font-size:11px;opacity:.5;white-space:nowrap;
+  transition:opacity .3s, color .3s;
+  cursor:default;
+}
+#poll-indicator.flash{
+  opacity:1;color:#a5f3a5;
+  animation:poll-flash .6s ease;
+}
+@keyframes poll-flash{
+  0%{opacity:.5} 30%{opacity:1;color:#a5f3a5} 100%{opacity:.5;color:inherit}
+}
+
+/* 鈹€鈹€鈹€ 涓讳綋甯冨眬 鈹€鈹€鈹€ */
+#main-wrap{
+  display:flex;
+  gap:10px;
+  height:calc(100vh - 48px);
+  overflow:hidden;
+  align-items:stretch;
+  padding:8px 8px 0;
+  background:transparent;
+}
+#schedule-area{
+  position:relative;
+  flex:1;
+  overflow:auto;
+  min-width:0;
+  background:rgba(255,255,255,.84);
+  border:1px solid rgba(157,198,224,.72);
+  border-right:none;
+  box-shadow:0 8px 24px rgba(37,88,120,.08);
+  padding-bottom:220px;
+}
+#side-panel{
+  width:276px;
+  min-width:276px;
+  background:rgba(255,255,255,.78);
+  border:1px solid rgba(157,198,224,.72);
+  overflow-y:auto;
+  flex-shrink:0;
+  box-shadow:0 8px 24px rgba(37,88,120,.08);
+}
+
+/* 鈹€鈹€鈹€ 鎺掔彮琛?鈹€鈹€鈹€ */
+#schedule-wrap{padding:8px 10px 0}
+#schedule-table{border-collapse:collapse;white-space:nowrap;min-width:100%;table-layout:fixed}
+#schedule-table th,#schedule-table td{
+  border:1px solid #d0d0d0;padding:0 2px;height:27px;text-align:center;vertical-align:middle;
+}
+/* 琛ㄥご */
+#schedule-table thead tr:first-child th{
+  background:#1a6fb5;color:#fff;font-size:12px;position:sticky;top:0;z-index:10;height:28px;
+}
+#schedule-table thead tr:nth-child(2) th{
+  background:#e3f2fd;font-size:11px;position:sticky;top:28px;z-index:9;height:24px;
+}
+.col-pos{width:108px;min-width:108px;text-align:left;padding-left:8px}
+.col-def{width:72px;min-width:72px}
+.col-wl{width:48px;min-width:48px}
+.col-day{width:48px;min-width:48px;font-weight:bold}
+#schedule-table tbody tr:nth-child(even) td{background:#f8fbff}
+#schedule-table tbody tr:hover td{background:#eef6ff}
+
+/* 鏄熸湡琛岄鑹?*/
+.week-sat{background:#fff9c4 !important;color:#5d4037 !important}
+.week-sun{background:#fce4ec !important;color:#5d4037 !important}
+.week-fri{background:#e8f5e9 !important;color:#1b5e20 !important}
+
+/* 鈹€鈹€鈹€ 鏍煎瓙鐘舵€?鈹€鈹€鈹€ */
+.cell{
+  width:34px;height:26px;display:inline-flex;align-items:center;justify-content:center;
+  border-radius:3px;cursor:pointer;font-size:11px;font-weight:500;
+  transition:all .1s;user-select:none;position:relative;
+}
+.cell:hover{opacity:.8;transform:scale(1.1)}
+.cell-on{background:#a5d6a7;color:#1b5e20}          /* 鍦ㄧ彮-缁垮嬀 */
+.cell-group-on{background:#bbdefb;color:#0d47a1;width:auto;min-width:30px;padding:0 1px;font-size:9px;letter-spacing:-0.3px} /* 灏忕粍鍦ㄧ彮-娴呰摑 */
+.cell-off{background:#ef9a9a;color:#b71c1c}          /* 浼戝亣-绾㈠弶 */
+.cell-sub{background:#ffcc80;color:#e65100}          /* 鏇跨彮-鍚嶅瓧 */
+.cell-pending{background:#ce93d8;color:#7b1fa2}      /* 寰呭畾 */
+.cell-past{opacity:.5;cursor:default}                /* 鍘嗗彶鏃ユ湡 */
+.cell-split{
+  width:100%;height:26px;display:flex;flex-direction:row;overflow:hidden;
+  border-radius:3px;cursor:context-menu;font-size:11px;font-weight:500;
+  transition:opacity .1s;user-select:none;position:relative;
+}
+.cell-split:hover{opacity:.92;transform:none}
+.split-slot{
+  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  height:100%;padding:0 1px;font-size:9px;line-height:1;white-space:nowrap;overflow:hidden;
+}
+.split-slot:first-child{border-right:1px solid rgba(255,255,255,.4)}
+.split-slot .slot-label{font-size:8px;font-weight:700;flex-shrink:0;line-height:1}
+.split-slot .slot-person{
+  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  display:block;flex-shrink:0;line-height:1
+}
+.split-slot.status-on{background:#a5d6a7;color:#1b5e20}
+.split-slot.status-off{background:#ef9a9a;color:#b71c1c}
+.split-slot.status-substitute{background:#ffcc80;color:#e65100}
+.split-slot.status-pending{background:#ce93d8;color:#7b1fa2}
+.cell-weekend-week{background:#fff9c4}               /* 鍛ㄥ叚楂樹寒 */
+.cell-sun-col{background:#fce4ec}
+
+.check-icon{font-size:14px;color:#43a047}
+.cross-icon{font-size:14px;color:#e53935}
+
+/* 鍛ㄨ捣濮嬫棩锛堝懆浜旓級鍒嗛殧绾?*/
+.week-start-col td, .week-start-col th{border-left:2px solid #1a6fb5 !important}
+
+/* 鈹€鈹€鈹€ 鍙充晶缁熻闈㈡澘 鈹€鈹€鈹€ */
+#side-panel{padding:10px 12px 12px}
+.side-tabs{display:flex;gap:4px;margin-bottom:10px}
+.side-tab{padding:4px 8px;min-height:28px;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:11px;background:#f5f5f5;line-height:1}
+.side-tab.active{background:#1a6fb5;color:#fff;border-color:#1a6fb5}
+.side-content{display:none}
+.side-content.active{display:block}
+
+.stat-title{font-size:13px;font-weight:bold;color:#333;margin:8px 0 6px}
+.stat-date-sel{margin-bottom:8px}
+.stat-date-sel select{padding:3px 8px;height:28px;border:1px solid #ccc;border-radius:4px;font-size:12px}
+.stat-list{list-style:none}
+.stat-item{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #f0f0f0}
+.stat-item:last-child{border:none}
+.stat-name{width:48px;font-size:12px;color:#333;flex-shrink:0}
+.stat-bar-wrap{flex:1;background:#eee;border-radius:10px;height:14px;overflow:hidden}
+.stat-bar{height:14px;border-radius:10px;transition:.3s}
+.stat-val{width:28px;text-align:right;font-size:11px;color:#555}
+
+/* 鈹€鈹€鈹€ 鍥句緥 鈹€鈹€鈹€ */
+#legend{
+  background:rgba(255,255,255,.82);border-top:1px solid rgba(157,198,224,.72);padding:8px 12px 8px;
+  display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:11px;
+  backdrop-filter:blur(6px);
+}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:14px;height:14px;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+
+#memo-panel{
+  position:absolute;
+  left:10px;
+  right:10px;
+  bottom:12px;
+  height:188px;
+  background:linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(240,252,250,.96) 100%);
+  border:1px solid rgba(157,198,224,.78);
+  border-radius:10px;
+  box-shadow:0 8px 24px rgba(37,88,120,.08);
+  padding:12px;
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+#memo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#memo-title{font-size:14px;font-weight:700;color:#1a6fb5;line-height:1}
+#memo-subtitle{margin-top:4px;font-size:11px;color:#607d8b;line-height:1.2}
+#memo-actions{display:flex;gap:8px;flex-wrap:wrap}
+#memo-text{
+  width:100%;
+  flex:1;
+  min-height:118px;
+  resize:vertical;
+  border:1px solid #b8d7ea;
+  border-radius:8px;
+  padding:10px 12px;
+  font-size:12px;
+  line-height:1.6;
+  color:#17324d;
+  background:rgba(255,255,255,.92);
+  outline:none;
+}
+#memo-text:focus{border-color:#4fc3f7;box-shadow:0 0 0 3px rgba(79,195,247,.14)}
+#memo-text[readonly]{background:rgba(248,251,255,.95);cursor:default}
+#memo-meta{font-size:11px;color:#78909c;line-height:1}
+#day-plan-note{font-size:11px;color:#607d8b;line-height:1.4}
+#day-plan-off-list{
+   display:grid;
+   grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+   gap:6px 8px;
+   max-height:260px;
+   overflow:auto;
+   padding:8px;
+   border:1px solid #d7e7f1;
+   border-radius:8px;
+   background:rgba(248,252,255,.96);
+ }
+.day-plan-person{
+   display:flex;
+   align-items:center;
+   gap:6px;
+   min-height:30px;
+   padding:4px 8px;
+   border:1px solid #edf3f7;
+   border-radius:6px;
+   background:#fff;
+   cursor:pointer;
+   line-height:1.2;
+ }
+.day-plan-person:hover{background:#f5fbff;border-color:#d2e4ef}
+.day-plan-person input{margin:0}
+.day-plan-person-name{font-size:12px;color:#17324d;flex:1;min-width:0}
+.day-plan-person-tag{
+   font-size:10px;
+   color:#1b5e20;
+   background:#e8f5e9;
+   border:1px solid #a5d6a7;
+   border-radius:10px;
+   padding:1px 6px;
+   line-height:1;
+   flex-shrink:0;
+ }
+#day-plan-meta{font-size:11px;color:#78909c;line-height:1.4;margin-top:2px}
+
+/* 鈹€鈹€鈹€ 寮圭獥 鈹€鈹€鈹€ */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;
+  display:flex;align-items:center;justify-content:center;
+}
+.modal{background:#fff;border-radius:10px;padding:20px;min-width:340px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
+.modal h2{font-size:16px;color:#1a6fb5;margin-bottom:14px;border-bottom:2px solid #e3f2fd;padding-bottom:8px}
+.modal-close{float:right;cursor:pointer;font-size:18px;color:#999;margin-top:-4px}
+.modal-close:hover{color:#333}
+.form-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.form-row label{width:80px;font-size:12px;color:#555;flex-shrink:0}
+.form-row input[type=text],.form-row input[type=number],.form-row select{
+  flex:1;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;min-width:100px;
+}
+.form-row input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin:2px}
+.tag-cpin{background:#f3e5f5;color:#7b1fa2;border:1px solid #ce93d8}
+.tag-jd{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7}
+.tag-sat{background:#fff9c4;color:#f57f17;border:1px solid #fff176}
+.tag-split{background:#e0f7fa;color:#006064;border:1px solid #80deea}
+
+/* 鈹€鈹€鈹€ 浜哄憳/宀椾綅绠＄悊 鈹€鈹€鈹€ */
+.mgr-tabs{display:flex;gap:4px;margin-bottom:10px}
+.mgr-tab{padding:5px 14px;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:12px;background:#f5f5f5}
+.mgr-tab.active{background:#1a6fb5;color:#fff;border-color:#1a6fb5}
+table.data-table{width:100%;border-collapse:collapse;font-size:12px}
+table.data-table th{background:#e3f2fd;padding:6px 8px;text-align:left;border-bottom:2px solid #90caf9}
+table.data-table td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+table.data-table tr:hover td{background:#f9f9f9}
+.action-btn{padding:3px 8px;border:none;border-radius:3px;cursor:pointer;font-size:11px}
+.action-btn.edit{background:#e3f2fd;color:#1565c0}.action-btn.edit:hover{background:#90caf9}
+.action-btn.del{background:#ffebee;color:#c62828}.action-btn.del:hover{background:#ef9a9a}
+
+/* 鈹€鈹€鈹€ 鍒楄缃?鈹€鈹€鈹€ */
+.col-settings-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
+.col-settings-item{display:flex;align-items:center;gap:4px;padding:5px 6px;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;transition:.15s;font-size:12px;white-space:nowrap}
+.col-settings-item:hover{background:#f5f5f5}
+.col-settings-item.hidden-col{background:#ffebee;border-color:#ef9a9a;color:#c62828}
+.col-settings-item input[type=checkbox]{margin:0;cursor:pointer}
+.col-settings-label{display:flex;flex-direction:column;line-height:1.2}
+.col-settings-label .day-num{font-weight:bold;font-size:13px}
+.col-settings-label .day-wd{font-size:10px;color:#888}
+.col-settings-actions{display:flex;gap:8px;justify-content:space-between;margin-top:14px;border-top:1px solid #eee;padding-top:10px}
+
+/* 鈹€鈹€鈹€ 琛屾嫋鎷芥帓搴?鈹€鈹€鈹€ */
+.drag-handle{cursor:grab;color:#90a4ae;font-size:14px;margin-right:4px;user-select:none;display:inline-block;width:14px;text-align:center}
+.drag-handle:active{cursor:grabbing;color:#1976d2}
+tbody tr{cursor:grab}
+tbody tr.dragging{opacity:.5;background:#e3f2fd !important}
+tbody tr.drag-over-top{border-top:3px solid #1976d2}
+tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
+
+/* 鈹€鈹€鈹€ 鍙抽敭鑿滃崟 鈹€鈹€鈹€ */
+#ctx-menu{
+  position:fixed;z-index:2000;background:#fff;border:1px solid #ddd;
+  border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);padding:4px 0;min-width:140px;
+}
+#ctx-menu .ctx-item{padding:7px 16px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px}
+#ctx-menu .ctx-item:hover{background:#e3f2fd}
+#ctx-menu .ctx-sep{height:1px;background:#eee;margin:3px 0}
+#ctx-menu .ctx-staff-item{padding:6px 16px;cursor:pointer;font-size:12px}
+#ctx-menu .ctx-staff-item:hover{background:#e8f5e9}
+
+/* 鈹€鈹€鈹€ Toast 鈹€鈹€鈹€ */
+#toast{
+  position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
+  background:rgba(0,0,0,.75);color:#fff;padding:8px 20px;border-radius:20px;
+  font-size:13px;z-index:9999;opacity:0;pointer-events:none;transition:.3s;
+}
+#toast.show{opacity:1}
+
+/* 鈹€鈹€鈹€ 鍔犺浇 鈹€鈹€鈹€ */
+#loading{
+  position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:5000;
+  display:flex;align-items:center;justify-content:center;font-size:16px;color:#1a6fb5;
+}
+</style>
+</head>
+<body>
+
+<!-- 灞€鍩熺綉璁块棶鍦板潃妯箙 -->
+<div id="access-banner">
+  📱 手机/其他电脑访问：<a id="server-url" href="#">加载中...</a>
+</div>
+
+<!-- 椤舵爮 -->
+<div id="topbar">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+    智能排班系统
+  </div>
+  <div class="ctrl-group">
+    <label>年份</label>
+    <select id="sel-year"></select>
+    <label>月份</label>
+    <select id="sel-month"></select>
+  </div>
+  <button class="btn btn-orange" onclick="openMgr()">👥 人员/岗位管理</button>
+  <button class="btn btn-red" onclick="resetSchedule()">🔄 重置休假</button>
+  <button class="btn btn-green" onclick="openDayPlanModal()">🗓 当天排班</button>
+
+  <button class="btn btn-teal" onclick="openColSettings()">📅 列设置</button>
+  <button class="btn btn-blue" onclick="backupSchedule()">💾 备份休假</button>
+  <button class="btn btn-orange" onclick="restoreBackup()">♻️ 恢复备份</button>
+  <span class="ip-hint" id="ip-hint">● 单格微调，顶部可按日期整天排班</span>
+  <span id="poll-indicator" title="每10秒自动同步">✓ 已同步</span>
+</div>
+
+<!-- 涓讳綋 -->
+<div id="main-wrap">
+  <!-- 鎺掔彮鍖?-->
+  <div id="schedule-area">
+    <div id="schedule-wrap">
+      <table id="schedule-table">
+        <thead id="tbl-head"></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+    <!-- 鍥句緥 -->
+    <div id="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;border:1px solid #a5d6a7">✓</div><span>本人上班（右键自定义替班）</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff3e0;color:#e65100;font-size:9px">替</div><span>替班/分配（右键自定义）</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#fff9c4;border:1px solid #f9a825"></div><span>仅周六替班</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f3e5f5;border:1px solid #ce93d8">?</div><span>每日需替班（无默认人员）</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f3e5f5;color:#7b1fa2;font-size:9px">次</div><span>次品</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;color:#1b5e20;font-size:9px">京</div><span>京东</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ddd;opacity:.6">×</div><span>历史日期已锁定</span></div>
+    </div>
+
+    <div id="memo-panel">
+      <div id="memo-head">
+        <div>
+          <div id="memo-title">备忘录</div>
+          <div id="memo-subtitle">记录排班备注、临时安排、交接事项</div>
+        </div>
+        <div id="memo-actions">
+          <button class="btn btn-teal" id="memo-edit-btn" onclick="toggleMemoEdit()">✎ 编辑</button>
+          <button class="btn btn-green" id="memo-save-btn" onclick="saveMemo()" style="display:none">✓ 保存</button>
+          <button class="btn btn-gray" id="memo-cancel-btn" onclick="cancelMemoEdit()" style="display:none">取消</button>
+        </div>
+      </div>
+      <textarea id="memo-text" readonly placeholder="在这里记录排班备注、临时调班、重点事项..."></textarea>
+      <div id="memo-meta">尚未加载</div>
+    </div>
+  </div>
+
+  <!-- 鍙充晶缁熻 -->
+  <div id="side-panel">
+    <div class="side-tabs">
+      <div class="side-tab active" onclick="switchSideTab('day',this)">单日</div>
+      <div class="side-tab" onclick="switchSideTab('week',this)">周汇总</div>
+      <div class="side-tab" onclick="switchSideTab('month',this)">月汇总</div>
+      <div class="side-tab" onclick="switchSideTab('prev',this)">节假日</div>
+    </div>
+    <div id="tab-day" class="side-content active">
+      <div class="stat-title">单日工作量统计</div>
+      <div class="stat-date-sel">
+        <select id="day-sel-day" onchange="renderDayStat()"></select>
+      </div>
+      <ul class="stat-list" id="day-stat-list"></ul>
+    </div>
+    <div id="tab-week" class="side-content">
+      <div class="stat-title">本周工作量统计</div>
+      <div class="stat-date-sel">
+        <select id="week-sel" onchange="renderWeekStat()"></select>
+      </div>
+      <ul class="stat-list" id="week-stat-list"></ul>
+    </div>
+    <div id="tab-month" class="side-content">
+      <div class="stat-title">本月工作量统计</div>
+      <ul class="stat-list" id="month-stat-list"></ul>
+    </div>
+    <div id="tab-prev" class="side-content">
+      <div class="stat-title">节假日设置（开发中）</div>
+      <p style="font-size:12px;color:#999;margin-top:10px">后续版本支持导入节假日</p>
+    </div>
+  </div>
+</div>
+
+<!-- 鍒楄缃脊绐?-->
+<!-- 当天排班 -->
+
+<div id="day-plan-modal" class="modal-overlay" style="display:none">
+
+  <div class="modal" style="min-width:560px;max-width:92vw">
+
+    <span class="modal-close" onclick="closeDayPlanModal()">×</span>
+    <h2>当天排班</h2>
+    <div id="day-plan-note">先选日期，再勾选当天需要休息的人员，提交后会按当天工作量重新排班。</div>
+
+    <div class="form-row" style="margin-top:12px">
+      <label>排班日期</label>
+      <select id="day-plan-day" onchange="renderDayPlanOffList()"></select>
+    </div>
+
+    <div class="form-row" style="align-items:flex-start">
+      <label style="margin-top:6px">休息人员</label>
+      <div id="day-plan-off-list"></div>
+    </div>
+
+    <div id="day-plan-meta">请选择日期</div>
+
+    <div class="form-actions">
+      <button class="btn btn-gray" onclick="closeDayPlanModal()">取消</button>
+      <button class="btn btn-blue" onclick="runDayPlan()">开始排班</button>
+    </div>
+
+  </div>
+
+</div>
+
+
+<div id="col-settings-modal" class="modal-overlay" style="display:none">
+  <div class="modal" style="min-width:520px;max-width:90vw">
+    <span class="modal-close" onclick="closeColSettings()">×</span>
+    <h2>列设置</h2>
+    <p style="color:#555;font-size:12px;margin:6px 0 10px">勾选要显示的日期列，取消勾选则隐藏</p>
+    <div class="col-settings-grid" id="col-settings-grid"></div>
+    <div class="col-settings-actions">
+      <div>
+        <button class="btn btn-blue" onclick="selectAllCols(true)" style="padding:4px 10px;font-size:11px">全选</button>
+        <button class="btn btn-gray" onclick="selectAllCols(false)" style="padding:4px 10px;font-size:11px">全不选</button>
+        <button class="btn btn-gray" onclick="selectWeekdaysOnly()" style="padding:4px 10px;font-size:11px">仅工作日</button>
+      </div>
+      <div>
+        <button class="btn btn-gray" onclick="closeColSettings()" style="padding:4px 10px;font-size:11px">取消</button>
+        <button class="btn btn-green" onclick="applyColSettings()" style="padding:4px 10px;font-size:11px">应用</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 浜哄憳/宀椾綅绠＄悊寮圭獥 -->
+<div id="mgr-modal" class="modal-overlay" style="display:none">
+  <div class="modal" style="min-width:680px">
+    <span class="modal-close" onclick="closeMgr()">×</span>
+    <h2>人员 / 岗位管理</h2>
+    <div class="mgr-tabs">
+      <div class="mgr-tab active" onclick="switchMgrTab('staff',this)">人员管理</div>
+      <div class="mgr-tab" onclick="switchMgrTab('pos',this)">岗位管理</div>
+      <div class="mgr-tab" onclick="switchMgrTab('group',this)">小组管理</div>
+    </div>
+    <!-- 浜哄憳绠＄悊 -->
+    <div id="mgr-staff">
+      <div style="margin-bottom:10px">
+        <button class="btn btn-blue" onclick="showAddStaff()">＋ 新增人员</button>
+      </div>
+      <table class="data-table" id="staff-table">
+        <thead><tr>
+          <th>姓名</th><th>次品替班</th><th>京东替班</th><th>仅周六替班</th><th>不替班</th><th>操作</th>
+        </tr></thead>
+        <tbody id="staff-tbody"></tbody>
+      </table>
+    </div>
+    <!-- 宀椾綅绠＄悊 -->
+    <div id="mgr-pos" style="display:none">
+      <div style="margin-bottom:10px">
+        <button class="btn btn-blue" onclick="showAddPos()">＋ 新增岗位</button>
+      </div>
+      <table class="data-table" id="pos-table">
+        <thead><tr>
+          <th>岗位名称</th><th>工作量</th><th>默认人员</th><th>类别</th><th>操作</th>
+        </tr></thead>
+        <tbody id="pos-tbody"></tbody>
+      </table>
+    </div>
+    <!-- 灏忕粍绠＄悊 -->
+    <div id="mgr-group" style="display:none">
+      <div style="margin-bottom:10px">
+        <button class="btn btn-blue" onclick="showAddGroup()">＋ 新增小组</button>
+      </div>
+      <table class="data-table" id="group-table">
+        <thead><tr>
+          <th>小组名称</th><th>成员</th><th>操作</th>
+        </tr></thead>
+        <tbody id="group-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 鏂板/缂栬緫灏忕粍寮圭獥 -->
+<div id="group-modal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <span class="modal-close" onclick="closeGroupModal()">×</span>
+    <h2 id="group-modal-title">新增小组</h2>
+    <div class="form-row"><label>小组名称</label><input type="text" id="group-name" placeholder="例如 A组"></div>
+    <div class="form-row" style="align-items:flex-start">
+      <label style="margin-top:6px">成员</label>
+      <div id="group-members-wrap" style="flex:1;max-height:260px;overflow-y:auto;border:1px solid #eee;padding:6px;border-radius:4px"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-gray" onclick="closeGroupModal()">取消</button>
+      <button class="btn btn-blue" onclick="saveGroup()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 鏂板/缂栬緫浜哄憳寮圭獥 -->
+<div id="staff-modal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <span class="modal-close" onclick="closeStaffModal()">×</span>
+    <h2 id="staff-modal-title">新增人员</h2>
+    <div class="form-row"><label>姓名</label><input type="text" id="staff-name" placeholder="请输入姓名"></div>
+    <div class="form-row">
+      <label>次品替班</label>
+      <input type="checkbox" id="staff-cpin" title="勾选后可替次品岗位">
+      <span style="font-size:11px;color:#7b1fa2">可替次品岗位</span>
+    </div>
+    <div class="form-row">
+      <label>京东替班</label>
+      <input type="checkbox" id="staff-jd" title="勾选后可替京东岗位">
+      <span style="font-size:11px;color:#1b5e20">可替京东岗位</span>
+    </div>
+    <div class="form-row">
+      <label>仅周六替班</label>
+      <input type="checkbox" id="staff-sat" title="仅在周六参与替班">
+      <span style="font-size:11px;color:#f57f17">只在周六参与替班</span>
+    </div>
+    <div class="form-row">
+      <label>不替班</label>
+      <input type="checkbox" id="staff-no-sub" title="勾选后不参与替班">
+      <span style="font-size:11px;color:#e53935">不会被安排替班</span>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-gray" onclick="closeStaffModal()">取消</button>
+      <button class="btn btn-blue" onclick="saveStaff()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 鏂板/缂栬緫宀椾綅寮圭獥 -->
+<div id="pos-modal" class="modal-overlay" style="display:none">
+  <div class="modal">
+    <span class="modal-close" onclick="closePosModal()">×</span>
+    <h2 id="pos-modal-title">新增岗位</h2>
+    <div class="form-row"><label>岗位名称</label><input type="text" id="pos-name" placeholder="例如 专员2"></div>
+    <div class="form-row"><label>工作量</label><input type="number" id="pos-wl" placeholder="例如 10" min="0"></div>
+    <div class="form-row">
+      <label>默认人员</label>
+      <select id="pos-default">
+        <option value="">-- 无默认人员 --</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>岗位类别</label>
+      <select id="pos-cat">
+        <option value="">-- 无 --</option>
+        <option value="次品">次品</option>
+        <option value="京东">京东</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>双槽位</label>
+      <input type="checkbox" id="pos-split" title="勾选后允许该岗位在负荷不均衡时自动拆分为上午/下午两段">
+      <span style="font-size:11px;color:#006064">允许智能拆分为上午/下午</span>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-gray" onclick="closePosModal()">取消</button>
+      <button class="btn btn-blue" onclick="savePos()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 鍙抽敭鑿滃崟 -->
+<div id="ctx-menu" style="display:none"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Loading -->
+<div id="loading" style="display:none">⏳ 加载中...</div>
+
+<script>
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  鍏ㄥ眬鐘舵€?
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+let G = {
+  year: new Date().getFullYear(),
+  month: new Date().getMonth() + 1,
+  positions: [],
+  staff: [],
+  schedule: {},   // day -> pos_id -> {status, person}
+  editingStaffId: null,
+  editingPosId: null,
+  memoContent: '',
+  memoUpdatedAt: '',
+  memoEditing: false,
+  memoDirty: false,
+  dayPlanDay: null,
+  dayPlanDirty: false,
+  // 杞鐩稿叧
+  polling: null,        // setInterval 鍙ユ焺
+  userBusy: false,      // 鐢ㄦ埛姝ｅ湪鎿嶄綔锛堝脊绐?鍙抽敭鑿滃崟鎵撳紑鏃舵殏鍋滆疆璇㈠埛鏂帮級
+  lastPollHash: '',     // 涓婃鏁版嵁鎸囩汗锛岄伩鍏嶆棤鍙樺寲鏃堕噸娓叉煋
+};
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  宸ュ叿
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+function $(id){ return document.getElementById(id); }
+function toast(msg, dur=2000){
+  const el=$('toast'); el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'), dur);
+}
+function loading(show){ $('loading').style.display = show ? 'flex' : 'none'; }
+async function api(url, method='GET', body=null){
+  const API_BASE = location.protocol === 'file:' ? 'http://127.0.0.1:3000' : '';
+  const targetUrl = url.startsWith('http://') || url.startsWith('https://') ? url : API_BASE + url;
+  const opts = { method, headers:{'Content-Type':'application/json'} };
+  if(body) opts.body = JSON.stringify(body);
+  const r = await fetch(targetUrl, opts);
+  if(!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// 宸ヤ綔鏃ュ垽鏂?(0=鍛ㄤ竴..6=鍛ㄦ棩)
+function getWeekday(year, month, day){
+  return new Date(year, month-1, day).getDay(); // 0=鍛ㄦ棩,1=鍛ㄤ竴,...6=鍛ㄥ叚
+}
+function isWeekStart(year, month, day){
+  // 鍛ㄤ簲 = 5
+  return getWeekday(year,month,day) === 5;
+}
+function daysInMonth(year, month){
+  return new Date(year, month, 0).getDate();
+}
+
+function updateMemoMeta(text){
+  const el = $('memo-meta');
+  if(el) el.textContent = text;
+}
+
+function setMemoEditing(editing){
+  const ta = $('memo-text');
+  const editBtn = $('memo-edit-btn');
+  const saveBtn = $('memo-save-btn');
+  const cancelBtn = $('memo-cancel-btn');
+  if(!ta || !editBtn || !saveBtn || !cancelBtn) return;
+
+  G.memoEditing = editing;
+  ta.readOnly = !editing;
+  editBtn.style.display = editing ? 'none' : 'inline-flex';
+  saveBtn.style.display = editing ? 'inline-flex' : 'none';
+  cancelBtn.style.display = editing ? 'inline-flex' : 'none';
+  if(editing){
+    ta.focus();
+    const len = ta.value.length;
+    try { ta.setSelectionRange(len, len); } catch(e) {}
+  }
+}
+
+function toggleMemoEdit(){
+  if(G.memoEditing){
+    saveMemo();
+    return;
+  }
+  setMemoEditing(true);
+  updateMemoMeta('编辑中');
+}
+
+function cancelMemoEdit(){
+  const ta = $('memo-text');
+  if(!ta) return;
+  ta.value = G.memoContent || '';
+  G.memoDirty = false;
+  setMemoEditing(false);
+  updateMemoMeta(G.memoUpdatedAt ? `最后更新：${G.memoUpdatedAt}` : '常驻备忘录');
+}
+
+async function loadMemo(){
+  const ta = $('memo-text');
+  if(!ta) return;
+  try{
+    const res = await api('/api/memo');
+    G.memoContent = res?.content || '';
+    G.memoUpdatedAt = res?.updated_at || '';
+    G.memoDirty = false;
+    ta.value = G.memoContent;
+    setMemoEditing(false);
+    updateMemoMeta(G.memoUpdatedAt ? `最后更新：${G.memoUpdatedAt}` : '常驻备忘录');
+  }catch(e){
+    updateMemoMeta('备忘录加载失败');
+    console.error('[loadMemo] 失败:', e);
+  }
+}
+
+async function saveMemo(options = {}){
+  const silent = !!options.silent;
+  const ta = $('memo-text');
+  if(!ta) return false;
+  try{
+    const content = ta.value || '';
+    const res = await api('/api/memo', 'POST', { content });
+    G.memoContent = content;
+    G.memoUpdatedAt = res?.memo?.updated_at || '';
+    G.memoDirty = false;
+    setMemoEditing(false);
+    updateMemoMeta(G.memoUpdatedAt ? `最后更新：${G.memoUpdatedAt}` : '已保存');
+    if(!silent) toast('备忘录已保存');
+    return true;
+  }catch(e){
+    console.error('[saveMemo] 失败:', e);
+    if(!silent) toast('备忘录保存失败: ' + e.message, 3000);
+    return false;
+  }
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺? 
+//  鍒濆鍖?
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+async function init(){
+  // 骞翠唤閫夋嫨
+  const ySel=$('sel-year');
+  for(let y=2024;y<=2030;y++){
+    const o=document.createElement('option');
+    o.value=y; o.textContent=`${y}年`;
+    if(y===G.year) o.selected=true;
+    ySel.appendChild(o);
+  }
+  ySel.onchange=()=>{ G.lastPollHash=''; G.year=+ySel.value; loadAll(); };
+
+  // 鏈堜唤閫夋嫨
+  const mSel=$('sel-month');
+  for(let m=1;m<=12;m++){
+    const o=document.createElement('option');
+    o.value=m; o.textContent=`${m}月`;
+    if(m===G.month) o.selected=true;
+    mSel.appendChild(o);
+  }
+  mSel.onchange=()=>{ G.lastPollHash=''; G.month=+mSel.value; loadAll(); };
+
+  // 鏃ユ湡閫夋嫨(鍗曟棩缁熻)
+  buildDaySel();
+  buildDayPlanDaySel();
+
+  await loadAll();
+  await loadMemo();
+
+  // 鍏抽棴鍙抽敭鑿滃崟
+  document.addEventListener('click', ()=>{
+    if($('ctx-menu').style.display==='block'){
+      $('ctx-menu').style.display='none';
+      G.userBusy = false;  // 鑿滃崟鍏抽棴鎭㈠杞
+    }
+  });
+  document.addEventListener('contextmenu', e=>{
+    if(!e.target.closest('.cell')) $('ctx-menu').style.display='none';
+  });
+
+  // 鏄剧ずIP
+  try{
+    const r=await api('/api/staff');
+    $('ip-hint').textContent='● 单格微调，顶部可按日期整天排班';
+  }catch(e){}
+
+  // 鍚姩10绉掕疆璇?
+  startPolling();
+
+  const memoText = $('memo-text');
+  if(memoText){
+    memoText.addEventListener('input', ()=>{
+      G.memoDirty = memoText.value !== G.memoContent;
+      updateMemoMeta(G.memoDirty ? '有未保存更改' : (G.memoUpdatedAt ? `最后更新：${G.memoUpdatedAt}` : '常驻备忘录'));
+    });
+  }
+}
+
+function buildDaySel(){
+  const sel=$('day-sel-day');
+  sel.innerHTML='';
+  const days=daysInMonth(G.year,G.month);
+  for(let d=1;d<=days;d++){
+    const o=document.createElement('option');
+    const wd=getWeekday(G.year,G.month,d);
+    const wdNames=['日','一','二','三','四','五','六'];
+    o.value=d; o.textContent=`${G.month}/${d}（周${wdNames[wd]}）`;
+    if(d===new Date().getDate() && G.year===new Date().getFullYear() && G.month===new Date().getMonth()+1)
+      o.selected=true;
+    sel.appendChild(o);
+  }
+  buildWeekSel();
+}
+
+function buildWeekSel(){
+  const sel=$('week-sel');
+  sel.innerHTML='';
+  const days=daysInMonth(G.year,G.month);
+  // 鎵炬湰鏈堟墍鏈夊懆浜?
+  let weeks=[];
+  for(let d=1;d<=days;d++){
+    if(getWeekday(G.year,G.month,d)===5){
+      // 鎵惧埌缁撴潫锛堜笅鍛ㄥ洓锛?
+      let endD=d+6;
+      weeks.push({start:d, startM:G.month, startY:G.year, end:endD});
+    }
+  }
+  // 濡傛灉鏈湀1鍙蜂笉鏄懆浜旓紝涔熻琛ョ涓€鍛紙浠?鍙峰埌绗竴涓懆鍥涳級
+  if(weeks.length===0 || weeks[0].start > 1){
+    // 鎵炬湰鏈堢涓€涓懆鍥涙垨鏈堟湯
+    let firstThur = -1;
+    for(let d=1;d<=days;d++){
+      if(getWeekday(G.year,G.month,d)===4){firstThur=d;break;}
+    }
+    if(firstThur>0){
+      weeks.unshift({start:1, end:firstThur, _prefix:true});
+    }
+  }
+  if(weeks.length===0){
+    const o=document.createElement('option');
+    o.value='1-'+days; o.textContent=`${G.month}/1 - ${G.month}/${days}`;
+    sel.appendChild(o);
+    return;
+  }
+  weeks.forEach((w,i)=>{
+    const o=document.createElement('option');
+    const endDay=Math.min(w.end, days);
+    o.value=`${w.start}-${endDay}`;
+    o.textContent=`${G.month}/${w.start} - ${G.month}/${endDay}`;
+    sel.appendChild(o);
+  });
+}
+
+
+function buildDayPlanDaySel(){
+  const sel = $('day-plan-day');
+  if(!sel) return;
+  const days = daysInMonth(G.year,G.month);
+  const today = new Date();
+  const fallback = (G.year === today.getFullYear() && G.month === today.getMonth() + 1) ? today.getDate() : 1;
+  let selectedDay = Number(G.dayPlanDay || fallback);
+  if(!selectedDay || Number.isNaN(selectedDay)) selectedDay = fallback;
+  if(selectedDay < 1) selectedDay = 1;
+  if(selectedDay > days) selectedDay = days;
+  const wdNames = ['日','一','二','三','四','五','六'];
+  sel.innerHTML = '';
+  for(let d = 1; d <= days; d++){
+    const o = document.createElement('option');
+    const wd = getWeekday(G.year, G.month, d);
+    o.value = d;
+    o.textContent = G.month + '/' + d + '（周' + wdNames[wd] + '）';
+    if(d === selectedDay) o.selected = true;
+    sel.appendChild(o);
+  }
+  G.dayPlanDay = selectedDay;
+  renderDayPlanOffList();
+}
+
+function getOffPersonsOnDay(day){
+  const dayData = (G.schedule && G.schedule[day]) || {};
+  const offNames = new Set();
+  const offList = Array.isArray(dayData._off_persons) ? dayData._off_persons : [];
+  for(const name of offList){
+    const n = (name || '').trim();
+    if(n) offNames.add(n);
+  }
+
+  const activeNames = new Set();
+  const offCandidates = new Set();
+
+  for(const [pid, cell] of Object.entries(dayData)){
+    if(String(pid).startsWith('_')) continue;
+    if(isSplitCell(cell)){
+      for(const splitSlot of ['am', 'pm']){
+        const splitCell = getSplitSlotCell(cell, splitSlot);
+        const n = (splitCell.person || '').trim();
+        if(!n) continue;
+        const status = splitCell.status || '';
+        if(status === 'on' || status === 'substitute'){
+          activeNames.add(n);
+        } else if(status === 'off'){
+          offCandidates.add(n);
+        }
+      }
+    } else {
+      const n = (cell?.person || '').trim();
+      if(!n) continue;
+      const status = cell?.status || '';
+      if(status === 'on' || status === 'substitute'){
+        activeNames.add(n);
+      } else if(status === 'off'){
+        offCandidates.add(n);
+      }
+    }
+  }
+
+  offCandidates.forEach(name => {
+    if(!activeNames.has(name)){
+      offNames.add(name);
+    }
+  });
+
+  return offNames;
+}
+
+function isPersonOffOnDay(name, day){
+  const n = (name || '').trim();
+  if(!n) return false;
+  return getOffPersonsOnDay(day).has(n);
+}
+
+function renderDayPlanOffList(){
+  const sel = $('day-plan-day');
+  const wrap = $('day-plan-off-list');
+  const meta = $('day-plan-meta');
+  if(!sel || !wrap || !meta) return;
+  const days = daysInMonth(G.year, G.month);
+  let day = Number(sel.value || G.dayPlanDay || 1);
+  if(!day || Number.isNaN(day)) day = 1;
+  if(day < 1) day = 1;
+  if(day > days) day = days;
+  sel.value = String(day);
+  G.dayPlanDay = day;
+  G.dayPlanDirty = false;
+
+  const offNames = getOffPersonsOnDay(day);
+
+  if(!G.staff || G.staff.length === 0){
+    wrap.innerHTML = '<div style="color:#999;font-size:12px">暂无人员</div>';
+  } else {
+    wrap.innerHTML = G.staff.map(m => {
+      const checkedAttr = offNames.has((m.name || '').trim()) ? ' checked' : '';
+      return '<label class="day-plan-person">' +
+        '<input type="checkbox" value="' + m.id + '"' + checkedAttr + ' onchange="markDayPlanDirty()">' +
+        '<span class="day-plan-person-name">' + m.name + '</span>' +
+        (checkedAttr ? '<span class="day-plan-person-tag">休</span>' : '') +
+        '</label>';
+    }).join('');
+  }
+
+  meta.textContent = G.year + '年' + G.month + '月' + day + '日，已勾选 ' + offNames.size + ' 人休息';
+}
+
+function markDayPlanDirty(){
+  G.dayPlanDirty = true;
+}
+
+async function openDayPlanModal(){
+  G.userBusy = true;
+  G.dayPlanDirty = false;
+  buildDayPlanDaySel();
+  $('day-plan-modal').style.display = 'flex';
+}
+
+function closeDayPlanModal(){
+  $('day-plan-modal').style.display = 'none';
+  G.userBusy = false;
+  setTimeout(pollData, 500);
+}
+
+async function runDayPlan(){
+  const sel = $('day-plan-day');
+  const wrap = $('day-plan-off-list');
+  if(!sel || !wrap) return;
+  const day = Number(sel.value);
+  const days = daysInMonth(G.year, G.month);
+  if(!day || Number.isNaN(day) || day < 1 || day > days){
+    toast('请选择有效日期', 3000);
+    return;
+  }
+
+  const offPersonIds = [...new Set([...wrap.querySelectorAll('input[type=checkbox]:checked')].map(cb => cb.value).filter(Boolean))];
+  const offPersons = offPersonIds.map(id => {
+    const member = (G.staff || []).find(m => m.id === id);
+    return member ? member.name : '';
+  }).filter(Boolean);
+  const useSavedOffPersons = !G.dayPlanDirty;
+  const dateLabel = G.year + '年' + G.month + '月' + day + '日';
+  if(!confirm('确定要对 ' + dateLabel + ' 重新排班吗？\n将按所选休息人员重排当天所有岗位。')) return;
+
+  loading(true);
+  try{
+    const res = await api('/api/schedule/' + G.year + '/' + G.month + '/plan-day', 'POST', { day, off_person_ids: offPersonIds, off_persons: offPersons, use_saved_off_persons: useSavedOffPersons });
+    if(!res || !res.success) throw new Error(res?.msg || '排班失败');
+    if(!G.schedule) G.schedule = {};
+    G.schedule[String(day)] = res.day_data || {};
+    G.dayPlanDay = day;
+    const daySel = $('day-sel-day');
+    if(daySel) daySel.value = String(day);
+    renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+    closeDayPlanModal();
+    toast('已完成 ' + dateLabel + ' 排班');
+  }catch(e){
+    toast('当天排班失败: ' + e.message, 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+async function loadAll(){
+  // 鑾峰彇鏈嶅姟鍣ㄥ眬鍩熺綉IP锛屾樉绀鸿闂湴鍧€妯箙
+  try {
+    const info = await api('/api/server-info');
+    const banner = document.getElementById('access-banner');
+    const link = document.getElementById('server-url');
+    // 濡傛灉褰撳墠涓嶆槸閫氳繃灞€鍩熺綉IP璁块棶锛屽氨鏄剧ず妯箙
+    if (location.hostname !== info.ip && location.hostname !== '127.0.0.1' && location.hostname !== 'localhost') {
+      link.href = info.url;
+      link.textContent = info.url;
+      banner.style.display = 'block';
+    }
+  } catch(e) {}
+
+  loading(true);
+  try{
+    [G.positions, G.staff, G.groups] = await Promise.all([
+      api('/api/positions'),
+      api('/api/staff'),
+      api('/api/groups'),
+    ]);
+    G.schedule = await api(`/api/schedule/${G.year}/${G.month}`);
+    // 鍔犺浇璇ユ湀宸蹭繚瀛樼殑闅愯棌鍒楄缃紙浠庢湇鍔″櫒鍚屾锛?
+    await loadHiddenDays();
+    // 璁板綍鍒濆鏁版嵁鎸囩汗锛岃疆璇㈡椂鐢ㄦ潵鍒ゆ柇鏄惁鏈夊彉鍖?
+    G.lastPollHash = JSON.stringify({positions:G.positions, staff:G.staff, schedule:G.schedule});
+    buildDaySel();
+    buildDayPlanDaySel();
+    renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+  }catch(e){
+    toast('鍔犺浇澶辫触: '+e.message, 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  鎺掔彮琛ㄦ覆鏌?
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+function renderTable(){
+  const days = daysInMonth(G.year, G.month);
+  const today = new Date();
+  const todayY=today.getFullYear(), todayM=today.getMonth()+1, todayD=today.getDate();
+  const hidden = G.hiddenDays || new Set();
+
+  // 鈹€鈹€ 琛ㄥご 鈹€鈹€
+  const wdShort=['日','一','二','三','四','五','六'];
+  let hRow1 = `<tr>
+    <th class="col-pos" rowspan="2">岗位</th>
+    <th class="col-def" rowspan="2">默认人</th>
+    <th class="col-wl" rowspan="2">工作量</th>`;
+  let hRow2 = `<tr>`;
+  for(let d=1;d<=days;d++){
+    if(hidden.has(d)) continue;
+    const wd=getWeekday(G.year,G.month,d);
+    const isSat=wd===6, isSun=wd===0, isFri=wd===5;
+    const isToday=(G.year===todayY&&G.month===todayM&&d===todayD);
+    let cls='col-day';
+    if(isSat) cls+=' week-sat';
+    if(isSun) cls+=' week-sun';
+    if(isFri) cls+=' week-fri';
+    if(isWeekStart(G.year,G.month,d)) cls+=' week-start-col';
+    const style=isToday?'style="background:#bbdefb !important;font-weight:bold"':'';
+    hRow1 += `<th class="${cls}" ${style}>${d}</th>`;
+    hRow2 += `<th class="${cls}" ${style}>周${wdShort[wd]}</th>`;
+  }
+  hRow1 += '</tr>'; hRow2 += '</tr>';
+  $('tbl-head').innerHTML = hRow1 + hRow2;
+
+  // 鈹€鈹€ 琛ㄤ綋 鈹€鈹€
+  let html='';
+  for(const pos of G.positions){
+    const dp = pos.default_person || '';
+    let catBadge='';
+    if(pos.category==='次品') catBadge='<span class="tag tag-cpin">次品</span>';
+    if(pos.category==='京东') catBadge='<span class="tag tag-jd">京东</span>';
+    html+=`<tr data-pid="${pos.id}" draggable="true">
+      <td class="col-pos"><span class="drag-handle" title="拖动排序">↕</span><b>${pos.name}</b>${catBadge}</td>
+      <td class="col-def" style="font-size:11px">${dp||'<span style="color:#999">--</span>'}</td>
+      <td class="col-wl">${pos.workload}</td>`;
+    for(let d=1;d<=days;d++){
+      if(hidden.has(d)) continue;
+      const wd=getWeekday(G.year,G.month,d);
+      const isPast=(G.year<todayY)||(G.year===todayY&&G.month<todayM)||(G.year===todayY&&G.month===todayM&&d<todayD);
+      const isSat=wd===6, isSun=wd===0;
+      let colCls='';
+      if(isWeekStart(G.year,G.month,d)) colCls='week-start-col';
+
+      const cell = G.schedule[d]?.[pos.id] || null;
+      html+=`<td class="${colCls}">`;
+      html+=renderCell(pos, d, cell, isPast, isSat, isSun);
+      html+='</td>';
+    }
+    html+='</tr>';
+  }
+  $('tbl-body').innerHTML=html;
+
+  // 缁戝畾浜嬩欢
+  bindScheduleCellEvents($('tbl-body'));
+
+  // 鍒濆鍖栬鎷栨嫿鎺掑簭
+  initRowDragSort();
+}
+
+// 鈹€鈹€ 琛屾嫋鎷芥帓搴?鈹€鈹€
+function initRowDragSort(){
+  const tbody = $('tbl-body');
+  let draggedPid = null;
+
+  tbody.querySelectorAll('tr').forEach(tr => {
+    tr.addEventListener('dragstart', e => {
+      draggedPid = tr.dataset.pid;
+      tr.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+      // 璁剧疆鎷栨嫿鍥惧儚锛堝彲閫夛級
+      e.dataTransfer.setData('text/plain', draggedPid);
+    });
+
+    tr.addEventListener('dragend', () => {
+      tr.classList.remove('dragging');
+      tbody.querySelectorAll('tr').forEach(r => {
+        r.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+      draggedPid = null;
+    });
+
+    tr.addEventListener('dragover', e => {
+      e.preventDefault();
+      if(!draggedPid || draggedPid === tr.dataset.pid) return;
+
+      const rect = tr.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const isAbove = e.clientY < midY;
+
+      tbody.querySelectorAll('tr').forEach(r => {
+        r.classList.remove('drag-over-top', 'drag-over-bottom');
+      });
+
+      if(isAbove){
+        tr.classList.add('drag-over-top');
+      } else {
+        tr.classList.add('drag-over-bottom');
+      }
+    });
+
+    tr.addEventListener('dragleave', () => {
+      tr.classList.remove('drag-over-top', 'drag-over-bottom');
+    });
+
+    tr.addEventListener('drop', async e => {
+      e.preventDefault();
+      if(!draggedPid || draggedPid === tr.dataset.pid) return;
+
+      const rect = tr.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      const isAbove = e.clientY < midY;
+
+      // 閲嶆柊鎺掑簭 G.positions
+      const oldIndex = G.positions.findIndex(p => p.id === draggedPid);
+      const targetIndex = G.positions.findIndex(p => p.id === tr.dataset.pid);
+      if(oldIndex === -1 || targetIndex === -1) return;
+
+      const [moved] = G.positions.splice(oldIndex, 1);
+      let newIndex = isAbove ? targetIndex : targetIndex + 1;
+      if(oldIndex < targetIndex) newIndex--;
+      G.positions.splice(newIndex, 0, moved);
+
+      // 淇濆瓨鍒板悗绔?
+      try{
+        await api('/api/positions/reorder', 'POST', G.positions.map(p => p.id));
+        renderTable();
+        toast('???????');
+      }catch(err){
+        toast('淇濆瓨椤哄簭澶辫触: ' + err.message);
+        await fetchAll(); // 鍥炴粴
+      }
+    });
+  });
+}
+
+// 鈹€鈹€ 鍒楁樉绀鸿缃?鈹€鈹€
+async function loadHiddenDays(){
+  // 浼樺厛浠庢湇鍔″櫒鍔犺浇锛堝悓姝ョ粰鎵€鏈夌敤鎴凤級
+  try{
+    const arr = await api(`/api/hidden-days/${G.year}/${G.month}`);
+    if(Array.isArray(arr)){
+      G.hiddenDays = new Set(arr);
+      // 鍚屾椂鏇存柊鏈湴缂撳瓨
+      const key = `hiddenDays_${G.year}_${G.month}`;
+      localStorage.setItem(key, JSON.stringify(arr));
+      return;
+    }
+  }catch(e){}
+  // 鏈嶅姟鍣ㄥけ璐?鈫?fallback 鍒?localStorage
+  const key = `hiddenDays_${G.year}_${G.month}`;
+  try{
+    const raw = localStorage.getItem(key);
+    if(raw){
+      const arr = JSON.parse(raw);
+      G.hiddenDays = new Set(arr);
+    } else {
+      G.hiddenDays = new Set();
+    }
+  }catch(e){
+    G.hiddenDays = new Set();
+  }
+}
+async function saveHiddenDays(){
+  const arr = [...G.hiddenDays];
+  const key = `hiddenDays_${G.year}_${G.month}`;
+  // 浼樺厛淇濆瓨鍒版湇鍔″櫒
+  try{
+    await api(`/api/hidden-days/${G.year}/${G.month}`, 'POST', arr);
+  }catch(e){
+    // 鏈嶅姟鍣ㄥけ璐?鈫?淇濆瓨鍒版湰鍦?
+  }
+  // 濮嬬粓淇濆瓨鍒?localStorage 浣滀负鏈湴缂撳瓨
+  localStorage.setItem(key, JSON.stringify(arr));
+}
+function openColSettings(){
+  try{
+    // 闃插尽鎬ф鏌ワ細纭繚骞存湀鏈夋晥
+    const year = Number(G.year);
+    const month = Number(G.month);
+    if(!year || !month || month < 1 || month > 12){
+      toast('请选择有效的年月', 3000);
+      return;
+    }
+    const days = daysInMonth(year, month);
+    if(!days || days < 1 || days > 31){
+      toast('日期数量异常', 3000);
+      return;
+    }
+    const hidden = G.hiddenDays || new Set();
+    const wdNames = ['日','一','二','三','四','五','六'];
+    let html = '';
+    for(let d=1; d<=days; d++){
+      const wd = getWeekday(year, month, d);
+      const wdName = wdNames[wd] || '?';
+      const isHidden = hidden.has(d);
+      const cls = isHidden ? 'col-settings-item hidden-col' : 'col-settings-item';
+      html += `<label class="${cls}">
+        <input type="checkbox" ${!isHidden ? 'checked' : ''} data-day="${d}">
+        <span class="col-settings-label">
+          <span class="day-num">${d}日</span>
+          <span class="day-wd">周${wdName}</span>
+        </span>
+      </label>`;
+    }
+    $('col-settings-grid').innerHTML = html;
+    $('col-settings-modal').style.display = 'flex';
+  }catch(e){
+    console.error('[openColSettings] 閿欒:', e);
+    toast('列设置加载失败', 3000);
+  }
+}
+function closeColSettings(){
+  $('col-settings-modal').style.display = 'none';
+}
+function selectAllCols(show){
+  $('col-settings-grid').querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.checked = show;
+  });
+}
+function selectWeekdaysOnly(){
+  const wdNames = ['日','一','二','三','四','五','六'];
+  $('col-settings-grid').querySelectorAll('input[type=checkbox]').forEach(cb => {
+    const d = +cb.dataset.day;
+    const wd = getWeekday(G.year, G.month, d);
+    cb.checked = (wd >= 1 && wd <= 5); // 鍛ㄤ竴鍒板懆浜?
+  });
+}
+async function applyColSettings(){
+  const hidden = new Set();
+  $('col-settings-grid').querySelectorAll('input[type=checkbox]').forEach(cb => {
+    if(!cb.checked) hidden.add(+cb.dataset.day);
+  });
+  G.hiddenDays = hidden;
+  await saveHiddenDays();
+  renderTable();
+  renderDayStat();
+  renderWeekStat();
+  renderMonthStat();
+  closeColSettings();
+  const hiddenCount = hidden.size;
+  if(hiddenCount > 0){
+    toast(`已隐藏 ${hiddenCount} 列，刷新后生效`);
+  } else {
+    toast('已显示全部日期列');
+  }
+}
+
+function isSplitCell(cell){
+  return !!cell && cell.status === 'split' && cell.slots && typeof cell.slots === 'object';
+}
+
+function getSplitSlotCell(cell, slot){
+  const slots = isSplitCell(cell) ? cell.slots : {};
+  const raw = slots && slots[slot] && typeof slots[slot] === 'object' ? slots[slot] : {};
+  return {
+    status: String(raw.status || 'pending').trim() || 'pending',
+    person: String(raw.person || '').trim(),
+    workload: Number(raw.workload || 0) || 0,
+  };
+}
+
+function getSplitSlotLabel(slot){
+  return slot === 'pm' ? '下' : '上';
+}
+
+function getSplitSlotDisplay(slot, slotCell){
+  const status = slotCell?.status || 'pending';
+  const person = String(slotCell?.person || '').trim();
+  if(status === 'off') return '休';
+  if(person) return shortPersonName(person);
+  if(status === 'pending') return '待';
+  return getSplitSlotLabel(slot);
+}
+
+function getSplitSlotTitle(slotLabel, slotCell){
+  const status = slotCell?.status || 'pending';
+  const person = String(slotCell?.person || '').trim();
+  if(status === 'off') return `${slotLabel}：休假${person ? `（${person}）` : ''}`;
+  if(status === 'substitute') return `${slotLabel}：替班${person ? `（${person}）` : ''}`;
+  if(status === 'on') return `${slotLabel}：${person || '在班'}`;
+  return `${slotLabel}：待定`;
+}
+
+function shortPersonName(person){
+  const text = String(person || '').trim();
+  if(!text) return '';
+  if(text.length <= 2) return text;
+  return text.slice(0, 2);
+}
+
+function renderSplitSlot(pid, day, slot, slotCell, isPast){
+  const status = slotCell.status || 'pending';
+  const person = slotCell.person || '';
+  const slotLabel = slot === 'am' ? '上午' : '下午';
+  const slotClass = slot === 'am' ? 'slot-am' : 'slot-pm';
+  const statusCls = status === 'on' ? 'status-on' : status === 'off' ? 'status-off' : status === 'substitute' ? 'status-substitute' : 'status-pending';
+  const pastCls = isPast ? ' cell-past' : '';
+  const display = getSplitSlotDisplay(slot, slotCell);
+  const title = getSplitSlotTitle(slotLabel, slotCell);
+  return `<div class="split-slot slot-${slot} ${slotClass} ${statusCls}${pastCls}" data-pid="${pid}" data-day="${day}" data-slot="${slot}" data-status="${status}" data-person="${person}" title="${title}">
+    <span class="slot-label">${getSplitSlotLabel(slot)}</span>
+    <span class="slot-person">${display}</span>
+  </div>`;
+}
+
+function renderCell(pos, day, cell, isPast, isSat, isSun){
+  const status = cell ? cell.status : (pos.default_person ? 'on' : 'pending');
+  const person = cell ? cell.person : (pos.default_person || '');
+  const pid=pos.id;
+  const pastCls = isPast ? ' cell-past' : '';
+
+  if(isSplitCell(cell)){
+    const am = getSplitSlotCell(cell, 'am');
+    const pm = getSplitSlotCell(cell, 'pm');
+    const title = `${getSplitSlotTitle('上午', am)} / ${getSplitSlotTitle('下午', pm)}`;
+    return `<div class="cell cell-split${pastCls}" data-pid="${pid}" data-day="${day}" data-status="split" data-person="${cell.person || am.person || pm.person || ''}" title="${title}">
+      ${renderSplitSlot(pid, day, 'am', am, isPast)}
+      ${renderSplitSlot(pid, day, 'pm', pm, isPast)}
+    </div>`;
+  }
+
+  // 鍒ゆ柇榛樿浜烘槸鍚︽槸灏忕粍锛堣€岄潪涓汉锛?
+  const isGroupDefault = !!G.groups.find(g => g.name === person);
+
+  if(status==='on'){
+    if(isGroupDefault){
+      // 灏忕粍榛樿浜?鈫?鏄剧ず灏忕粍鍚嶏紙娴呰摑锛屽畬鏁存樉绀猴級
+      return `<div class="cell cell-group-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${person}" title="${person} 在班">${person}</div>`;
+    }
+    return `<div class="cell cell-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${person}" title="${person} 在班">
+      <span class="check-icon">✓</span></div>`;
+  }
+  if(status==='off'){
+    return `<div class="cell cell-off${pastCls}" data-pid="${pid}" data-day="${day}" data-status="off" data-person="${person}" title="${person} 休假">
+      <span class="cross-icon">✕</span></div>`;
+  }
+  if(status==='substitute'){
+    return `<div class="cell cell-sub${pastCls}" data-pid="${pid}" data-day="${day}" data-status="substitute" data-person="${person}" title="替班: ${person}" style="font-size:10px;max-width:36px;overflow:hidden;text-overflow:ellipsis">
+      ${person||'--'}</div>`;
+  }
+  // pending
+  return `<div class="cell cell-pending${pastCls}" data-pid="${pid}" data-day="${day}" data-status="pending" data-person="" title="待定（需设置替班人）">待</div>`;
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+//  灏忕粍鍏ㄤ紤鑷姩鏇跨彮瑙﹀彂
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+
+/**
+ * 鑾峰彇鏌愪汉鎵€灞炵殑灏忕粍锛堥€氳繃 staff[n].group_id 鍏宠仈锛?
+ */
+function getPositionAssignments(dayData, pos){
+  const workload = Number(pos?.workload || 0) || 0;
+  const cell = (dayData || {})[pos?.id];
+  if(isSplitCell(cell)){
+    const am = getSplitSlotCell(cell, 'am');
+    const pm = getSplitSlotCell(cell, 'pm');
+    const half = workload / 2;
+    return [
+      { slot:'am', ...am, workload: am.workload || half },
+      { slot:'pm', ...pm, workload: pm.workload || half },
+    ];
+  }
+  const status = cell ? cell.status : (pos?.default_person ? 'on' : 'pending');
+  const person = cell ? cell.person : (pos?.default_person || '');
+  return [{ slot:'', workload, status, person }];
+}
+
+function bindScheduleCellEvents(root){
+  if(!root) return;
+  root.querySelectorAll('.cell:not(.cell-split)').forEach(el => {
+    el.addEventListener('contextmenu', onCellRightClick);
+  });
+  root.querySelectorAll('.split-slot').forEach(el => {
+    el.addEventListener('contextmenu', onCellRightClick);
+  });
+}
+
+function getPersonGroup(name) {
+  const person = G.staff.find(s => s.name === name);
+  if (!person || !person.group_id) return null;
+  return G.groups.find(g => g.id === person.group_id) || null;
+}
+
+/**
+ * 鑾峰彇灏忕粍鐨勬墍鏈夋垚鍛樺悕瀛?
+ */
+function getGroupMemberNames(group) {
+  if (!group) return [];
+  return G.staff.filter(s => s.group_id === group.id).map(s => s.name);
+}
+
+/**
+ * 妫€鏌ユ煇澶╁皬缁勬槸鍚﹀叏浼?
+ * 閫昏緫锛氭墍鏈夋垚鍛樺綋澶╅兘 off
+ */
+function checkGroupFullyOff(group, day) {
+  const members = getGroupMemberNames(group);
+  if (members.length === 0) return false;
+  for (const name of members) {
+    const status = getPersonStatusOnDay(name, day);
+    if (status !== 'off') return false;
+  }
+  return true;
+}
+
+/**
+ * 鑾峰彇鏌愪汉鏌愬ぉ鐨勭姸鎬侊紙浠?G.schedule 涓鍙栵級
+ * 杩斿洖: 'on'|'off'|'substitute'|'pending'
+ */
+function getPersonStatusOnDay(name, day) {
+  const dayStr = String(day);
+  const monthData = G.schedule || {};
+  // 閬嶅巻鎵€鏈夊矖浣嶏紝鎵惧埌姝や汉鐨勭姸鎬?
+  for (const pid of Object.keys(monthData[dayStr] || {})) {
+    const cell = monthData[dayStr][pid];
+    if (isSplitCell(cell)) {
+      for (const slot of ['am', 'pm']) {
+        const slotCell = getSplitSlotCell(cell, slot);
+        if (slotCell.person === name) {
+          return slotCell.status || 'on';
+        }
+      }
+    } else if (cell && cell.person === name) {
+      return cell.status || 'on';
+    }
+  }
+  // 濡傛灉娌℃壘鍒帮紝妫€鏌ユ槸鍚︽槸鏌愬矖浣嶇殑榛樿浜轰笖娌¤鏇夸唬
+  const pos = G.positions.find(p => (p.default_person || '').trim() === name);
+  if (pos) {
+    const cell = monthData[dayStr] ? monthData[dayStr][pos.id] : null;
+    if (!cell || cell.status === 'on') return 'on';  // 榛樿浜哄湪鐝?
+  }
+  return 'off';  // 鎵句笉鍒帮紝榛樿璁や负鏄紤鎭?
+}
+
+/**
+ * 鎵惧埌鎵€鏈変互璇ュ皬缁勪负榛樿浜虹殑宀椾綅
+ */
+function findPositionsByGroup(group) {
+  if (!group) return [];
+  return G.positions.filter(p => (p.default_person || '').trim() === group.name);
+}
+
+/**
+ * 褰撳皬缁勫叏浼戞椂锛岃嚜鍔ㄤ负鐩稿叧宀椾綅瀹夋帓鏇跨彮
+ */
+async function triggerAutoSubstituteForGroup(group, day) {
+  const positions = findPositionsByGroup(group);
+  if (positions.length === 0) return;
+
+  toast(`【${group.name}】全休，正在自动安排替班...`, 2000);
+
+  for (const pos of positions) {
+    try {
+      const res = await api('/api/auto-substitute', 'POST', {
+        year: G.year,
+        month: G.month,
+        day: day,
+        pos_id: pos.id
+      });
+
+      if (res.success && res.person) {
+        await saveCellState(pos.id, day, 'substitute', res.person);
+        toast(`【${pos.name}】已安排替班：${res.person}`);
+      }
+    } catch(e) {
+    console.error('自动替班失败:', pos.name, e);
+    }
+  }
+}
+
+/**
+ * 褰撳皬缁勬仮澶嶏紙涓嶅啀鍏ㄤ紤锛夋椂锛屽彇娑堟浛鐝€佹仮澶嶅皬缁勪笂鐝?
+ */
+async function triggerGroupRestore(group, day) {
+  try{
+    // 鍏堟鏌ュ皬缁勬槸鍚︾湡鐨勪笉鍐嶅叏浼?
+    if (checkGroupFullyOff(group, day)) return;  // 杩樻槸鍏ㄤ紤锛屼笉澶勭悊
+
+    const positions = findPositionsByGroup(group);
+    if (positions.length === 0) return;
+
+    let restoredCount = 0;
+    for (const pos of positions) {
+      // 妫€鏌ヨ宀椾綅褰撳墠鏄惁鏄?substitute 鐘舵€侊紙琚浛鐝腑锛?
+      const dayData = G.schedule[day] || {};
+      const cell = dayData[pos.id];
+      if (cell && cell.status === 'substitute') {
+        // 鍙栨秷鏇跨彮锛屾仮澶嶄负灏忕粍鍚?on 鐘舵€?
+        await saveCellState(pos.id, day, 'on', group.name);
+        restoredCount++;
+      }
+    }
+
+    if (restoredCount > 0) {
+      toast(`【${group.name}】已恢复上班（共${restoredCount}个岗位）`);
+    }
+  }catch(e){
+    console.error('灏忕粍鎭㈠澶辫触:', e);
+  }
+}
+
+/**
+ * 涓哄崟涓矖浣嶈嚜鍔ㄥ畨鎺掓浛鐝紙鐢ㄤ簬涓汉榛樿浜轰紤鎭椂锛?
+ */
+async function triggerAutoSubstituteForPos(pos_id, day) {
+  const pos = G.positions.find(p => p.id === pos_id);
+  if (!pos?.default_person) {
+    console.log('[triggerAutoSubstituteForPos] 无默认人员，跳过', pos_id);
+    return;
+  }
+
+  try {
+    console.log('[triggerAutoSubstituteForPos] 寮€濮嬫浛鐝?', pos.name, 'day=', day);
+    const res = await api('/api/auto-substitute', 'POST', {
+      year: G.year,
+      month: G.month,
+      day: day,
+      pos_id: pos_id
+    });
+    console.log('[triggerAutoSubstituteForPos] API杩斿洖:', pos.name, res);
+    const wdNames=['日','一','二','三','四','五','六'];
+    if (res.success && res.person) {
+      await saveCellState(pos_id, day, 'substitute', res.person);
+      console.log('[triggerAutoSubstituteForPos] 宸茶涓簊ubstitute:', pos.name, res.person);
+    } else {
+      console.warn('[triggerAutoSubstituteForPos] 无可用替班人:', pos.name, res);
+    }
+  } catch(e) {
+    console.error('[triggerAutoSubstituteForPos] 寮傚父:', pos.name, e);
+  }
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  鏍煎瓙鐐瑰嚮浜嬩欢
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+async function onCellClick(e){
+  e.preventDefault();
+  const el = e.currentTarget;
+  if(el.classList.contains('cell-past')) return;
+  const pid = el.dataset.pid;
+  const day = +el.dataset.day;
+  const status = el.dataset.status;
+  const slot = el.dataset.slot || '';
+  const person = el.dataset.person;
+
+  // 鎵惧矖浣?
+  const pos = G.positions.find(p=>p.id===pid);
+  if(!pos) return;
+
+  if(slot){
+    await onSplitSlotAction(pos, pid, day, status, slot);
+    return;
+  }
+
+  // 鐘舵€佸垏鎹㈤€昏緫
+  // on(榛樿浜? 鈫?off 鈫?鑷姩鏇跨彮
+  // on(鏇跨彮浜? 鈫?off 鈫?pending(濡傛湁榛樿浜哄垯鍥瀘n)
+  // off 鈫?on(濡傛湁榛樿浜?
+  // pending 鈫?鑷姩鏇跨彮
+  // substitute 鈫?off 鈫?on(榛樿)
+
+  const today=new Date(); const todayD=today.getDate(),todayM=today.getMonth()+1,todayY=today.getFullYear();
+  const isPast=(G.year<todayY)||(G.year===todayY&&G.month<todayM)||(G.year===todayY&&G.month===todayM&&day<todayD);
+  if(isPast){ toast('历史日期不可修改'); return; }
+
+  if(status==='on'){
+    // 鍦ㄧ彮 鈫?鑷姩鏇跨彮
+    await autoSubstitute(pid, day);
+  } else if(status==='off'){
+    if(isPersonOffOnDay(pos.default_person, day)){
+      toast((pos.default_person || '该人员') + ' 当天已休息，不能恢复到在班');
+      return;
+    }
+    // 浼戝亣 鈫?鎭㈠榛樿浜猴紙鍚屾椂鎭㈠璇ヤ汉鎵€鏈夊矖浣嶏級
+    if(pos.default_person){
+      const dp = (pos.default_person || '').trim();
+      // 鎵惧埌鎵€鏈変互璇ヤ汉涓洪粯璁や汉鐨勫矖浣?
+      const allPosWithSameDp = G.positions.filter(p => (p.default_person || '').trim() === dp);
+      
+      let restoredCount = 0;
+      for(const p of allPosWithSameDp){
+        await saveCellState(p.id, day, 'on', dp);
+        restoredCount++;
+      }
+      
+      if(restoredCount > 1){
+        toast(`${dp} 已恢复在班（共${restoredCount}个岗位）`);
+      } else {
+      toast(`${dp} 已设为在班`);
+      }
+    } else {
+      await saveCellState(pid, day, 'pending', '');
+      toast(`无默认人员，请右键设置替班`);
+    }
+  } else if(status==='substitute'){
+    if(isPersonOffOnDay(pos.default_person, day)){
+      toast((pos.default_person || '该人员') + ' 当天已休息，不能恢复到在班');
+      return;
+    }
+    // 鏇跨彮 鈫?鎭㈠榛樿浜轰笂鐝紙鍚屾椂鎭㈠璇ヤ汉鎵€鏈夊矖浣嶏級
+    if(pos.default_person){
+      const dp = (pos.default_person || '').trim();
+      // 鎵惧埌鎵€鏈変互璇ヤ汉涓洪粯璁や汉鐨勫矖浣?
+      const allPosWithSameDp = G.positions.filter(p => (p.default_person || '').trim() === dp);
+      
+      let restoredCount = 0;
+      for(const p of allPosWithSameDp){
+        await saveCellState(p.id, day, 'on', dp);
+        restoredCount++;
+      }
+      
+      if(restoredCount > 1){
+        toast(`${dp} 已恢复在班（共${restoredCount}个岗位）`);
+      } else {
+        toast(`${dp} 已恢复在班`);
+      }
+    } else {
+      await saveCellState(pid, day, 'pending', '');
+      toast('无默认人员，请右键设置替班');
+    }
+  } else if(status==='pending'){
+    // pending 鈫?鑷姩鏇跨彮
+    await autoSubstitute(pid, day);
+  }
+}
+
+async function onSplitSlotAction(pos, pid, day, status, slot){
+  const today=new Date(); const todayD=today.getDate(),todayM=today.getMonth()+1,todayY=today.getFullYear();
+  const isPast=(G.year<todayY)||(G.year===todayY&&G.month<todayM)||(G.year===todayY&&G.month===todayM&&day<todayD);
+  if(isPast){ toast('历史日期不可修改'); return; }
+
+  const dp = (pos.default_person || '').trim();
+  if(status==='on' || status==='pending'){
+    await autoSubstitute(pid, day, slot);
+    return;
+  }
+  if(status==='off' || status==='substitute'){
+    if(isPersonOffOnDay(dp, day)){
+      toast((dp || '该人员') + ' 当天已休息，不能恢复到在班');
+      return;
+    }
+    if(dp){
+      await saveCellState(pid, day, 'on', dp, { slot, skipAutoHooks: true });
+    } else {
+      await saveCellState(pid, day, 'pending', '', { slot, skipAutoHooks: true });
+    }
+  }
+}
+
+async function autoSubstitute(pid, day, slot=''){
+  try{
+    const pos = G.positions.find(p=>p.id===pid);
+    
+    // 鑾峰彇褰撳墠鏍煎瓙鐨勭姸鎬?
+    const cellEl = slot
+      ? document.querySelector(`[data-pid="${pid}"][data-day="${day}"][data-slot="${slot}"]`)
+      : document.querySelector(`[data-pid="${pid}"][data-day="${day}"]`);
+    const currentStatus = cellEl ? cellEl.dataset.status : '';
+    
+    const dp = (pos.default_person || '').trim();
+    
+    // 濡傛灉褰撳墠鏄?on 鐘舵€佷笖鏄粯璁や汉鍦ㄧ彮锛岃缃负浼戞伅骞舵壘鏇跨彮浜?
+    if(currentStatus === 'on'){
+      // 鎵惧埌鎵€鏈変互璇ヤ汉涓洪粯璁や汉鐨勫矖浣?
+      const allPosWithSameDp = G.positions.filter(p => (p.default_person || '').trim() === dp);
+      
+      if(allPosWithSameDp.length > 1){
+        // 璇ヤ汉鏄涓矖浣嶇殑榛樿浜?鈫?鍚屾椂澶勭悊鎵€鏈夊矖浣?
+        let subCount = 0;
+        let offCount = 0;
+        
+        for(const p of allPosWithSameDp){
+          await saveCellState(p.id, day, 'off', dp);  // 鍏堟爣璁颁紤鎭紙涓存椂锛?
+          
+          // 妫€鏌ユ槸鍚﹀凡琚嚜鍔ㄦ浛鐝紙saveCellState鍐呴儴triggerAutoSubstituteForPos宸插鐞嗭級
+          const autoSubCell = G.schedule[day]?.[p.id];
+          if(autoSubCell?.status === 'substitute'){
+            subCount++;
+            continue;  // 宸茶鑷姩鏇跨彮锛岃烦杩?
+          }
+          
+          // 涓鸿宀椾綅鎵炬浛鐝汉锛堣烦杩囧綋鍓嶆鍦ㄥ鐞嗙殑宀椾綅锛屾渶鍚庡崟鐙鐞嗭級
+          if(p.id === pid) continue;
+          
+          const res = await api('/api/auto-substitute', 'POST', {
+            year:G.year, month:G.month, day, pos_id:p.id
+          });
+          
+          const pDp = (p.default_person || '').trim();
+          if(res.success && (res.person || '').trim() !== pDp){
+            await saveCellState(p.id, day, 'substitute', res.person);
+            subCount++;
+          } else {
+            // 鏃犲彲鐢ㄦ浛鐝汉 鈫?pending锛?锛夛紝涓嶈兘淇濈暀 off锛堣繚鍙嶇孩绾匡級
+            await saveCellState(p.id, day, 'pending', '');
+            offCount++;
+          }
+        }
+        
+        // 鏈€鍚庡鐞嗙敤鎴风偣鍑荤殑褰撳墠宀椾綅
+        // 鍏堟鏌ユ槸鍚﹀凡琚嚜鍔ㄦ浛鐝?
+        const mainAutoSub = G.schedule[day]?.[pid];
+        if(mainAutoSub?.status === 'substitute'){
+          toast(`已自动安排替班 ${mainAutoSub.person}`);
+        } else {
+          const mainRes = await api('/api/auto-substitute', 'POST', {
+            year:G.year, month:G.month, day, pos_id:pid
+          });
+        
+          if(mainRes.success && (mainRes.person || '').trim() !== dp){
+            await saveCellState(pid, day, 'substitute', mainRes.person);
+            subCount++;
+          } else {
+            // 鏃犲彲鐢ㄦ浛鐝汉 鈫?pending锛屼笉鐣?off
+            await saveCellState(pid, day, 'pending', '');
+            offCount++;
+          }
+        }
+        
+        // 姝ラ1锛氬厛澶勭悊 dp 鍘熸潵鎵挎媴鐨勬浛鐝换鍔★紙dp 鑷繁鍘绘浛鍒汉鐨勫矖浣嶏級
+        const cascRes1 = await api('/api/cascade-off', 'POST', {
+          year:G.year, month:G.month, day, person: dp, person_is_off: true
+        });
+        if(cascRes1.success && cascRes1.updated && cascRes1.updated.length > 0){
+          for(const u of cascRes1.updated){
+            await applyCascadeUpdate(day, u);
+          }
+          subCount += cascRes1.updated.filter(u=>u.status==='substitute').length;
+          offCount += cascRes1.updated.filter(u=>u.status==='pending').length;
+        }
+
+        toast(`${dp} 已设为休假，已安排 ${subCount} 个替班，${offCount} 个岗位待分配`, 3000);
+
+        // 姝ラ2锛氱骇鑱旀洿鏂帮細妫€鏌ユ柊鏇跨彮浜烘槸鍚︿篃闇€瑕佺骇鑱斿鐞?
+        await cascadeUpdateIfNeeded(day);
+      } else {
+        // 鍙槸涓€涓矖浣嶇殑榛樿浜?鈫?鍗曠嫭澶勭悊
+        await saveCellState(pid, day, 'off', dp);  // 鍏堟爣璁颁紤鎭?
+
+        // 妫€鏌ユ槸鍚﹀凡琚嚜鍔ㄦ浛鐝紙saveCellState鍐呴儴triggerAutoSubstituteForPos宸插鐞嗭級
+        const autoSubCell = G.schedule[day]?.[pid];
+        if(autoSubCell?.status === 'substitute'){
+          toast(`已自动安排替班 ${autoSubCell.person}`);
+        } else {
+          // 姝ラ1锛氬厛澶勭悊 dp 鍘熸潵鎵挎媴鐨勬浛鐝换鍔★紙dp 鑷繁鍘绘浛鍒汉鐨勫矖浣嶏級
+          const cascResS = await api('/api/cascade-off', 'POST', {
+            year:G.year, month:G.month, day, person: dp, person_is_off: true
+          });
+          if(cascResS.success && cascResS.updated && cascResS.updated.length > 0){
+            for(const u of cascResS.updated){
+              await applyCascadeUpdate(day, u);
+            }
+          }
+
+          // 姝ラ2锛氳皟鐢?API 涓?dp 鐨勯粯璁ゅ矖鎵炬浛鐝汉
+          const res = await api('/api/auto-substitute', 'POST', {
+            year:G.year, month:G.month, day, pos_id:pid
+          });
+          console.log('[autoSubstitute] API杩斿洖:', res);
+          
+          if(res.success && (res.person || '').trim() !== dp){
+            // 鎵惧埌闈為粯璁や汉鐨勬浛鐝汉
+            await saveCellState(pid, day, 'substitute', res.person);
+            toast(`已安排替班 ${res.person}`);
+            // 姝ラ3锛氱骇鑱旀洿鏂帮細妫€鏌ユ浛鐝汉鏄惁涔熼渶瑕佺骇鑱斿鐞?
+            await cascadeUpdateIfNeeded(day);
+          } else {
+            // 鏃犲彲鐢ㄦ浛鐝汉 鈫?涓嶈兘淇濈暀 off锛堣繚鍙嶇孩绾匡細宀椾綅蹇呴』鏈変汉锛?
+            // 鏀逛负 pending锛堝緟鍒嗛厤锛夛紝閬垮厤鏄剧ず绾㈠弶
+            await saveCellState(pid, day, 'pending', '');
+            toast(`${dp} 已设为休假，暂无替班人（待手动安排）`, 3000);
+          }
+        }
+      }
+      return;
+    }
+    
+    // 鍏朵粬鎯呭喌锛歱ending 鎴?substitute锛岃皟鐢?API 澶勭悊
+    const res = await api('/api/auto-substitute', 'POST', {
+      year:G.year, month:G.month, day, pos_id:pid
+    });
+    if(res.success){
+      const isDefault = (res.person || '').trim() === dp;
+      const newStatus = isDefault ? 'on' : 'substitute';
+      await saveCellState(pid, day, newStatus, res.person);
+      if(isDefault){
+        toast(`${res.person} 已在班`);
+      } else {
+        toast(`已安排替班 ${res.person}`);
+      }
+    } else {
+      toast('无可用替班人: '+res.msg, 3000);
+      await saveCellState(pid, day, 'pending', '');
+    }
+  }catch(e){
+    console.error('[autoSubstitute] 寮傚父:', e);
+    toast('操作失败: '+e.message, 3000);
+    // 閬垮厤鐣欎笅 off锛堣繚鍙嶇孩绾匡細宀椾綅蹇呴』鏈変汉锛夛紝鏀逛负 pending
+    try{
+      await saveCellState(pid, day, 'pending', '');
+    }catch(e2){ console.error('[autoSubstitute] 鍥炴粴pending涔熷け璐?', e2); }
+  }
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  绾ц仈鏇存柊锛氬綋鏇跨彮浜鸿嚜宸变篃闇€瑕佷紤鎭椂锛岃嚜鍔ㄦ浛鎹㈠叾鏇跨彮宀椾綅
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+async function applyCascadeUpdate(day, update){
+  if(!update || !update.pos_id) return;
+  const opts = update.slot ? { slot: update.slot, skipAutoHooks: true } : { skipAutoHooks: true };
+  await saveCellState(update.pos_id, day, update.status || 'pending', update.person || '', opts);
+}
+
+async function cascadeUpdateIfNeeded(day){
+  // 鑾峰彇褰撳ぉ鎵€鏈夋暟鎹?
+  const dayData = G.schedule[day] || {};
+  if(!dayData) return;
+
+  // 鏀堕泦鎵€鏈?substitute 鐘舵€佺殑宀椾綅鍙婂叾鏇跨彮浜?
+  const subMap = {};  // person -> [pos_ids]
+  for(const [pid, cell] of Object.entries(dayData)){
+    if(cell.status === 'substitute' && cell.person){
+      const name = cell.person.trim();
+      if(!subMap[name]) subMap[name] = [];
+      subMap[name].push(pid);
+    }
+  }
+
+  // 妫€鏌ユ瘡涓浛鐝汉鏄惁鐪熺殑鍦ㄤ紤鎭紙鍏堕粯璁ゅ矖浣嶆湁 off/鏈汉 璁板綍锛?
+  let cascadeCount = 0;
+  for(const [personName, posIds] of Object.entries(subMap)){
+    // 鍒ゆ柇鏍囧噯锛氶粯璁ゅ矖浣嶇姸鎬佷负 off 涓旇褰曚汉鏄湰浜?鈫?鎵嶇畻鐪熸浼戞伅
+    // 娉ㄦ剰锛氶粯璁ゅ矖琚埆浜哄崰浜?on/substitute)涓嶄竴瀹氭槸浼戞伅锛屾湁鍙兘鏄吋宀楁儏鍐?
+    let isResting = false;
+    for(const pos of G.positions){
+      const dp = (pos.default_person || '').trim();
+      if(dp === personName){
+        const posCell = dayData[pos.id];
+        if(posCell && posCell.status === 'off' && posCell.person === personName){
+          isResting = true;
+          break;
+        }
+      }
+    }
+
+    if(isResting){
+      // 杩欎釜浜轰篃鍦?浼戞伅"锛岄渶瑕佺骇鑱旀浛鎹粬鎵€鏈夌殑鏇跨彮宀椾綅
+      try{
+        const res = await api('/api/cascade-off', 'POST', {
+          year:G.year, month:G.month, day, person: personName,
+          person_is_off: true  // 宸茬‘璁ゆ浜哄湪浼戞伅锛屼繚鎶ff璁板綍
+        });
+      if(res.success && res.updated && res.updated.length > 0){
+          cascadeCount += res.updated.length;
+          for(const u of res.updated){
+            await applyCascadeUpdate(day, u);
+          }
+        }
+      } catch(e){
+        console.error('绾ц仈鏇存柊澶辫触:', e);
+      }
+    }
+  }
+
+  if(cascadeCount > 0){
+    toast(`绾ц仈鏇存柊锛氬凡鑷姩鏇挎崲${cascadeCount}涓彈褰卞搷宀椾綅`, 2500);
+  }
+}
+
+// 鍙抽敭鑿滃崟
+function onCellRightClick(e){
+  e.preventDefault();
+  const el = e.currentTarget;
+  if(el.classList.contains('cell-past')) return;
+  const pid = el.dataset.pid;
+  const day = +el.dataset.day;
+  const status = el.dataset.status;
+  const slot = el.dataset.slot || '';
+  const pos = G.positions.find(p=>p.id===pid);
+
+  const menu = $('ctx-menu');
+
+  // 鍒ゆ柇褰撳ぉ鏄熸湡
+  const wd = getWeekday(G.year, G.month, day); // 0=鍛ㄦ棩,6=鍛ㄥ叚
+  const isSat = wd===6;
+
+  // 鑾峰彇鍙敤鏇跨彮浜?
+  const busyToday = new Set();
+  const dayData = G.schedule[day] || {};
+  for(const [p, c] of Object.entries(dayData)){
+    if(String(p).startsWith('_')) continue;
+    if(isSplitCell(c)){
+      for(const splitSlot of ['am', 'pm']){
+        const splitCell = getSplitSlotCell(c, splitSlot);
+        if((splitCell.status === 'on' || splitCell.status === 'substitute') && splitCell.person){
+          busyToday.add(splitCell.person);
+        }
+      }
+    }else if((c.status==='on'||c.status==='substitute') && c.person){
+      busyToday.add(c.person);
+    }
+  }
+
+  const posMap = {};
+  for(const p of G.positions) posMap[p.id]=p;
+
+  function canSub(member){
+    if(isPersonOffOnDay(member.name, day)) return false;
+    if(member.saturday_only && !isSat) return false;
+    if(member.no_substitute) return false;  // 涓嶆浛鐝汉鍛樹笉鑳芥浛鍒汉
+    if(pos.category==='娆″搧' && !member.can_cpin) return false;
+    if(pos.category==='京东' && !member.can_jd) return false;
+    return true;
+  }
+
+  // 鎵鹃粯璁や汉鐨勬浛鐝€欓€変汉锛堝熀浜庡綋鏃ュ凡鏈夊矖浣嶈绠楀伐浣滈噺锛?
+  const candidates = G.staff.filter(m=>canSub(m));
+  const slotLabel = slot === 'am' ? '上午' : slot === 'pm' ? '下午' : '';
+
+  // 鍙抽敭鑿滃崟锛氱洿鎺ラ€夋嫨鏇跨彮浜?
+  let html=`<div style="padding:4px 12px;font-size:11px;color:#999">${slotLabel ? slotLabel + '槽位替班人：' : '选择替班人：'}</div>`;
+  for(const m of candidates){
+    const busy = busyToday.has(m.name);
+    html+=`<div class="ctx-staff-item"${busy?' style="opacity:.4"':''} onclick="ctxSetSub('${pid}',${day},'${m.name}'${slot ? `,'${slot}'` : ''})">
+      ${m.name}${busy?'（已排班）':''}
+    </div>`;
+  }
+  if(candidates.length===0){
+    html+=`<div style="padding:6px 16px;font-size:11px;color:#999">暂无可用替班人</div>`;
+  }
+  if(pos.default_person){
+    html+=`<div class="ctx-sep"></div>
+      <div class="ctx-item" onclick="ctxRestoreDefault('${pid}',${day}${slot ? `,'${slot}'` : ''})">
+        <span>↺</span><span>恢复默认人员（${pos.default_person}）</span></div>`;
+  }
+  if(pos.split_allowed){
+    html+=`<div class="ctx-sep"></div>
+      <div class="ctx-item split-action" onclick="toggleCellSplit('${pid}',${day})">
+        <span>▣</span><span>${status === 'split' ? '合并为单岗' : '拆分上午/下午'}</span></div>`;
+  }
+  menu.innerHTML=html;
+  menu.style.display='block';
+  menu.style.left=Math.min(e.clientX, window.innerWidth-160)+'px';
+  menu.style.top=Math.min(e.clientY, window.innerHeight-300)+'px';
+  G.userBusy = true;  // 鍙抽敭鑿滃崟鎵撳紑鏃舵殏鍋滆疆璇?
+}
+
+function onSplitSlotClick(e){
+  e.stopPropagation();
+  onCellClick(e);
+}
+
+function onSplitSlotRightClick(e){
+  e.stopPropagation();
+  onCellRightClick(e);
+}
+
+async function ctxRestoreDefault(pid, day, slot=''){
+  $('ctx-menu').style.display='none';
+  const pos = G.positions.find(p=>p.id===pid);
+  if(pos?.default_person){
+    if(isPersonOffOnDay(pos.default_person, day)){
+      toast((pos.default_person || '该人员') + ' 当天已休息，不能恢复到在班');
+      return;
+    }
+    if(slot){
+      await saveCellState(pid, day, 'on', pos.default_person, { slot, skipAutoHooks: true });
+    }else{
+      await saveCellState(pid, day, 'on', pos.default_person);
+    }
+    toast(`${pos.default_person} 已设为在班`);
+  } else {
+    if(slot){
+      await saveCellState(pid, day, 'pending', '', { slot, skipAutoHooks: true });
+    }else{
+      await saveCellState(pid, day, 'pending', '');
+    }
+    toast('无默认人员');
+  }
+}
+async function ctxSetSub(pid, day, person, slot=''){
+  $('ctx-menu').style.display='none';
+  if(slot){
+    await saveCellState(pid, day, 'substitute', person, { slot, skipAutoHooks: true });
+  }else{
+    await saveCellState(pid, day, 'substitute', person);
+  }
+  toast(`已安排替班 ${person}`);
+}
+
+async function toggleCellSplit(pid, day){
+  const pos = G.positions.find(p => p.id === pid);
+  if(!pos) return;
+  if(!pos.split_allowed){
+    toast('该岗位未开启双槽位', 2500);
+    return;
+  }
+
+  const cell = G.schedule?.[day]?.[pid] || null;
+  if(isSplitCell(cell)){
+    const am = getSplitSlotCell(cell, 'am');
+    const pm = getSplitSlotCell(cell, 'pm');
+    const keep = [am, pm].find(slotCell => slotCell.person && !isPersonOffOnDay(slotCell.person, day) && slotCell.status !== 'off') || null;
+    const keepStatus = keep ? (keep.status || (pos.default_person ? 'on' : 'pending')) : 'pending';
+    const keepPerson = keep ? keep.person : '';
+    await saveCellState(pid, day, keepStatus, keepPerson, { skipAutoHooks: true });
+    toast('已合并回单岗');
+    return;
+  }
+
+  const baseStatus = cell ? cell.status : (pos.default_person ? 'on' : 'pending');
+  const basePerson = cell ? cell.person : (pos.default_person || '');
+  const split = {
+    am: { status: baseStatus || 'pending', person: basePerson },
+    pm: { status: 'pending', person: '' },
+  };
+  await saveCellState(pid, day, 'split', basePerson, { split, skipAutoHooks: true });
+  toast('已拆分上午/下午');
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  淇濆瓨鏍煎瓙鐘舵€?
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+async function saveCellState(pos_id, day, status, person, options={}){
+  const opts = options || {};
+  const pos = G.positions.find(p=>p.id===pos_id);
+  const shouldSplit = status === 'split' || !!opts.split || !!opts.slot;
+  // 鏈湴鏇存柊
+  if(!G.schedule[day]) G.schedule[day]={};
+  if(shouldSplit){
+    const existing = G.schedule[day][pos_id] || {};
+    const currentSlots = isSplitCell(existing) ? (existing.slots || {}) : {};
+    const normalizeSlotCell = (data, fallbackStatus='pending', fallbackPerson='') => {
+      const raw = data && typeof data === 'object' ? data : {};
+      return {
+        status: String(raw.status || fallbackStatus || 'pending').trim() || 'pending',
+        person: String(raw.person || fallbackPerson || '').trim(),
+      };
+    };
+    const am = normalizeSlotCell(currentSlots.am || (opts.slot === 'am' ? {status, person} : {status: existing.status || 'pending', person: existing.person || ''}), existing.status || 'pending', existing.person || '');
+    const pm = normalizeSlotCell(currentSlots.pm || (opts.slot === 'pm' ? {status, person} : {status: 'pending', person: ''}), 'pending', '');
+    let slots = { am, pm };
+    if(opts.split && typeof opts.split === 'object'){
+      slots = {
+        am: normalizeSlotCell(opts.split.am || am, am.status, am.person),
+        pm: normalizeSlotCell(opts.split.pm || pm, pm.status, pm.person),
+      };
+    } else if(opts.slot === 'am' || opts.slot === 'pm'){
+      slots = { am, pm };
+      slots[opts.slot] = normalizeSlotCell({status, person}, slots[opts.slot].status, slots[opts.slot].person);
+    }
+    G.schedule[day][pos_id]={status:'split', person: slots.am.person || slots.pm.person || '', slots};
+  } else {
+    G.schedule[day][pos_id]={status, person};
+  }
+  // 閲嶇粯璇ユ牸瀛?
+  const cell = document.querySelector(`.cell[data-pid="${pos_id}"][data-day="${day}"]`);
+  if(cell){
+    const pos=G.positions.find(p=>p.id===pos_id);
+    const wd=getWeekday(G.year,G.month,day);
+    const today=new Date();
+    const isPast=(G.year<today.getFullYear())||(G.year===today.getFullYear()&&G.month<today.getMonth()+1)||(G.year===today.getFullYear()&&G.month===today.getMonth()+1&&day<today.getDate());
+    const newHtml=renderCell(pos, day, G.schedule[day][pos_id], isPast, wd===6, wd===0);
+    const wrapper=cell.parentElement;
+    wrapper.innerHTML=newHtml;
+    bindScheduleCellEvents(wrapper);
+  }
+  // 鍚庣鎸佷箙鍖?
+  let clearedPositions = [];
+  try{
+    const payload = { day, pos_id };
+    if((G.schedule[day][pos_id] || {}).status === 'split'){
+      const nextCell = G.schedule[day][pos_id];
+      if(opts.split && typeof opts.split === 'object'){
+        payload.split = nextCell.slots;
+      } else if(opts.slot){
+        payload.slot = opts.slot;
+        payload.status = status;
+        payload.person = person;
+      } else {
+        payload.split = nextCell.slots;
+      }
+    } else {
+      payload.status = status;
+      payload.person = person;
+    }
+    const saveRes = await api(`/api/schedule/${G.year}/${G.month}/day`, 'POST', payload);
+    clearedPositions = saveRes.cleared_positions || [];
+  }catch(e){
+    toast('淇濆瓨澶辫触: '+e.message, 3000);
+  }
+
+  // 鈹€鈹€ 鑷姩鏇跨彮/鎭㈠澶勭悊 鈹€鈹€
+  const skipAutoHooks = !!opts.skipAutoHooks || !!opts.slot || (G.schedule[day][pos_id] || {}).status === 'split';
+  if(person && !skipAutoHooks){
+    try{
+      // 鏃犺鏄惁灞炰簬灏忕粍锛屼釜浜哄矖浣嶄紤鎭兘瑕佸厛鏇跨彮
+      if(status === 'off'){
+        console.log('[saveCellState] 涓汉浼戞伅 鈫?鑷姩鏇跨彮:', person, 'pos=', pos_id);
+        await triggerAutoSubstituteForPos(pos_id, day);
+
+        // 绾ц仈鏇跨彮锛氬悗绔繑鍥炶娓呴櫎鐨勫矖浣嶏紙姝や汉浼戞伅鍚庝笉鑳藉啀鏇胯繖浜涘矖浣嶏級
+        if(clearedPositions.length > 0){
+          console.log('[saveCellState] 绾ц仈鏇跨彮锛堝悗绔€氱煡锛夛細', person, '琚竻闄ょ殑宀椾綅:', clearedPositions);
+          for(const pid of clearedPositions){
+            await triggerAutoSubstituteForPos(pid, day);
+          }
+        }
+
+        // 鍏滃簳锛氬墠绔啀妫€鏌ヤ竴娆″唴瀛樼姸鎬侊紙闃叉鍚庣鍜屽墠绔姸鎬佷笉涓€鑷达級
+        const dayData = G.schedule[day] || {};
+        const coveredPosIds = [];
+        for(const [pid, cell] of Object.entries(dayData)){
+          if(pid !== pos_id && cell && cell.status === 'substitute' && cell.person === person){
+            coveredPosIds.push(pid);
+          }
+        }
+        if(coveredPosIds.length > 0){
+          console.log('[saveCellState] ??????', person, 'status=', status, 'coveredPosIds=', coveredPosIds);
+          for(const pid of coveredPosIds){
+            await triggerAutoSubstituteForPos(pid, day);
+          }
+        }
+      }
+      
+      const group = getPersonGroup(person);
+      console.log('[saveCellState] ??????', person, 'status=', status, 'group=', group?.name || '?');
+      if(group){
+        if(status === 'off' && checkGroupFullyOff(group, day)){
+          console.log('[saveCellState] 灏忕粍鍏ㄤ紤 鈫?鑷姩鏇跨彮:', group.name);
+          await triggerAutoSubstituteForGroup(group, day);
+        } else if(status === 'on'){
+          console.log('[saveCellState] 鎭㈠涓婄彮 鈫?妫€鏌ュ皬缁勬仮澶?', group.name);
+          await triggerGroupRestore(group, day);
+        }
+      }
+    }catch(e){
+      console.error('[saveCellState] 鑷姩鏇跨彮/鎭㈠澶勭悊澶辫触:', e);
+    }
+  }
+  // 鏇存柊缁熻
+  const activeTab = document.querySelector('.side-tab.active')?.textContent;
+  if(activeTab==='单日') renderDayStat();
+  else if(activeTab==='周汇总') renderWeekStat();
+  else if(activeTab==='月汇总') renderMonthStat();
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  閲嶇疆鎺掔彮
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+async function resetSchedule(){
+  if(!confirm(`确定要重置 ${G.year}年 ${G.month}月 的所有排班吗？\n所有人将设为在班，无默认人员的岗位显示待定。`)) return;
+  
+  // 瀵嗙爜楠岃瘉
+  const pwd = prompt('请输入重置密码：');
+  if(pwd !== '11050'){
+    toast('密码错误，无法重置', 3000);
+    return;
+  }
+  
+  loading(true);
+  try{
+    const res = await api(`/api/schedule/${G.year}/${G.month}/reset`, 'POST', {password: pwd});
+    G.schedule = res.schedule;
+    renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+    toast('排班已重置');
+  }catch(e){
+    toast('重置失败: '+e.message, 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+// 鈹€鈹€鈹€ 澶囦唤鎺掔彮 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+async function backupSchedule(){
+  if(!confirm(`确定要备份 ${G.year}年 ${G.month}月 的排班数据吗？\n备份后可用于恢复。`)) return;
+  
+  loading(true);
+  try{
+    const res = await api(`/api/schedule/${G.year}/${G.month}/backup`, 'POST');
+    toast(`排班已备份（${res.backup_time}）`);
+  }catch(e){
+    toast('澶囦唤澶辫触: '+e.message, 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+// 鈹€鈹€鈹€ 鎭㈠澶囦唤 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+async function restoreBackup(){
+  if(!confirm(`确定要恢复 ${G.year}年 ${G.month}月 的备份数据吗？\n当前排班将被覆盖。`)) return;
+  
+  // 瀵嗙爜楠岃瘉
+  const pwd = prompt('请输入恢复密码：');
+  if(pwd !== '11050'){
+    toast('密码错误，无法恢复', 3000);
+    return;
+  }
+  
+  loading(true);
+  try{
+    const res = await api(`/api/schedule/${G.year}/${G.month}/restore`, 'POST', {password: pwd});
+    G.schedule = res.schedule;
+    renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+    toast(`排班已恢复（备份时间：${res.backup_time}）`);
+  }catch(e){
+    toast('恢复失败: '+e.message, 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+// 自动排班面板
+
+
+
+
+function getGroupActiveMembers(group, dayData){
+  const members = group.member_names || G.staff.filter(s => s.group_id === group.id).map(s => s.name);
+  return members.filter(name => {
+    for(const p of G.positions){
+      const c = dayData[p.id];
+      const st = c ? c.status : (p.default_person ? 'on' : 'pending');
+      const pr = c ? c.person : (p.default_person || '');
+      if(pr === name && (st === 'on' || st === 'substitute')){
+        return true;
+      }
+    }
+    return false;
+  });
+}
+function calcDayWorkload(day){
+  // 杩斿洖 {name: workload}
+  const result={};
+  const dayData = G.schedule[day] || {};
+  for(const pos of G.positions){
+    const cell = dayData[pos.id];
+    const isSplit = isSplitCell(cell);
+    const assignments = isSplit ? getPositionAssignments(dayData, pos) : [{
+      status: cell ? cell.status : (pos.default_person ? 'on' : 'pending'),
+      person: cell ? cell.person : (pos.default_person || ''),
+      workload: Number(pos.workload || 0) || 0,
+    }];
+    for(const assignment of assignments){
+      const status = assignment.status;
+      const person = assignment.person;
+      const workload = Number(assignment.workload || 0) || 0;
+      if((status==='on'||status==='substitute') && person){
+        if(isSplit){
+          result[person] = (result[person] || 0) + workload;
+          continue;
+        }
+        const group = G.groups.find(g => g.name === person);
+        if(group && status === 'on'){
+          // 灏忕粍榛樿浜轰笖鍦ㄥ矖锛氬伐浣滈噺鍧囨憡缁欏綋鏃ヤ笂鐝殑鎴愬憳
+          const activeMembers = getGroupActiveMembers(group, dayData);
+          if(activeMembers.length > 0){
+            const share = workload / activeMembers.length;
+            for(const m of activeMembers){
+              result[m] = (result[m] || 0) + share;
+            }
+          }
+        } else {
+          // 涓汉榛樿浜烘垨鏇跨彮浜猴細鐩存帴鍔犵粰涓汉
+          result[person] = (result[person] || 0) + workload;
+        }
+      }
+    }
+  }
+  return result;
+}
+
+function renderDayStat(){
+  const day = +($('day-sel-day')?.value||new Date().getDate());
+  const wl = calcDayWorkload(day);
+  const entries = Object.entries(wl).sort((a,b)=>b[1]-a[1]);
+  const maxWl = Math.max(...entries.map(e=>e[1]),1);
+  // 涔熸樉绀哄伐浣滈噺涓?鐨勪汉
+  for(const m of G.staff){
+    if(!(m.name in wl)) entries.push([m.name,0]);
+  }
+  entries.sort((a,b)=>b[1]-a[1]);
+  const colors=['#e53935','#f57c00','#fbc02d','#43a047','#1976d2','#7b1fa2'];
+  $('day-stat-list').innerHTML = entries.map(([name,val],i)=>`
+    <li class="stat-item">
+      <span class="stat-name">${name}</span>
+      <div class="stat-bar-wrap">
+        <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
+      </div>
+      <span class="stat-val">${val}</span>
+    </li>`).join('');
+}
+
+function renderWeekStat(){
+  const sel=$('week-sel');
+  if(!sel||!sel.value) return;
+  const [s,e]=sel.value.split('-').map(Number);
+  // totalWorkload: 鍛ㄦ€诲伐浣滈噺, workDays: 宸ヤ綔澶╂暟
+  const totalWorkload={};
+  const workDays={};
+  for(let d=s;d<=e;d++){
+    const wl=calcDayWorkload(d);
+    for(const [k,v] of Object.entries(wl)){
+      totalWorkload[k]=(totalWorkload[k]||0)+v;
+      workDays[k]=(workDays[k]||0)+1;
+    }
+  }
+  // 璁＄畻骞冲潎宸ヤ綔閲?= 鎬诲伐浣滈噺 / 宸ヤ綔澶╂暟
+  const avgWorkload={};
+  for(const name of new Set([...Object.keys(totalWorkload), ...G.staff.map(m=>m.name)])){
+    const total=totalWorkload[name]||0;
+    const days=workDays[name]||0;
+    avgWorkload[name]=days>0?(total/days):0;
+  }
+  const entries=Object.entries(avgWorkload).sort((a,b)=>b[1]-a[1]);
+  const maxWl=Math.max(...entries.map(e=>e[1]),1);
+  const colors=['#e53935','#f57c00','#fbc02d','#43a047','#1976d2','#7b1fa2'];
+  $('week-stat-list').innerHTML=entries.map(([name,val],i)=>`
+    <li class="stat-item">
+      <span class="stat-name">${name}</span>
+      <div class="stat-bar-wrap">
+        <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
+      </div>
+      <span class="stat-val">${val.toFixed(1)}</span>
+    </li>`).join('');
+}
+
+function renderMonthStat(){
+  const days=daysInMonth(G.year,G.month);
+  // totalWorkload: 鏈堟€诲伐浣滈噺, workDays: 宸ヤ綔澶╂暟
+  const totalWorkload={};
+  const workDays={};
+  for(let d=1;d<=days;d++){
+    const wl=calcDayWorkload(d);
+    for(const [k,v] of Object.entries(wl)){
+      totalWorkload[k]=(totalWorkload[k]||0)+v;
+      workDays[k]=(workDays[k]||0)+1;
+    }
+  }
+  // 璁＄畻骞冲潎宸ヤ綔閲?= 鎬诲伐浣滈噺 / 宸ヤ綔澶╂暟
+  const avgWorkload={};
+  for(const name of new Set([...Object.keys(totalWorkload), ...G.staff.map(m=>m.name)])){
+    const total=totalWorkload[name]||0;
+    const dayCount=workDays[name]||0;
+    avgWorkload[name]=dayCount>0?(total/dayCount):0;
+  }
+  const entries=Object.entries(avgWorkload).sort((a,b)=>b[1]-a[1]);
+  const maxWl=Math.max(...entries.map(e=>e[1]),1);
+  const colors=['#e53935','#f57c00','#fbc02d','#43a047','#1976d2','#7b1fa2'];
+  $('month-stat-list').innerHTML=entries.map(([name,val],i)=>`
+    <li class="stat-item">
+      <span class="stat-name">${name}</span>
+      <div class="stat-bar-wrap">
+        <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
+      </div>
+      <span class="stat-val">${val.toFixed(1)}</span>
+    </li>`).join('');
+}
+
+function switchSideTab(id, el){
+  document.querySelectorAll('.side-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.side-content').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  $('tab-'+id).classList.add('active');
+  if(id==='day') renderDayStat();
+  else if(id==='week') renderWeekStat();
+  else if(id==='month') renderMonthStat();
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  浜哄憳/宀椾綅绠＄悊
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+async function openMgr(){
+  G.userBusy = true;   // 寮圭獥寮€鍚椂鏆傚仠杞鍒锋柊锛岄伩鍏嶅共鎵扮敤鎴锋搷浣?
+  await loadAll();
+  renderStaffTable();
+  renderPosTable();
+  $('mgr-modal').style.display='flex';
+}
+function closeMgr(){
+  $('mgr-modal').style.display='none';
+  G.userBusy = false;  // 寮圭獥鍏抽棴鍚庢仮澶嶈疆璇?
+  // 鍏抽棴鍚庣珛鍒绘媺鍙栦竴娆★紝琛ヤ笂閿欒繃鐨勬洿鏂?
+  setTimeout(pollData, 500);
+}
+
+function switchMgrTab(tab, el){
+  document.querySelectorAll('.mgr-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  $('mgr-staff').style.display = tab==='staff'?'block':'none';
+  $('mgr-pos').style.display   = tab==='pos'  ?'block':'none';
+  $('mgr-group').style.display = tab==='group'?'block':'none';
+  if(tab==='group') renderGroupTable();
+}
+
+function renderStaffTable(){
+  $('staff-tbody').innerHTML = G.staff.map(m=>`
+    <tr>
+      <td>${m.name}</td>
+      <td style="text-align:center">${m.can_cpin?'<span class="tag tag-cpin">次品</span>':'—'}</td>
+      <td style="text-align:center">${m.can_jd?'<span class="tag tag-jd">京东</span>':'—'}</td>
+      <td style="text-align:center">${m.saturday_only?'<span class="tag tag-sat">仅周六</span>':'—'}</td>
+      <td style="text-align:center">${m.no_substitute?'<span class="tag" style="background:#ef9a9a;color:#b71c1c;border:1px solid #e57373">不替班</span>':'—'}</td>
+      <td>
+        <button class="action-btn edit" onclick="editStaff('${m.id}')">编辑</button>
+        <button class="action-btn del" onclick="delStaff('${m.id}','${m.name}')">删除</button>
+      </td>
+    </tr>`).join('');
+}
+
+function renderPosTable(){
+  $('pos-tbody').innerHTML = G.positions.map(p=>{
+    let cat='—';
+    if(p.category==='次品') cat='<span class="tag tag-cpin">次品</span>';
+    if(p.category==='京东') cat='<span class="tag tag-jd">京东</span>';
+    const splitTag = p.split_allowed ? '<span class="tag tag-split">双槽位</span>' : '';
+    return `<tr>
+      <td><b>${p.name}</b>${splitTag}</td>
+      <td style="text-align:center">${p.workload}</td>
+      <td>${p.default_person||'<span style="color:#999">-- 无默认人员 --</span>'}</td>
+      <td>${cat}</td>
+      <td>
+        <button class="action-btn edit" onclick="editPos('${p.id}')">编辑</button>
+        <button class="action-btn del" onclick="delPos('${p.id}','${p.name}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// 鈹€鈹€ 浜哄憳寮圭獥 鈹€鈹€
+function showAddStaff(){
+  G.editingStaffId=null;
+  $('staff-modal-title').textContent='新增人员';
+  $('staff-name').value='';
+  $('staff-cpin').checked=false;
+  $('staff-jd').checked=false;
+  $('staff-sat').checked=false;
+  $('staff-no-sub').checked=false;
+  $('staff-modal').style.display='flex';
+}
+function editStaff(id){
+  const m=G.staff.find(s=>s.id===id); if(!m) return;
+  G.editingStaffId=id;
+  $('staff-modal-title').textContent='编辑人员';
+  $('staff-name').value=m.name;
+  $('staff-cpin').checked=m.can_cpin||false;
+  $('staff-jd').checked=m.can_jd||false;
+  $('staff-sat').checked=m.saturday_only||false;
+  $('staff-no-sub').checked=m.no_substitute||false;
+  $('staff-modal').style.display='flex';
+}
+function closeStaffModal(){ $('staff-modal').style.display='none'; }
+async function saveStaff(){
+  const name=$('staff-name').value.trim();
+  if(!name){ toast('请输入姓名'); return; }
+  const body={
+    name,
+    can_cpin:$('staff-cpin').checked,
+    can_jd:$('staff-jd').checked,
+    saturday_only:$('staff-sat').checked,
+    no_substitute:$('staff-no-sub').checked
+  };
+  loading(true);
+  try{
+    if(G.editingStaffId){
+      await api('/api/staff/'+G.editingStaffId,'PUT',body);
+      toast('人员已更新');
+    } else {
+      await api('/api/staff','POST',body);
+      toast('人员已新增');
+    }
+    G.staff=await api('/api/staff');
+    renderStaffTable();
+    closeStaffModal();
+    renderTable();
+  }catch(e){ toast('保存失败: '+e.message,3000); }
+  finally{ loading(false); }
+}
+async function delStaff(id,name){
+  if(!confirm(`确定要删除人员“${name}”吗？`)) return;
+  loading(true);
+  try{
+    await api('/api/staff/'+id,'DELETE');
+    G.staff=await api('/api/staff');
+    renderStaffTable();
+    toast('已删除');
+  }catch(e){ toast('删除失败',3000); }
+  finally{ loading(false); }
+}
+
+// 鈹€鈹€ 宀椾綅寮圭獥 鈹€鈹€
+function showAddPos(){
+  G.editingPosId=null;
+  $('pos-modal-title').textContent='新增岗位';
+  $('pos-name').value='';
+  $('pos-wl').value='';
+  buildPosDefaultSel('');
+  $('pos-cat').value='';
+  $('pos-split').checked = false;
+  $('pos-modal').style.display='flex';
+}
+function editPos(id){
+  const p=G.positions.find(x=>x.id===id); if(!p) return;
+  G.editingPosId=id;
+  $('pos-modal-title').textContent='编辑岗位';
+  $('pos-name').value=p.name;
+  $('pos-wl').value=p.workload;
+  buildPosDefaultSel(p.default_person||'');
+  $('pos-cat').value=p.category||'';
+  $('pos-split').checked = !!p.split_allowed;
+  $('pos-modal').style.display='flex';
+}
+function buildPosDefaultSel(selected){
+  const sel=$('pos-default');
+  sel.innerHTML='<option value="">-- 无默认人员 --</option>';
+
+  // 鈹€鈹€ 浜哄憳鍒嗙粍 鈹€鈹€
+  const personGroup=document.createElement('optgroup');
+  personGroup.label='人员';
+  for(const m of G.staff){
+    const o=document.createElement('option');
+    o.value=m.name; o.textContent=m.name;
+    if(m.name===selected) o.selected=true;
+    personGroup.appendChild(o);
+  }
+  sel.appendChild(personGroup);
+
+  // 鈹€鈹€ 灏忕粍鍒嗙粍 鈹€鈹€
+  const groups=G.groups||[];
+  if(groups.length>0){
+    const groupOptGroup=document.createElement('optgroup');
+    groupOptGroup.label='小组';
+    for(const g of groups){
+      const o=document.createElement('option');
+      o.value=g.name; o.textContent=g.name;
+      if(g.name===selected) o.selected=true;
+      groupOptGroup.appendChild(o);
+    }
+    sel.appendChild(groupOptGroup);
+  }
+}
+function closePosModal(){ $('pos-modal').style.display='none'; }
+async function savePos(){
+  const name=$('pos-name').value.trim();
+  if(!name){ toast('请输入岗位名称'); return; }
+  const body={
+    name,
+    workload:+($('pos-wl').value)||0,
+    default_person:$('pos-default').value,
+    category:$('pos-cat').value,
+    split_allowed:$('pos-split').checked
+  };
+  loading(true);
+  try{
+    if(G.editingPosId){
+      await api('/api/positions/'+G.editingPosId,'PUT',body);
+      toast('岗位已更新');
+    } else {
+      await api('/api/positions','POST',body);
+      toast('岗位已新增');
+    }
+    G.positions=await api('/api/positions');
+    renderPosTable();
+    closePosModal();
+    renderTable();
+  }catch(e){ toast('保存失败: '+e.message,3000); }
+  finally{ loading(false); }
+}
+async function delPos(id,name){
+  if(!confirm(`确定要删除岗位“${name}”吗？`)) return;
+  loading(true);
+  try{
+    await api('/api/positions/'+id,'DELETE');
+    G.positions=await api('/api/positions');
+    renderPosTable();
+    renderTable();
+    toast('已删除');
+  }catch(e){ toast('删除失败',3000); }
+  finally{ loading(false); }
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+//  鍚姩
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
+
+// 鈹€鈹€ 杞锛氭瘡10绉掗潤榛樻媺鍙栨湇鍔″櫒鏁版嵁锛屾湁鍙樺寲鎵嶅埛鏂?鈹€鈹€
+async function pollData(){
+  if(G.userBusy) return;          // 鐢ㄦ埛姝ｅ湪鎿嶄綔锛岃烦杩囨湰娆?
+  try{
+    const [positions, staff, schedule] = await Promise.all([
+      api('/api/positions'),
+      api('/api/staff'),
+      api(`/api/schedule/${G.year}/${G.month}`),
+    ]);
+    // 璁＄畻鏁版嵁鎸囩汗锛屽唴瀹规病鍙樺氨涓嶉噸娓叉煋
+    const hash = JSON.stringify({positions, staff, schedule});
+    if(hash === G.lastPollHash) return;
+    G.lastPollHash = hash;
+    G.positions = positions;
+    G.staff = staff;
+    G.schedule = schedule;
+    renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+    // 濡傛灉绠＄悊寮圭獥鏄紑鐫€鐨勶紝涔熷埛鏂颁竴涓嬭〃鏍煎唴瀹?
+    if($('mgr-modal') && $('mgr-modal').style.display==='flex'){ renderStaffTable(); renderPosTable(); }
+    showPollIndicator();
+  }catch(e){
+    // 闈欓粯澶辫触锛屼笉鎵撴壈鐢ㄦ埛
+  }
+}
+
+// 鍙充笂瑙掑悓姝ユ寚绀哄櫒锛氱煭鏆傛樉绀哄悓姝ヤ腑锛屽畬鎴愬悗鍙樺洖宸插悓姝?
+function showPollIndicator(){
+  let el = $('poll-indicator');
+  if(!el) return;
+  el.textContent = '同步中...';
+  el.classList.add('flash');
+  setTimeout(()=>{
+    el.classList.remove('flash');
+    el.textContent = '✓ 已同步';
+  }, 600);
+}
+
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+//  灏忕粍绠＄悊
+// 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
+async function renderGroupTable(){
+  const groups = G.groups || [];
+  const staff = G.staff || [];
+  
+  $('group-tbody').innerHTML = groups.map(g => {
+    const members = g.member_names || [];
+    const membersStr = members.length > 0 ? members.join('、') : '<span style="color:#999">暂无成员</span>';
+
+    
+    return `<tr>
+      <td><b>${g.name}</b></td>
+      <td>${membersStr}</td>
+      <td>
+        <button class="action-btn edit" onclick="editGroup('${g.id}')">编辑</button>
+        <button class="action-btn del" onclick="delGroup('${g.id}','${g.name}')">删除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+function showAddGroup(){
+  G.editingGroupId = null;
+  $('group-modal-title').textContent = '新增小组';
+  $('group-name').value = '';
+  buildGroupMembersSel();
+  $('group-modal').style.display = 'flex';
+}
+
+async function editGroup(id){
+  const g = G.groups.find(x => x.id === id);
+  if(!g) return;
+  
+  G.editingGroupId = id;
+  $('group-modal-title').textContent = '编辑小组';
+  $('group-name').value = g.name;
+  buildGroupMembersSel(id);
+  $('group-modal').style.display = 'flex';
+}
+
+function buildGroupMembersSel(groupId){
+  const wrap = $('group-members-wrap');
+  const staff = G.staff || [];
+  
+  // 鎵惧嚭褰撳墠灏忕粍鎴愬憳锛堢紪杈戞ā寮忥級鎴栨墍鏈夋湭鍒嗙粍浜哄憳锛堟柊澧炴ā寮忥級
+  let selectedMembers = [];
+  if(groupId){
+    selectedMembers = staff.filter(s => s.group_id === groupId).map(s => s.id);
+  }
+  
+  wrap.innerHTML = staff.map(m => {
+    const isSelected = selectedMembers.includes(m.id);
+    const isInOtherGroup = m.group_id && m.group_id !== groupId;
+    
+    return `<div style="padding:4px 0;display:flex;align-items:center;gap:6px">
+      <input type="checkbox" id="member-${m.id}" value="${m.id}" 
+        ${isSelected ? 'checked' : ''} 
+        ${isInOtherGroup ? 'disabled' : ''}
+        style="cursor:pointer">
+      <label for="member-${m.id}" style="font-size:12px;cursor:pointer">
+        ${m.name}
+        ${isInOtherGroup ? '<span style="color:#999;font-size:11px">（已在其他小组）</span>' : ''}
+      </label>
+    </div>`;
+  }).join('');
+}
+
+function closeGroupModal(){
+  $('group-modal').style.display = 'none';
+}
+
+async function saveGroup(){
+  const name = $('group-name').value.trim();
+  if(!name){ toast('请输入小组名称'); return; }
+  
+  // 鏀堕泦閫変腑鐨勬垚鍛?
+  const selectedMemberIds = [];
+  $('group-members-wrap').querySelectorAll('input[type=checkbox]:checked').forEach(cb => {
+    selectedMemberIds.push(cb.value);
+  });
+  
+  loading(true);
+  try{
+    if(G.editingGroupId){
+      // 缂栬緫妯″紡锛氭洿鏂板皬缁勪俊鎭?
+      await api('/api/groups/' + G.editingGroupId, 'PUT', { name });
+      
+      // 鏇存柊鎴愬憳鍏宠仈
+      await updateGroupMembers(G.editingGroupId, selectedMemberIds);
+      
+      toast('小组已更新');
+    } else {
+      // 鏂板妯″紡锛氬垱寤哄皬缁?
+      const res = await api('/api/groups', 'POST', { name });
+      
+      // 鏇存柊鎴愬憳鍏宠仈
+      if(res.success && res.group_id){
+        await updateGroupMembers(res.group_id, selectedMemberIds);
+      }
+      
+      toast('小组已新增');
+    }
+    
+    // 閲嶆柊鍔犺浇鏁版嵁
+    G.groups = await api('/api/groups');
+    G.staff = await api('/api/staff');
+    renderGroupTable();
+    closeGroupModal();
+  }catch(e){
+    toast('保存失败: ' + e.message, 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+async function updateGroupMembers(groupId, memberIds){
+  // 鍏堟竻闄よ灏忕粍鎵€鏈夋垚鍛樼殑group_id
+  const allStaff = G.staff || [];
+  for(const m of allStaff){
+    if(m.group_id === groupId){
+      await api('/api/staff/' + m.id, 'PUT', { ...m, group_id: null });
+    }
+  }
+  
+  // 璁剧疆鏂伴€変腑鐨勬垚鍛?
+  for(const memberId of memberIds){
+    const m = allStaff.find(s => s.id === memberId);
+    if(m){
+      await api('/api/staff/' + memberId, 'PUT', { ...m, group_id: groupId });
+    }
+  }
+}
+
+async function delGroup(id, name){
+  if(!confirm(`确定要删除小组“${name}”吗？\n删除后成员将变为未分组状态。`)) return;
+  
+  loading(true);
+  try{
+    await api('/api/groups/' + id, 'DELETE');
+    G.groups = await api('/api/groups');
+    G.staff = await api('/api/staff');
+    renderGroupTable();
+    toast('已删除');
+  }catch(e){
+    toast('删除失败', 3000);
+  }finally{
+    loading(false);
+  }
+}
+
+function startPolling(){
+  if(G.polling) clearInterval(G.polling);
+  G.polling = setInterval(pollData, 10000);  // 10绉掕疆璇?
+}
+
+init();
+</script>
+</body>
+</html>
+

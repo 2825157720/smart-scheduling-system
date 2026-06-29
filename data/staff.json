@@ -1,0 +1,101 @@
+[
+  {
+    "id": "s1",
+    "name": "赵创",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g5"
+  },
+  {
+    "id": "s2",
+    "name": "爱萍",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g5"
+  },
+  {
+    "id": "s3",
+    "name": "玉兰",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g6"
+  },
+  {
+    "id": "s4",
+    "name": "志才",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g6"
+  },
+  {
+    "id": "s6",
+    "name": "春华",
+    "can_cpin": false,
+    "can_jd": false,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": ""
+  },
+  {
+    "id": "s12",
+    "name": "龙泽",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g3"
+  },
+  {
+    "id": "s1776077802530",
+    "name": "岐峰",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g4"
+  },
+  {
+    "id": "s1776077814726",
+    "name": "徐昊",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g2"
+  },
+  {
+    "id": "s1776077830084",
+    "name": "林灏",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g3"
+  },
+  {
+    "id": "s1776077858957",
+    "name": "曼诗",
+    "can_cpin": false,
+    "can_jd": false,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g2"
+  },
+  {
+    "id": "s1776077872466",
+    "name": "丽彬",
+    "can_cpin": true,
+    "can_jd": true,
+    "saturday_only": false,
+    "no_substitute": false,
+    "group_id": "g4"
+  }
+]

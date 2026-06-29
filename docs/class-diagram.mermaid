@@ -1,0 +1,66 @@
+classDiagram
+    class Group {
+        +string id
+        +string name
+        +list members: [staff_id, ...]
+    }
+    
+    class Staff {
+        +string id
+        +string name
+        +string group_id
+        +bool no_substitute
+        +string color
+    }
+    
+    class Position {
+        +string id
+        +string name
+        +string default_person
+        +float workload
+        +int count
+    }
+    
+    class Schedule {
+        +dict schedule: {day: {pos_id: cell}}
+    }
+    
+    class Cell {
+        +string status: "on"|"off"|"substitute"|"pending"
+        +string person
+    }
+    
+    class GroupAPI {
+        +get_groups() list
+        +create_group(data) dict
+        +update_group(gid, data) dict
+        +delete_group(gid) dict
+    }
+    
+    class StaffAPI {
+        +get_staff() list
+        +create_staff(data) dict
+        +update_staff(sid, data) dict
+        +delete_staff(sid) dict
+    }
+    
+    class WorkloadService {
+        +day_workload(name, day_data, pos_map) float
+        +calcDayWorkload(day) dict
+    }
+    
+    class SubstituteService {
+        +can_cover(name, day, schedule) bool
+        +is_group_fully_off(group_name, day_data) bool
+        +get_group_active_members(group_name, day_data) list
+    }
+    
+    Group "1" -- "*" Staff : members
+    Staff "*" -- "0..1" Group : group_id
+    Position --> Group : default_person can be group name
+    Position --> Staff : default_person can be staff name
+    Schedule --> Cell : day_data
+    GroupAPI --> Group : CRUD
+    StaffAPI --> Staff : CRUD
+    WorkloadService --> Group : uses
+    SubstituteService --> Group : uses

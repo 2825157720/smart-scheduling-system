@@ -1,0 +1,24 @@
+sequenceDiagram
+    participant UI as 前端 UI
+    participant API as GroupAPI
+    participant Data as groups.json
+    
+    UI->>API: GET /api/groups
+    API->>Data: load_json(GROUP_FILE)
+    Data-->>API: groups list
+    API-->>UI: return groups
+    
+    UI->>API: POST /api/groups {name, members}
+    API->>Data: load_json + append + save_json
+    Data-->>API: success
+    API-->>UI: return new group
+    
+    UI->>API: PUT /api/groups/:gid {name, members}
+    API->>Data: load_json + update + save_json
+    Data-->>API: success
+    API-->>UI: return updated group
+    
+    UI->>API: DELETE /api/groups/:gid
+    API->>Data: load_json + filter + save_json
+    Data-->>API: success
+    API-->>UI: return success
