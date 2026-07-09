@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 
+import db_json_store
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 from schedule_core import (
@@ -90,7 +91,7 @@ def _ensure_dirs():
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def load_json(path, default):
+def _load_json_file(path, default):
     try:
         if Path(path).exists():
             with open(path, "r", encoding="utf-8") as f:
@@ -100,9 +101,24 @@ def load_json(path, default):
     return copy.deepcopy(default)
 
 
+def load_json(path, default):
+    db_data = db_json_store.load_document(path, DATA_DIR)
+    if db_data is not None:
+        return db_data
+    return _load_json_file(path, default)
+
+
 def save_json(path, data):
+    if db_json_store.save_document(path, data, DATA_DIR):
+        return
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
+
+
+def json_exists(path):
+    if db_json_store.is_enabled():
+        return db_json_store.load_document(path, DATA_DIR) is not None
+    return Path(path).exists()
 
 
 def _today_date():
@@ -111,6 +127,14 @@ def _today_date():
 
 def _init_data():
     _ensure_dirs()
+    if db_json_store.is_enabled():
+        db_json_store.ensure_document(STAFF_FILE, DEFAULT_STAFF, DATA_DIR, _load_json_file)
+        db_json_store.ensure_document(POSITION_FILE, DEFAULT_POSITIONS, DATA_DIR, _load_json_file)
+        db_json_store.ensure_document(GROUPS_FILE, DEFAULT_GROUPS, DATA_DIR, _load_json_file)
+        db_json_store.ensure_document(SCHEDULE_FILE, {}, DATA_DIR, _load_json_file)
+        db_json_store.ensure_document(HIDDEN_DAYS_FILE, {}, DATA_DIR, _load_json_file)
+        db_json_store.ensure_document(MEMO_FILE, {}, DATA_DIR, _load_json_file)
+        return
     if not STAFF_FILE.exists():
         save_json(STAFF_FILE, DEFAULT_STAFF)
     if not POSITION_FILE.exists():
@@ -869,7 +893,7 @@ def restore_month_schedule(year, month):
     if password != "11050":
         return jsonify({"success": False, "msg": "密码错误"}), 403
     backup_file = BACKUP_DIR / f"schedule_{year}-{month:02d}.json"
-    if not backup_file.exists():
+    if not json_exists(backup_file):
         return jsonify({"success": False, "msg": "未找到备份文件，请先备份"}), 404
     backup_data = load_json(backup_file, {})
     schedule = backup_data.get("schedule", {})
