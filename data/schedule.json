@@ -716,8 +716,8 @@
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "爱萍"
       },
       "p18": {
         "status": "on",
@@ -807,96 +807,120 @@
         "徐昊"
       ],
       "p1": {
-        "status": "on",
-        "person": "赵创"
+        "status": "split",
+        "person": "赵创",
+        "slots": {
+          "am": {
+            "status": "on",
+            "person": "赵创",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "龙泽",
+            "workload": 5.0
+          }
+        }
       },
       "p2": {
-        "status": "on",
-        "person": "爱萍"
+        "status": "split",
+        "person": "爱萍",
+        "slots": {
+          "am": {
+            "status": "on",
+            "person": "爱萍",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "春华",
+            "workload": 5.0
+          }
+        }
       },
-      "p16": {
-        "status": "on",
-        "person": "款色组"
+      "p14": {
+        "status": "substitute",
+        "person": "爱萍"
       },
       "p4": {
         "status": "on",
         "person": "玉兰"
       },
       "p6": {
+        "status": "on",
+        "person": "志才"
+      },
+      "p16": {
         "status": "split",
         "person": "志才",
         "slots": {
           "am": {
-            "status": "on",
+            "status": "substitute",
             "person": "志才",
-            "workload": 4.0
+            "workload": 6.0
           },
           "pm": {
             "status": "substitute",
-            "person": "春华",
-            "workload": 4.0
+            "person": "林灏",
+            "workload": 6.0
           }
         }
-      },
-      "p3": {
-        "status": "on",
-        "person": "鞋包组"
       },
       "p8": {
-        "status": "split",
-        "person": "玉兰",
-        "slots": {
-          "am": {
-            "status": "substitute",
-            "person": "玉兰",
-            "workload": 5.0
-          },
-          "pm": {
-            "status": "substitute",
-            "person": "岐峰",
-            "workload": 5.0
-          }
-        }
+        "status": "substitute",
+        "person": "岐峰"
       },
       "p12": {
         "status": "on",
         "person": "曼诗"
       },
-      "p11": {
-        "status": "on",
-        "person": "特价组"
-      },
-      "p10": {
-        "status": "on",
-        "person": "龙泽"
+      "p7": {
+        "status": "substitute",
+        "person": "曼诗"
       },
       "p9": {
         "status": "on",
         "person": "林灏"
       },
-      "p14": {
+      "p10": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "龙泽"
       },
-      "p13": {
-        "status": "on",
-        "person": "丽彬"
+      "p11": {
+        "status": "substitute",
+        "person": "玉兰"
       },
       "p5": {
         "status": "on",
         "person": "岐峰"
       },
-      "p7": {
+      "p13": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "丽彬"
+      },
+      "p3": {
+        "status": "substitute",
+        "person": "赵创"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "substitute",
-        "person": "志才"
+        "status": "split",
+        "person": "丽彬",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "丽彬",
+            "workload": 4.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "爱萍",
+            "workload": 4.0
+          }
+        }
       },
       "p18": {
         "status": "on",
@@ -909,7 +933,8 @@
       "p20": {
         "status": "on",
         "person": "丽彬"
-      }
+      },
+      "_scatter_groups": true
     },
     "29": {
       "p1": {
@@ -1078,6 +1103,149 @@
         "status": "on",
         "person": "丽彬"
       }
+    },
+    "5": {
+      "p1": {
+        "status": "on",
+        "person": "赵创"
+      },
+      "p2": {
+        "status": "on",
+        "person": "爱萍"
+      },
+      "p14": {
+        "status": "split",
+        "person": "爱萍",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "爱萍",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "丽彬",
+            "workload": 5.0
+          }
+        }
+      },
+      "p4": {
+        "status": "on",
+        "person": "玉兰"
+      },
+      "p6": {
+        "status": "on",
+        "person": "志才"
+      },
+      "p16": {
+        "status": "split",
+        "person": "志才",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "志才",
+            "workload": 6.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "赵创",
+            "workload": 6.0
+          }
+        }
+      },
+      "p8": {
+        "status": "on",
+        "person": "徐昊"
+      },
+      "p12": {
+        "status": "on",
+        "person": "曼诗"
+      },
+      "p7": {
+        "status": "split",
+        "person": "徐昊",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "徐昊",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "林灏",
+            "workload": 5.0
+          }
+        }
+      },
+      "p9": {
+        "status": "on",
+        "person": "林灏"
+      },
+      "p10": {
+        "status": "on",
+        "person": "龙泽"
+      },
+      "p11": {
+        "status": "split",
+        "person": "岐峰",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "岐峰",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "龙泽",
+            "workload": 5.0
+          }
+        }
+      },
+      "p5": {
+        "status": "on",
+        "person": "岐峰"
+      },
+      "p13": {
+        "status": "on",
+        "person": "丽彬"
+      },
+      "p3": {
+        "status": "split",
+        "person": "曼诗",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "曼诗",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "春华",
+            "workload": 5.0
+          }
+        }
+      },
+      "p15": {
+        "status": "on",
+        "person": "春华"
+      },
+      "p17": {
+        "status": "substitute",
+        "person": "玉兰"
+      },
+      "p18": {
+        "status": "on",
+        "person": "龙泽"
+      },
+      "p19": {
+        "status": "on",
+        "person": "林灏"
+      },
+      "p20": {
+        "status": "on",
+        "person": "丽彬"
+      },
+      "_scatter_groups": true
     }
   },
   "2026-07": {
@@ -1147,21 +1315,22 @@
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "志才"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "2": {
       "p1": {
@@ -1229,332 +1398,337 @@
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "林灏"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "3": {
-      "p1": {
-        "status": "on",
-        "person": "赵创"
-      },
-      "p2": {
-        "status": "on",
-        "person": "爱萍"
-      },
-      "p14": {
-        "status": "on",
-        "person": "款色组"
-      },
-      "p4": {
-        "status": "on",
-        "person": "玉兰"
-      },
-      "p6": {
-        "status": "on",
-        "person": "志才"
-      },
-      "p16": {
-        "status": "on",
-        "person": "鞋包组"
-      },
-      "p8": {
-        "status": "on",
-        "person": "徐昊"
-      },
-      "p12": {
-        "status": "on",
-        "person": "曼诗"
-      },
-      "p7": {
-        "status": "on",
-        "person": "特价组"
-      },
-      "p9": {
-        "status": "on",
-        "person": "林灏"
-      },
-      "p10": {
-        "status": "on",
-        "person": "龙泽"
-      },
-      "p11": {
-        "status": "on",
-        "person": "大分类组1"
-      },
-      "p5": {
-        "status": "on",
-        "person": "岐峰"
-      },
-      "p13": {
-        "status": "on",
-        "person": "丽彬"
-      },
-      "p3": {
-        "status": "on",
-        "person": "大分类组2"
-      },
-      "p15": {
-        "status": "on",
-        "person": "春华"
-      },
-      "p17": {
-        "status": "pending",
-        "person": ""
-      },
-      "p18": {
-        "status": "on",
-        "person": "龙泽"
-      },
-      "p19": {
-        "status": "on",
-        "person": "林灏"
-      },
-      "p20": {
-        "status": "on",
-        "person": "丽彬"
-      }
-    },
-    "4": {
-      "p1": {
-        "status": "on",
-        "person": "赵创"
-      },
-      "p2": {
-        "status": "on",
-        "person": "爱萍"
-      },
-      "p14": {
-        "status": "on",
-        "person": "款色组"
-      },
-      "p4": {
-        "status": "on",
-        "person": "玉兰"
-      },
-      "p6": {
-        "status": "on",
-        "person": "志才"
-      },
-      "p16": {
-        "status": "on",
-        "person": "鞋包组"
-      },
-      "p8": {
-        "status": "on",
-        "person": "徐昊"
-      },
-      "p12": {
-        "status": "on",
-        "person": "曼诗"
-      },
-      "p7": {
-        "status": "on",
-        "person": "特价组"
-      },
-      "p9": {
-        "status": "on",
-        "person": "林灏"
-      },
-      "p10": {
-        "status": "on",
-        "person": "龙泽"
-      },
-      "p11": {
-        "status": "on",
-        "person": "大分类组1"
-      },
-      "p5": {
-        "status": "on",
-        "person": "岐峰"
-      },
-      "p13": {
-        "status": "on",
-        "person": "丽彬"
-      },
-      "p3": {
-        "status": "on",
-        "person": "大分类组2"
-      },
-      "p15": {
-        "status": "on",
-        "person": "春华"
-      },
-      "p17": {
-        "status": "pending",
-        "person": ""
-      },
-      "p18": {
-        "status": "on",
-        "person": "龙泽"
-      },
-      "p19": {
-        "status": "on",
-        "person": "林灏"
-      },
-      "p20": {
-        "status": "on",
-        "person": "丽彬"
-      }
-    },
-    "5": {
       "_off_persons": [
-        "志才",
-        "爱萍",
-        "玉兰",
+        "丽彬",
+        "徐昊",
+        "春华",
+        "曼诗",
+        "林灏",
         "赵创"
       ],
       "p1": {
-        "status": "split",
-        "person": "春华",
-        "slots": {
-          "am": {
-            "status": "substitute",
-            "person": "春华",
-            "workload": 5.0
-          },
-          "pm": {
-            "status": "substitute",
-            "person": "丽彬",
-            "workload": 5.0
-          }
-        }
+        "status": "substitute",
+        "person": "玉兰"
       },
       "p2": {
-        "status": "split",
-        "person": "岐峰",
-        "slots": {
-          "am": {
-            "status": "substitute",
-            "person": "岐峰",
-            "workload": 5.0
-          },
-          "pm": {
-            "status": "substitute",
-            "person": "林灏",
-            "workload": 5.0
-          }
-        }
+        "status": "on",
+        "person": "爱萍"
       },
       "p14": {
-        "status": "substitute",
-        "person": "徐昊"
-      },
-      "p4": {
-        "status": "split",
-        "person": "徐昊",
-        "slots": {
-          "am": {
-            "status": "substitute",
-            "person": "徐昊",
-            "workload": 5.0
-          },
-          "pm": {
-            "status": "substitute",
-            "person": "春华",
-            "workload": 5.0
-          }
-        }
-      },
-      "p6": {
-        "status": "substitute",
-        "person": "曼诗"
-      },
-      "p16": {
-        "status": "substitute",
-        "person": "龙泽"
-      },
-      "p8": {
-        "status": "on",
-        "person": "徐昊"
-      },
-      "p12": {
-        "status": "on",
-        "person": "曼诗"
-      },
-      "p7": {
-        "status": "on",
-        "person": "特价组"
-      },
-      "p9": {
-        "status": "on",
-        "person": "林灏"
-      },
-      "p10": {
-        "status": "on",
-        "person": "龙泽"
-      },
-      "p11": {
-        "status": "on",
-        "person": "大分类组1"
-      },
-      "p5": {
-        "status": "on",
-        "person": "岐峰"
-      },
-      "p13": {
-        "status": "on",
-        "person": "丽彬"
-      },
-      "p3": {
-        "status": "on",
-        "person": "大分类组2"
-      },
-      "p15": {
-        "status": "on",
-        "person": "春华"
-      },
-      "p17": {
         "status": "split",
         "person": "龙泽",
         "slots": {
           "am": {
             "status": "substitute",
             "person": "龙泽",
-            "workload": 4.0
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "爱萍",
+            "workload": 5.0
+          }
+        }
+      },
+      "p4": {
+        "status": "on",
+        "person": "玉兰"
+      },
+      "p6": {
+        "status": "on",
+        "person": "志才"
+      },
+      "p16": {
+        "status": "substitute",
+        "person": "志才"
+      },
+      "p8": {
+        "status": "substitute",
+        "person": "岐峰"
+      },
+      "p12": {
+        "status": "substitute",
+        "person": "爱萍"
+      },
+      "p7": {
+        "status": "substitute",
+        "person": "玉兰"
+      },
+      "p9": {
+        "status": "substitute",
+        "person": "龙泽"
+      },
+      "p10": {
+        "status": "on",
+        "person": "龙泽"
+      },
+      "p11": {
+        "status": "substitute",
+        "person": "岐峰"
+      },
+      "p5": {
+        "status": "on",
+        "person": "岐峰"
+      },
+      "p13": {
+        "status": "substitute",
+        "person": "爱萍"
+      },
+      "p3": {
+        "status": "substitute",
+        "person": "志才"
+      },
+      "p15": {
+        "status": "split",
+        "person": "玉兰",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "玉兰",
+            "workload": 7.0
           },
           "pm": {
             "status": "substitute",
             "person": "岐峰",
-            "workload": 4.0
+            "workload": 7.0
           }
         }
       },
+      "p17": {
+        "status": "substitute",
+        "person": "龙泽"
+      },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_scatter_groups": true
     },
-    "6": {
+    "4": {
       "_off_persons": [
+        "丽彬",
+        "岐峰",
+        "徐昊",
         "志才",
+        "春华",
+        "曼诗",
         "林灏",
+        "爱萍",
+        "玉兰",
         "赵创",
         "龙泽"
       ],
       "p1": {
+        "status": "pending",
+        "person": ""
+      },
+      "p2": {
+        "status": "pending",
+        "person": ""
+      },
+      "p14": {
+        "status": "pending",
+        "person": ""
+      },
+      "p4": {
+        "status": "pending",
+        "person": ""
+      },
+      "p6": {
+        "status": "pending",
+        "person": ""
+      },
+      "p16": {
+        "status": "pending",
+        "person": ""
+      },
+      "p8": {
+        "status": "pending",
+        "person": ""
+      },
+      "p12": {
+        "status": "pending",
+        "person": ""
+      },
+      "p7": {
+        "status": "pending",
+        "person": ""
+      },
+      "p9": {
+        "status": "pending",
+        "person": ""
+      },
+      "p10": {
+        "status": "pending",
+        "person": ""
+      },
+      "p11": {
+        "status": "pending",
+        "person": ""
+      },
+      "p5": {
+        "status": "pending",
+        "person": ""
+      },
+      "p13": {
+        "status": "pending",
+        "person": ""
+      },
+      "p3": {
+        "status": "pending",
+        "person": ""
+      },
+      "p15": {
+        "status": "pending",
+        "person": ""
+      },
+      "p17": {
+        "status": "pending",
+        "person": ""
+      },
+      "p18": {
+        "status": "pending",
+        "person": ""
+      },
+      "p19": {
+        "status": "pending",
+        "person": ""
+      },
+      "p20": {
+        "status": "pending",
+        "person": ""
+      },
+      "_scatter_groups": true
+    },
+    "5": {
+      "_off_persons": [
+        "爱萍",
+        "玉兰"
+      ],
+      "p1": {
+        "status": "on",
+        "person": "赵创"
+      },
+      "p2": {
+        "status": "split",
+        "person": "丽彬",
+        "slots": {
+          "am": {
+            "status": "substitute",
+            "person": "丽彬",
+            "workload": 5.0
+          },
+          "pm": {
+            "status": "substitute",
+            "person": "春华",
+            "workload": 5.0
+          }
+        }
+      },
+      "p14": {
         "status": "substitute",
+        "person": "赵创"
+      },
+      "p4": {
+        "status": "substitute",
+        "person": "徐昊"
+      },
+      "p6": {
+        "status": "on",
+        "person": "志才"
+      },
+      "p16": {
+        "status": "substitute",
+        "person": "林灏"
+      },
+      "p8": {
+        "status": "on",
+        "person": "徐昊"
+      },
+      "p12": {
+        "status": "on",
+        "person": "曼诗"
+      },
+      "p7": {
+        "status": "substitute",
+        "person": "曼诗"
+      },
+      "p9": {
+        "status": "on",
+        "person": "林灏"
+      },
+      "p10": {
+        "status": "on",
+        "person": "龙泽"
+      },
+      "p11": {
+        "status": "substitute",
+        "person": "龙泽"
+      },
+      "p5": {
+        "status": "on",
+        "person": "岐峰"
+      },
+      "p13": {
+        "status": "on",
+        "person": "丽彬"
+      },
+      "p3": {
+        "status": "substitute",
+        "person": "岐峰"
+      },
+      "p15": {
+        "status": "on",
         "person": "春华"
+      },
+      "p17": {
+        "status": "substitute",
+        "person": "志才"
+      },
+      "p18": {
+        "status": "on",
+        "person": "志才"
+      },
+      "p19": {
+        "status": "on",
+        "person": "岐峰"
+      },
+      "p20": {
+        "status": "substitute",
+        "person": "丽彬"
+      },
+      "_scatter_groups": true
+    },
+    "6": {
+      "p1": {
+        "status": "on",
+        "person": "赵创"
       },
       "p2": {
         "status": "on",
@@ -1562,19 +1736,19 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
         "person": "玉兰"
       },
       "p6": {
-        "status": "substitute",
-        "person": "岐峰"
+        "status": "on",
+        "person": "志才"
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -1586,33 +1760,23 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
-        "status": "substitute",
-        "person": "徐昊"
+        "status": "on",
+        "person": "林灏"
       },
       "p10": {
-        "status": "substitute",
-        "person": "曼诗"
+        "status": "on",
+        "person": "龙泽"
       },
       "p11": {
-        "status": "substitute",
-        "person": "丽彬"
+        "status": "on",
+        "person": "款色组"
       },
       "p5": {
-        "status": "split",
-        "person": "春华",
-        "slots": {
-          "am": {
-            "status": "substitute",
-            "person": "春华"
-          },
-          "pm": {
-            "status": "substitute",
-            "person": "爱萍"
-          }
-        }
+        "status": "on",
+        "person": "岐峰"
       },
       "p13": {
         "status": "on",
@@ -1620,7 +1784,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -1628,20 +1792,21 @@
       },
       "p17": {
         "status": "substitute",
-        "person": "丽彬"
+        "person": "林灏"
       },
       "p18": {
-        "status": "substitute",
-        "person": "爱萍"
+        "status": "on",
+        "person": "志才"
       },
       "p19": {
-        "status": "substitute",
-        "person": "爱萍"
+        "status": "on",
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "7": {
       "p1": {
@@ -1654,7 +1819,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -1666,7 +1831,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -1678,7 +1843,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -1690,7 +1855,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -1702,28 +1867,29 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "赵创"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "8": {
       "p1": {
@@ -1736,7 +1902,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -1748,7 +1914,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -1760,7 +1926,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -1772,7 +1938,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -1784,28 +1950,29 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "岐峰"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "9": {
       "p1": {
@@ -1818,7 +1985,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -1830,7 +1997,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -1842,7 +2009,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -1854,7 +2021,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -1866,28 +2033,29 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "龙泽"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "10": {
       "p1": {
@@ -1899,20 +2067,20 @@
         "person": "爱萍"
       },
       "p14": {
-        "status": "on",
-        "person": "款色组"
+        "status": "substitute",
+        "person": "玉兰"
       },
       "p4": {
         "status": "on",
         "person": "玉兰"
       },
       "p6": {
-        "status": "on",
-        "person": "志才"
+        "status": "substitute",
+        "person": "曼诗"
       },
       "p16": {
-        "status": "on",
-        "person": "鞋包组"
+        "status": "substitute",
+        "person": "龙泽"
       },
       "p8": {
         "status": "on",
@@ -1923,8 +2091,8 @@
         "person": "曼诗"
       },
       "p7": {
-        "status": "on",
-        "person": "特价组"
+        "status": "substitute",
+        "person": "林灏"
       },
       "p9": {
         "status": "on",
@@ -1935,41 +2103,42 @@
         "person": "龙泽"
       },
       "p11": {
-        "status": "on",
-        "person": "大分类组1"
+        "status": "substitute",
+        "person": "赵创"
       },
       "p5": {
-        "status": "on",
-        "person": "岐峰"
+        "status": "substitute",
+        "person": "丽彬"
       },
       "p13": {
         "status": "on",
         "person": "丽彬"
       },
       "p3": {
-        "status": "on",
-        "person": "大分类组2"
+        "status": "substitute",
+        "person": "徐昊"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "爱萍"
       },
       "p18": {
-        "status": "on",
-        "person": "龙泽"
+        "status": "substitute",
+        "person": "爱萍"
       },
       "p19": {
-        "status": "on",
-        "person": "林灏"
+        "status": "substitute",
+        "person": "徐昊"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "11": {
       "p1": {
@@ -1981,8 +2150,8 @@
         "person": "爱萍"
       },
       "p14": {
-        "status": "on",
-        "person": "款色组"
+        "status": "substitute",
+        "person": "志才"
       },
       "p4": {
         "status": "on",
@@ -1993,20 +2162,20 @@
         "person": "志才"
       },
       "p16": {
-        "status": "on",
-        "person": "鞋包组"
+        "status": "substitute",
+        "person": "丽彬"
       },
       "p8": {
-        "status": "on",
-        "person": "徐昊"
+        "status": "substitute",
+        "person": "林灏"
       },
       "p12": {
-        "status": "on",
-        "person": "曼诗"
+        "status": "substitute",
+        "person": "赵创"
       },
       "p7": {
-        "status": "on",
-        "person": "特价组"
+        "status": "substitute",
+        "person": "龙泽"
       },
       "p9": {
         "status": "on",
@@ -2017,8 +2186,8 @@
         "person": "龙泽"
       },
       "p11": {
-        "status": "on",
-        "person": "大分类组1"
+        "status": "substitute",
+        "person": "爱萍"
       },
       "p5": {
         "status": "on",
@@ -2029,29 +2198,30 @@
         "person": "丽彬"
       },
       "p3": {
-        "status": "on",
-        "person": "大分类组2"
+        "status": "substitute",
+        "person": "岐峰"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "玉兰"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "12": {
       "p1": {
@@ -2063,20 +2233,20 @@
         "person": "爱萍"
       },
       "p14": {
-        "status": "on",
-        "person": "款色组"
+        "status": "substitute",
+        "person": "志才"
       },
       "p4": {
-        "status": "on",
-        "person": "玉兰"
+        "status": "substitute",
+        "person": "爱萍"
       },
       "p6": {
         "status": "on",
         "person": "志才"
       },
       "p16": {
-        "status": "on",
-        "person": "鞋包组"
+        "status": "substitute",
+        "person": "丽彬"
       },
       "p8": {
         "status": "on",
@@ -2087,8 +2257,8 @@
         "person": "曼诗"
       },
       "p7": {
-        "status": "on",
-        "person": "特价组"
+        "status": "substitute",
+        "person": "林灏"
       },
       "p9": {
         "status": "on",
@@ -2099,8 +2269,8 @@
         "person": "龙泽"
       },
       "p11": {
-        "status": "on",
-        "person": "大分类组1"
+        "status": "substitute",
+        "person": "赵创"
       },
       "p5": {
         "status": "on",
@@ -2111,29 +2281,30 @@
         "person": "丽彬"
       },
       "p3": {
-        "status": "on",
-        "person": "大分类组2"
+        "status": "substitute",
+        "person": "曼诗"
       },
       "p15": {
         "status": "on",
         "person": "春华"
       },
       "p17": {
-        "status": "pending",
-        "person": ""
+        "status": "substitute",
+        "person": "徐昊"
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
-      }
+        "person": "爱萍"
+      },
+      "_off_persons": []
     },
     "13": {
       "p1": {
@@ -2146,7 +2317,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2158,7 +2329,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2170,7 +2341,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2182,7 +2353,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2194,7 +2365,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2206,15 +2377,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "14": {
@@ -2228,7 +2399,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2240,7 +2411,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2252,7 +2423,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2264,7 +2435,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2276,7 +2447,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2288,15 +2459,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "15": {
@@ -2310,7 +2481,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2322,7 +2493,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2334,7 +2505,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2346,7 +2517,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2358,7 +2529,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2370,15 +2541,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "16": {
@@ -2392,7 +2563,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2404,7 +2575,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2416,7 +2587,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2428,7 +2599,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2440,7 +2611,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2452,15 +2623,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "17": {
@@ -2474,7 +2645,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2486,7 +2657,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2498,7 +2669,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2510,7 +2681,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2522,7 +2693,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2534,15 +2705,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "18": {
@@ -2556,7 +2727,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2568,7 +2739,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2580,7 +2751,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2592,7 +2763,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2604,7 +2775,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2616,15 +2787,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "19": {
@@ -2638,7 +2809,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2650,7 +2821,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2662,7 +2833,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2674,7 +2845,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2686,7 +2857,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2698,15 +2869,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "20": {
@@ -2720,7 +2891,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2732,7 +2903,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2744,7 +2915,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2756,7 +2927,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2768,7 +2939,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2780,15 +2951,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "21": {
@@ -2802,7 +2973,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2814,7 +2985,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2826,7 +2997,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2838,7 +3009,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2850,7 +3021,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2862,15 +3033,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "22": {
@@ -2884,7 +3055,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2896,7 +3067,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2908,7 +3079,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -2920,7 +3091,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -2932,7 +3103,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -2944,15 +3115,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "23": {
@@ -2966,7 +3137,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -2978,7 +3149,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -2990,7 +3161,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3002,7 +3173,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3014,7 +3185,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3026,15 +3197,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "24": {
@@ -3048,7 +3219,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3060,7 +3231,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3072,7 +3243,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3084,7 +3255,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3096,7 +3267,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3108,15 +3279,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "25": {
@@ -3130,7 +3301,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3142,7 +3313,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3154,7 +3325,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3166,7 +3337,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3178,7 +3349,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3190,15 +3361,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "26": {
@@ -3212,7 +3383,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3224,7 +3395,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3236,7 +3407,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3248,7 +3419,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3260,7 +3431,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3272,15 +3443,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "27": {
@@ -3294,7 +3465,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3306,7 +3477,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3318,7 +3489,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3330,7 +3501,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3342,7 +3513,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3354,15 +3525,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "28": {
@@ -3376,7 +3547,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3388,7 +3559,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3400,7 +3571,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3412,7 +3583,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3424,7 +3595,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3436,15 +3607,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "29": {
@@ -3458,7 +3629,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3470,7 +3641,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3482,7 +3653,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3494,7 +3665,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3506,7 +3677,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3518,15 +3689,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "30": {
@@ -3540,7 +3711,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3552,7 +3723,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3564,7 +3735,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3576,7 +3747,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3588,7 +3759,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3600,15 +3771,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     },
     "31": {
@@ -3622,7 +3793,7 @@
       },
       "p14": {
         "status": "on",
-        "person": "款色组"
+        "person": "鞋包组"
       },
       "p4": {
         "status": "on",
@@ -3634,7 +3805,7 @@
       },
       "p16": {
         "status": "on",
-        "person": "鞋包组"
+        "person": "大分类组2"
       },
       "p8": {
         "status": "on",
@@ -3646,7 +3817,7 @@
       },
       "p7": {
         "status": "on",
-        "person": "特价组"
+        "person": "大分类组1"
       },
       "p9": {
         "status": "on",
@@ -3658,7 +3829,7 @@
       },
       "p11": {
         "status": "on",
-        "person": "大分类组1"
+        "person": "款色组"
       },
       "p5": {
         "status": "on",
@@ -3670,7 +3841,7 @@
       },
       "p3": {
         "status": "on",
-        "person": "大分类组2"
+        "person": "特价组"
       },
       "p15": {
         "status": "on",
@@ -3682,15 +3853,15 @@
       },
       "p18": {
         "status": "on",
-        "person": "龙泽"
+        "person": "志才"
       },
       "p19": {
         "status": "on",
-        "person": "林灏"
+        "person": "岐峰"
       },
       "p20": {
         "status": "on",
-        "person": "丽彬"
+        "person": "爱萍"
       }
     }
   }

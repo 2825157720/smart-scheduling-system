@@ -105,6 +105,10 @@ def save_json(path, data):
         json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _today_date():
+    return dt.date.today()
+
+
 def _init_data():
     _ensure_dirs()
     if not STAFF_FILE.exists():
@@ -150,6 +154,39 @@ def _hidden_days():
 
 def _memo_data():
     return load_json(MEMO_FILE, {})
+
+
+def _memo_updated_at(item):
+    text = str((item or {}).get("updated_at", "") or "").strip()
+    if not text:
+        return dt.datetime.min
+    for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S"):
+        try:
+            return dt.datetime.strptime(text, fmt)
+        except ValueError:
+            continue
+    return dt.datetime.min
+
+
+def _primary_memo_entry(memo):
+    latest_item = None
+    latest_score = None
+    for index, (key, item) in enumerate((memo or {}).items()):
+        if not isinstance(item, dict):
+            continue
+        content = str(item.get("content", "") or "").strip()
+        if not content:
+            continue
+        score = (_memo_updated_at(item), 1 if key == "global" else 0, index)
+        if latest_score is None or score > latest_score:
+            latest_score = score
+            latest_item = item
+    if latest_item is None:
+        return {"content": "", "updated_at": ""}
+    return {
+        "content": str(latest_item.get("content", "") or ""),
+        "updated_at": str(latest_item.get("updated_at", "") or ""),
+    }
 
 
 def _staff_group_name_map():
@@ -250,6 +287,75 @@ def _collect_day_off_persons(day_data):
     return off_names
 
 
+def _sync_position_default_person_forward(pos_id, old_default_person, new_default_person):
+    old_default_person = str(old_default_person or "").strip()
+    new_default_person = str(new_default_person or "").strip()
+    if old_default_person == new_default_person:
+        return []
+
+    today = _today_date()
+    schedules = copy.deepcopy(_schedule())
+    synced_days = []
+
+    for month_key, month_data in schedules.items():
+        if not isinstance(month_data, dict):
+            continue
+        try:
+            year_str, month_str = str(month_key).split("-", 1)
+            year = int(year_str)
+            month = int(month_str)
+        except Exception:
+            continue
+        _, days_in_month = calendar.monthrange(year, month)
+
+        for day in range(1, days_in_month + 1):
+            current_date = dt.date(year, month, day)
+            if current_date < today:
+                continue
+
+            day_data = month_data.get(str(day))
+            if not isinstance(day_data, dict):
+                continue
+
+            cell = day_data.get(pos_id)
+            if not isinstance(cell, dict):
+                continue
+
+            if cell.get("status") == "split" and isinstance(cell.get("slots"), dict):
+                slots = copy.deepcopy(cell.get("slots") or {})
+                changed = False
+                for slot_name in ("am", "pm"):
+                    slot_cell = slots.get(slot_name)
+                    if not isinstance(slot_cell, dict):
+                        continue
+                    if str(slot_cell.get("person", "") or "").strip() != old_default_person:
+                        continue
+                    updated_slot = dict(slot_cell)
+                    updated_slot["person"] = new_default_person
+                    slots[slot_name] = updated_slot
+                    changed = True
+                if changed:
+                    updated_cell = dict(cell)
+                    updated_cell["slots"] = slots
+                    updated_cell["person"] = slots.get("am", {}).get("person") or slots.get("pm", {}).get("person", "")
+                    day_data[pos_id] = updated_cell
+                    synced_days.append(f"{year}-{month:02d}-{day}")
+                continue
+
+            if str(cell.get("person", "") or "").strip() != old_default_person:
+                continue
+
+            updated_cell = dict(cell)
+            updated_cell["person"] = new_default_person
+            day_data[pos_id] = updated_cell
+            synced_days.append(f"{year}-{month:02d}-{day}")
+
+    if synced_days:
+        save_json(SCHEDULE_FILE, schedules)
+
+    return synced_days
+
+
 def _enrich_groups(groups, staff):
     out = []
     for g in groups:
@@ -309,20 +415,23 @@ def _save_hidden_days(year: int, month: int, days):
 
 
 def _save_memo(year: int, month: int, content: str):
-    memo = _memo_data()
-    key = _month_key(year, month)
-    memo[key] = {
-        "content": content or "",
-        "updated_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+    memo = {
+        "global": {
+            "content": content or "",
+            "updated_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        }
     }
     save_json(MEMO_FILE, memo)
-    return memo[key]
+    return memo["global"]
 
 
 def _get_memo(year: int, month: int):
     memo = _memo_data()
-    key = _month_key(year, month)
-    return memo.get(key, {"content": "", "updated_at": ""})
+    primary = _primary_memo_entry(memo)
+    normalized = {"global": primary}
+    if memo != normalized:
+        save_json(MEMO_FILE, normalized)
+    return primary
 
 
 def _get_server_ip():
@@ -536,21 +645,25 @@ def update_position(pid):
     payload = request.json or {}
     positions = _positions()
     found = False
+    synced_days = []
     for pos in positions:
         if pos.get("id") == pid:
+            old_default_person = str(pos.get("default_person", "") or "").strip()
+            new_default_person = str(payload.get("default_person", pos.get("default_person", "")) or "").strip()
             pos.update({
                 "name": str(payload.get("name", pos.get("name", ""))).strip(),
                 "workload": int(payload.get("workload", pos.get("workload", 0)) or 0),
-                "default_person": str(payload.get("default_person", pos.get("default_person", "")) or ""),
+                "default_person": str(payload.get("default_person", pos.get("default_person", "")) or "").strip(),
                 "category": str(payload.get("category", pos.get("category", "")) or ""),
                 "split_allowed": bool(payload.get("split_allowed", pos.get("split_allowed", False))),
             })
+            synced_days = _sync_position_default_person_forward(pid, old_default_person, new_default_person)
             found = True
             break
     if not found:
         return jsonify({"success": False, "msg": "岗位不存在"}), 404
     save_json(POSITION_FILE, positions)
-    return jsonify({"success": True})
+    return jsonify({"success": True, "synced_days": synced_days})
 
 
 @app.route("/api/positions/<pid>", methods=["DELETE"])
@@ -696,6 +809,7 @@ def plan_day_schedule_api(year, month):
     selected_off_persons = _resolve_off_persons(payload, staff)
     saved_off_persons = _collect_day_off_persons(existing_day)
     use_saved_off_persons = bool(payload.get("use_saved_off_persons", False))
+    scatter_groups = bool(payload.get("scatter_groups", False))
     has_off_person_fields = "off_person_ids" in payload or "off_persons" in payload
     if use_saved_off_persons or (not has_off_person_fields and saved_off_persons):
         off_persons = saved_off_persons
@@ -709,6 +823,7 @@ def plan_day_schedule_api(year, month):
         month=month,
         day=day,
         off_persons=off_persons,
+        scatter_groups=scatter_groups,
     )
 
     month_data[str(day)] = result["day_data"]

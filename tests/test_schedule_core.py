@@ -1,4 +1,5 @@
 import datetime as dt
+from collections import Counter
 import unittest
 
 from schedule_core import (
@@ -326,6 +327,175 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertEqual(loads, [0.0, 2.0, 2.0, 3.0])
         self.assertEqual(result["assigned"], 3)
         self.assertEqual(result["failed"], 0)
+
+    def test_plan_day_schedule_does_not_split_when_default_person_is_already_on_duty(self):
+        positions = [
+            {"id": "p1", "name": "Heavy", "workload": 8, "default_person": "Alice", "category": "", "split_allowed": True},
+            {"id": "p2", "name": "Light", "workload": 1, "default_person": "Bob", "category": "", "split_allowed": False},
+            {"id": "p3", "name": "Light2", "workload": 1, "default_person": "Carol", "category": "", "split_allowed": False},
+        ]
+        staff = [
+            {"id": "s1", "name": "Alice", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Bob", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s3", "name": "Carol", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=6,
+            day=24,
+            off_persons=[],
+            scatter_groups=True,
+        )
+
+        self.assertEqual(result["day_data"]["p1"], {"status": "on", "person": "Alice"})
+
+    def test_plan_day_schedule_scatter_groups_prefers_lighter_non_group_member_over_heavier_group_member(self):
+        positions = [
+            {"id": "p_other", "name": "Other load", "workload": 2, "default_person": "Dana", "category": ""},
+            {"id": "p_group", "name": "Group task", "workload": 6, "default_person": "Alpha", "category": ""},
+        ]
+        staff = [
+            {"id": "s1", "name": "Zoe", "group_id": "g1", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Amy", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            self.groups,
+            year=2026,
+            month=6,
+            day=24,
+            off_persons=[],
+            scatter_groups=True,
+        )
+
+        day_data = result["day_data"]
+        pos_map = {p["id"]: p for p in positions}
+
+        self.assertTrue(day_data["_scatter_groups"])
+        self.assertEqual(day_data["p_other"], {"status": "on", "person": "Dana"})
+        self.assertEqual(day_data["p_group"]["person"], "Zoe")
+        self.assertEqual(day_data["p_group"]["status"], "substitute")
+        self.assertEqual(person_day_workload("Zoe", day_data, pos_map, staff, self.groups), 6.0)
+        self.assertEqual(person_day_workload("Amy", day_data, pos_map, staff, self.groups), 0.0)
+
+    def test_plan_day_schedule_scatter_groups_falls_back_to_non_group_member_when_group_member_is_off(self):
+        positions = [
+            {"id": "p_other", "name": "Other load", "workload": 2, "default_person": "Dana", "category": ""},
+            {"id": "p_group", "name": "Group task", "workload": 6, "default_person": "Alpha", "category": ""},
+        ]
+        staff = [
+            {"id": "s1", "name": "Zoe", "group_id": "g1", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Amy", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            self.groups,
+            year=2026,
+            month=6,
+            day=24,
+            off_persons=["Zoe"],
+            scatter_groups=True,
+        )
+
+        self.assertTrue(result["day_data"]["_scatter_groups"])
+        self.assertEqual(result["day_data"]["p_other"], {"status": "on", "person": "Dana"})
+        self.assertEqual(result["day_data"]["p_group"]["person"], "Amy")
+
+    def test_person_day_workload_ignores_scatter_group_placeholders(self):
+        positions = [
+            {"id": "p_group", "name": "Group task", "workload": 6, "default_person": "Alpha", "category": ""},
+            {"id": "p_alice", "name": "Alice load", "workload": 4, "default_person": "Alice", "category": ""},
+            {"id": "p_bob", "name": "Bob load", "workload": 4, "default_person": "Bob", "category": ""},
+        ]
+        staff = [
+            {"id": "s1", "name": "Alice", "group_id": "g1", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Bob", "group_id": "g1", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+        day_data = {
+            "_scatter_groups": True,
+            "p_group": {"status": "on", "person": "Alpha"},
+            "p_alice": {"status": "on", "person": "Alice"},
+            "p_bob": {"status": "on", "person": "Bob"},
+        }
+        pos_map = {p["id"]: p for p in positions}
+
+        self.assertEqual(person_day_workload("Alice", day_data, pos_map, staff, self.groups), 4.0)
+        self.assertEqual(person_day_workload("Bob", day_data, pos_map, staff, self.groups), 4.0)
+
+    def test_plan_day_schedule_allows_same_person_to_cover_multiple_full_positions(self):
+        positions = [
+            {"id": "p1", "name": "Slot 1", "workload": 4, "default_person": "", "category": "", "split_allowed": False},
+            {"id": "p2", "name": "Slot 2", "workload": 4, "default_person": "", "category": "", "split_allowed": False},
+            {"id": "p3", "name": "Slot 3", "workload": 4, "default_person": "", "category": "", "split_allowed": False},
+        ]
+        staff = [
+            {"id": "s1", "name": "Bob", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Alice", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": True},
+        ]
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=6,
+            day=24,
+            off_persons=[],
+        )
+
+        self.assertEqual(result["day_data"]["p1"], {"status": "substitute", "person": "Bob"})
+        self.assertEqual(result["day_data"]["p2"], {"status": "substitute", "person": "Bob"})
+        self.assertEqual(result["day_data"]["p3"], {"status": "substitute", "person": "Bob"})
+
+    def test_plan_day_schedule_limits_each_person_to_one_split_slot(self):
+        positions = [
+            {"id": "p1", "name": "Slot 1", "workload": 4, "default_person": "", "category": "", "split_allowed": True},
+            {"id": "p2", "name": "Slot 2", "workload": 10, "default_person": "", "category": "", "split_allowed": True},
+            {"id": "p3", "name": "Slot 3", "workload": 10, "default_person": "", "category": "", "split_allowed": True},
+        ]
+        staff = [
+            {"id": "s1", "name": "Alice", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Bob", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s3", "name": "Carol", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s4", "name": "Dave", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=6,
+            day=24,
+            off_persons=[],
+            scatter_groups=True,
+        )
+
+        split_counts = Counter()
+        full_counts = Counter()
+        for pos in positions:
+            cell = result["day_data"][pos["id"]]
+            if cell["status"] == "split":
+                for slot in ("am", "pm"):
+                    person = cell["slots"][slot]["person"]
+                    if person:
+                        split_counts[person] += 1
+            elif cell["person"]:
+                full_counts[cell["person"]] += 1
+
+        self.assertLessEqual(split_counts["Alice"], 1)
+        self.assertEqual(full_counts["Alice"], 1)
+        self.assertEqual(result["failed"], 0)
+
+
 
 
 if __name__ == "__main__":

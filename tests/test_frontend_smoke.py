@@ -30,6 +30,7 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("day-plan-modal", self.text)
         self.assertIn("day-plan-day", self.text)
         self.assertIn("day-plan-off-list", self.text)
+        self.assertIn("day-plan-scatter", self.text)
         self.assertIn("openDayPlanModal", self.text)
         self.assertIn("runDayPlan", self.text)
         self.assertIn("\u53f3\u952e\u81ea\u5b9a\u4e49\u66ff\u73ed", self.text)
@@ -45,6 +46,14 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("off_person_ids", self.text)
         self.assertIn("use_saved_off_persons", self.text)
         self.assertIn("dayPlanDirty", self.text)
+        self.assertIn("scatter_groups", self.text)
+
+    def test_day_plan_scatter_defaults_to_weekend(self):
+        block = self._block("function isDayPlanScatterDefault(day){", "function updateMemoMeta(text){")
+        self.assertIn("getDay()", block)
+        self.assertIn("wd === 5", block)
+        self.assertIn("wd === 6", block)
+        self.assertIn("wd === 0", block)
 
     def test_position_modal_supports_split_toggle(self):
         self.assertIn("pos-split", self.text)

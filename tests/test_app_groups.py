@@ -1,3 +1,4 @@
+import datetime as dt
 import unittest
 from unittest.mock import patch
 
@@ -95,6 +96,83 @@ class AppGroupRouteTests(unittest.TestCase):
         self.assertTrue(payload["success"])
         saved_positions = save_json.call_args.args[1]
         self.assertTrue(saved_positions[0]["split_allowed"])
+
+    def test_update_position_syncs_future_schedule_but_keeps_history(self):
+        positions = [
+            {"id": "p14", "name": "专员15", "workload": 8, "default_person": "大分类组1", "category": "", "split_allowed": False},
+        ]
+        schedule = {
+            "2026-06": {
+                "24": {"_off_persons": [], "p14": {"status": "on", "person": "大分类组1"}},
+                "25": {"_off_persons": [], "p14": {"status": "on", "person": "大分类组1"}},
+                "26": {"_off_persons": [], "p14": {"status": "substitute", "person": "大分类组1"}},
+                "27": {"_off_persons": [], "p14": {"status": "on", "person": "别人"}},
+            },
+            "2026-07": {
+                "1": {"_off_persons": [], "p14": {"status": "on", "person": "大分类组1"}},
+            },
+        }
+
+        with patch.object(app_module, "_positions", return_value=positions):
+            with patch.object(app_module, "_schedule", return_value=schedule):
+                with patch.object(app_module, "_today_date", return_value=dt.date(2026, 6, 25)):
+                    with patch.object(app_module, "save_json") as save_json:
+                        with app_module.app.test_request_context(
+                            "/api/positions/p14",
+                            method="PUT",
+                            json={
+                                "name": "专员15",
+                                "workload": 8,
+                                "default_person": "款色组",
+                                "category": "",
+                                "split_allowed": False,
+                            },
+                        ):
+                            response = app_module.update_position("p14")
+
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        saved_schedule = next(args[1] for args in (call.args for call in save_json.call_args_list) if args[0] == app_module.SCHEDULE_FILE)
+        self.assertEqual(saved_schedule["2026-06"]["24"]["p14"]["person"], "大分类组1")
+        self.assertEqual(saved_schedule["2026-06"]["25"]["p14"]["person"], "款色组")
+        self.assertEqual(saved_schedule["2026-06"]["26"]["p14"]["person"], "款色组")
+        self.assertEqual(saved_schedule["2026-06"]["27"]["p14"]["person"], "别人")
+        self.assertEqual(saved_schedule["2026-07"]["1"]["p14"]["person"], "款色组")
+
+    def test_get_memo_normalizes_latest_entry_to_global_main_memo(self):
+        memo = {
+            "2026-06": {
+                "content": "中方次品按下列排序安排（每日）：玉兰-徐昊-爱萍-志才-林灏-岐峰-赵创-龙泽-丽彬\n",
+                "updated_at": "2026-06-29 13:48",
+            },
+            "global": {
+                "content": "京东北顺序：\n京东中顺序：\n京东南顺序：",
+                "updated_at": "2026-06-25 18:20",
+            },
+        }
+
+        with patch.object(app_module, "_memo_data", return_value=memo):
+            with patch.object(app_module, "save_json") as save_json:
+                payload = app_module._get_memo(2026, 7)
+
+        self.assertEqual(payload["content"], memo["2026-06"]["content"])
+        self.assertEqual(payload["updated_at"], memo["2026-06"]["updated_at"])
+        self.assertEqual(save_json.call_count, 1)
+        self.assertEqual(save_json.call_args.args[0], app_module.MEMO_FILE)
+        self.assertEqual(
+            save_json.call_args.args[1],
+            {"global": {"content": memo["2026-06"]["content"], "updated_at": "2026-06-29 13:48"}},
+        )
+
+    def test_save_memo_writes_global_only(self):
+        with patch.object(app_module, "save_json") as save_json:
+            result = app_module._save_memo(2026, 7, "固定主备忘录")
+
+        saved = save_json.call_args.args[1]
+        self.assertEqual(list(saved.keys()), ["global"])
+        self.assertEqual(saved["global"]["content"], "固定主备忘录")
+        self.assertTrue(saved["global"]["updated_at"])
+        self.assertEqual(result, saved["global"])
 
     def test_save_day_schedule_can_store_split_slots(self):
         positions = [
@@ -210,6 +288,43 @@ class AppGroupRouteTests(unittest.TestCase):
         self.assertNotEqual(payload["day_data"]["p1"]["person"], "Alice")
         saved_schedule = save_month_schedule.call_args.args[2]
         self.assertEqual(saved_schedule["28"]["_off_persons"], ["Alice"])
+
+    def test_plan_day_schedule_api_passes_scatter_groups_flag(self):
+        positions = [
+            {"id": "p1", "name": "Task A", "workload": 6, "default_person": "Alpha", "category": ""},
+        ]
+        staff = [
+            {"id": "s1", "name": "Amy", "group_id": "g1", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+        month_data = {
+            "28": {
+                "_off_persons": [],
+                "p1": {"status": "pending", "person": ""},
+            }
+        }
+
+        with patch.object(app_module, "_positions", return_value=positions):
+            with patch.object(app_module, "_staff", return_value=staff):
+                with patch.object(app_module, "_groups", return_value=[{"id": "g1", "name": "Alpha"}]):
+                    with patch.object(app_module, "_current_month_data", return_value=month_data):
+                        with patch.object(app_module, "_save_month_schedule") as save_month_schedule:
+                            with patch.object(app_module, "core_plan_day_schedule", return_value={"day_data": {"_scatter_groups": True, "p1": {"status": "substitute", "person": "Amy"}}, "assigned": 1, "failed": 0}) as plan_day_schedule:
+                                with app_module.app.test_request_context(
+                                    "/api/schedule/2026/6/plan-day",
+                                    method="POST",
+                                    json={
+                                        "day": 28,
+                                        "off_person_ids": [],
+                                        "scatter_groups": True,
+                                    },
+                                ):
+                                    response = app_module.plan_day_schedule_api(2026, 6)
+
+        payload = response.get_json()
+        self.assertTrue(payload["success"])
+        self.assertTrue(plan_day_schedule.call_args.kwargs["scatter_groups"])
+        saved_schedule = save_month_schedule.call_args.args[2]
+        self.assertTrue(saved_schedule["28"]["_scatter_groups"])
 
     def test_cascade_off_clears_split_on_slot_and_substitute_slot(self):
         positions = [

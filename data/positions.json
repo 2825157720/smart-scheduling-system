@@ -16,8 +16,8 @@
     "split_allowed": true
   },
   {
-    "id": "p14",
-    "name": "专员15",
+    "id": "p11",
+    "name": "专员12",
     "workload": 10,
     "default_person": "款色组",
     "category": "",
@@ -40,11 +40,11 @@
     "split_allowed": true
   },
   {
-    "id": "p16",
-    "name": "次品北",
-    "workload": 12,
+    "id": "p14",
+    "name": "专员15",
+    "workload": 10,
     "default_person": "鞋包组",
-    "category": "次品",
+    "category": "",
     "split_allowed": true
   },
   {
@@ -64,8 +64,8 @@
     "split_allowed": true
   },
   {
-    "id": "p7",
-    "name": "专员8",
+    "id": "p3",
+    "name": "专员4",
     "workload": 10,
     "default_person": "特价组",
     "category": "",
@@ -88,8 +88,8 @@
     "split_allowed": true
   },
   {
-    "id": "p11",
-    "name": "专员12",
+    "id": "p7",
+    "name": "专员8",
     "workload": 10,
     "default_person": "大分类组1",
     "category": "",
@@ -112,17 +112,17 @@
     "split_allowed": true
   },
   {
-    "id": "p3",
-    "name": "专员4",
-    "workload": 10,
+    "id": "p16",
+    "name": "次品北",
+    "workload": 12,
     "default_person": "大分类组2",
-    "category": "",
+    "category": "次品",
     "split_allowed": true
   },
   {
     "id": "p15",
     "name": "专员16",
-    "workload": 14,
+    "workload": 12,
     "default_person": "春华",
     "category": "",
     "split_allowed": true
@@ -139,21 +139,24 @@
     "id": "p18",
     "name": "京东北",
     "workload": 2,
-    "default_person": "龙泽",
-    "category": "京东"
+    "default_person": "志才",
+    "category": "京东",
+    "split_allowed": false
   },
   {
     "id": "p19",
     "name": "京东中",
     "workload": 2,
-    "default_person": "林灏",
-    "category": "京东"
+    "default_person": "岐峰",
+    "category": "京东",
+    "split_allowed": false
   },
   {
     "id": "p20",
     "name": "京东南",
     "workload": 2,
-    "default_person": "丽彬",
-    "category": "京东"
+    "default_person": "爱萍",
+    "category": "京东",
+    "split_allowed": false
   }
 ]

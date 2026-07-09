@@ -496,11 +496,17 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
 
     <span class="modal-close" onclick="closeDayPlanModal()">×</span>
     <h2>当天排班</h2>
-    <div id="day-plan-note">先选日期，再勾选当天需要休息的人员，提交后会按当天工作量重新排班。</div>
+    <div id="day-plan-note">先选日期，再勾选当天需要休息的人员，提交后会按当天工作量重新排班。周五/周六/周日默认开启散排，可手动修改。</div>
 
     <div class="form-row" style="margin-top:12px">
       <label>排班日期</label>
-      <select id="day-plan-day" onchange="renderDayPlanOffList()"></select>
+      <select id="day-plan-day" onchange="handleDayPlanDayChange()"></select>
+    </div>
+
+    <div class="form-row">
+      <label>是否散排</label>
+      <input type="checkbox" id="day-plan-scatter" title="周五/周六/周日默认开启散排，可手动修改" onchange="toggleDayPlanScatter()">
+      <span style="font-size:11px;color:#006064">周五/周六/周日默认开启，可手动修改</span>
     </div>
 
     <div class="form-row" style="align-items:flex-start">
@@ -698,6 +704,7 @@ let G = {
   memoEditing: false,
   memoDirty: false,
   dayPlanDay: null,
+  dayPlanScatterGroups: false,
   dayPlanDirty: false,
   // 杞鐩稿叧
   polling: null,        // setInterval 鍙ユ焺
@@ -734,6 +741,11 @@ function isWeekStart(year, month, day){
 }
 function daysInMonth(year, month){
   return new Date(year, month, 0).getDate();
+}
+
+function isDayPlanScatterDefault(day){
+  const wd = new Date(G.year, G.month - 1, day).getDay();
+  return wd === 5 || wd === 6 || wd === 0;
 }
 
 function updateMemoMeta(text){
@@ -953,6 +965,7 @@ function buildDayPlanDaySel(){
     sel.appendChild(o);
   }
   G.dayPlanDay = selectedDay;
+  G.dayPlanScatterGroups = isDayPlanScatterDefault(selectedDay);
   renderDayPlanOffList();
 }
 
@@ -1013,6 +1026,7 @@ function renderDayPlanOffList(){
   const sel = $('day-plan-day');
   const wrap = $('day-plan-off-list');
   const meta = $('day-plan-meta');
+  const scatter = $('day-plan-scatter');
   if(!sel || !wrap || !meta) return;
   const days = daysInMonth(G.year, G.month);
   let day = Number(sel.value || G.dayPlanDay || 1);
@@ -1022,6 +1036,12 @@ function renderDayPlanOffList(){
   sel.value = String(day);
   G.dayPlanDay = day;
   G.dayPlanDirty = false;
+  if(typeof G.dayPlanScatterGroups !== 'boolean'){
+    G.dayPlanScatterGroups = isDayPlanScatterDefault(day);
+  }
+  if(scatter){
+    scatter.checked = !!G.dayPlanScatterGroups;
+  }
 
   const offNames = getOffPersonsOnDay(day);
 
@@ -1045,6 +1065,23 @@ function markDayPlanDirty(){
   G.dayPlanDirty = true;
 }
 
+function toggleDayPlanScatter(){
+  const scatter = $('day-plan-scatter');
+  if(!scatter) return;
+  G.dayPlanScatterGroups = !!scatter.checked;
+}
+
+function handleDayPlanDayChange(){
+  const sel = $('day-plan-day');
+  if(sel){
+    const day = Number(sel.value || G.dayPlanDay || 1);
+    if(day && !Number.isNaN(day)){
+      G.dayPlanScatterGroups = isDayPlanScatterDefault(day);
+    }
+  }
+  renderDayPlanOffList();
+}
+
 async function openDayPlanModal(){
   G.userBusy = true;
   G.dayPlanDirty = false;
@@ -1061,6 +1098,7 @@ function closeDayPlanModal(){
 async function runDayPlan(){
   const sel = $('day-plan-day');
   const wrap = $('day-plan-off-list');
+  const scatter = $('day-plan-scatter');
   if(!sel || !wrap) return;
   const day = Number(sel.value);
   const days = daysInMonth(G.year, G.month);
@@ -1080,7 +1118,7 @@ async function runDayPlan(){
 
   loading(true);
   try{
-    const res = await api('/api/schedule/' + G.year + '/' + G.month + '/plan-day', 'POST', { day, off_person_ids: offPersonIds, off_persons: offPersons, use_saved_off_persons: useSavedOffPersons });
+    const res = await api('/api/schedule/' + G.year + '/' + G.month + '/plan-day', 'POST', { day, off_person_ids: offPersonIds, off_persons: offPersons, use_saved_off_persons: useSavedOffPersons, scatter_groups: scatter ? !!scatter.checked : !!G.dayPlanScatterGroups });
     if(!res || !res.success) throw new Error(res?.msg || '排班失败');
     if(!G.schedule) G.schedule = {};
     G.schedule[String(day)] = res.day_data || {};

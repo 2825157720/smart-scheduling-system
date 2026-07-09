@@ -151,10 +151,17 @@ def person_day_workload(name, day_data, positions, staff, groups) -> float:
     total = 0.0
     group_names = _group_name_set(groups)
     active_members_cache: dict[str, list[str]] = {}
+    scatter_groups = bool((day_data or {}).get("_scatter_groups"))
 
     for pos in _positions_iter(positions):
         default_person = _normalize_name((pos or {}).get("default_person"))
-        if default_person in group_names and not _is_split_cell((day_data or {}).get((pos or {}).get("id"))):
+        cell = (day_data or {}).get((pos or {}).get("id"))
+        if scatter_groups and default_person in group_names and not _is_split_cell(cell):
+            status = _normalize_name((cell or {}).get("status"))
+            person = _normalize_name((cell or {}).get("person"))
+            if status in ("on", "substitute") and person == default_person:
+                continue
+        if default_person in group_names and not scatter_groups and not _is_split_cell(cell):
             cell = _cell_for_position(day_data, pos)
             active_members = active_members_cache.get(default_person)
             if active_members is None:
@@ -203,6 +210,18 @@ def _position_assignments(day_data, pos):
     return [{**normalized, "workload": workload}]
 
 
+def _split_person_names(day_data) -> set[str]:
+    split_names = set()
+    for cell in (day_data or {}).values():
+        if not _is_split_cell(cell):
+            continue
+        for slot in ("am", "pm"):
+            person = _normalize_name(_slot_assignment(cell, slot).get("person"))
+            if person:
+                split_names.add(person)
+    return split_names
+
+
 def _load_map(day_data, positions, staff, groups):
     return {
         _normalize_name(member.get("name")): person_day_workload(member.get("name"), day_data, positions, staff, groups)
@@ -237,10 +256,14 @@ def _is_better_load_score(new_score, current_score, epsilon: float = 1e-9) -> bo
     return False
 
 
-def _apply_split_positions(day_data, positions, staff, groups, day_date):
+def _apply_split_positions(day_data, positions, staff, groups, day_date, used_names=None):
     position_list = _positions_iter(positions)
     group_names = _group_name_set(groups)
+    scatter_groups = bool((day_data or {}).get("_scatter_groups"))
     loads = _load_map(day_data, position_list, staff, groups)
+    split_names = _split_person_names(day_data)
+    if used_names:
+        split_names.update(_normalize_name(name) for name in used_names if _normalize_name(name))
 
     while True:
         current_score = (_load_spread(loads), _load_std(loads))
@@ -251,7 +274,7 @@ def _apply_split_positions(day_data, positions, staff, groups, day_date):
         split_candidates = [
             pos for pos in position_list
             if bool(pos.get("split_allowed"))
-            and _normalize_name((pos or {}).get("default_person", "")) not in group_names
+            and (scatter_groups or _normalize_name((pos or {}).get("default_person", "")) not in group_names)
         ]
         split_candidates.sort(key=lambda pos: float((pos or {}).get("workload", 0) or 0), reverse=True)
 
@@ -261,11 +284,16 @@ def _apply_split_positions(day_data, positions, staff, groups, day_date):
             if not pos_id:
                 continue
             cell = day_data.get(pos_id, {})
+            default_person = _normalize_name((pos or {}).get("default_person", ""))
             if _is_split_cell(cell):
                 continue
             current_name = _normalize_name((cell or {}).get("person"))
             current_status = (cell or {}).get("status", "")
             if not current_name or current_status not in ("on", "substitute"):
+                continue
+            if current_name in split_names:
+                continue
+            if default_person and current_name == default_person:
                 continue
 
             half = float((pos or {}).get("workload", 0) or 0) / 2.0
@@ -274,7 +302,17 @@ def _apply_split_positions(day_data, positions, staff, groups, day_date):
 
             candidates = [
                 member for member in staff or []
-                if can_cover_member(member, pos, day_data, position_list, staff, groups, day=day_date, exclude_name=current_name)
+                if can_cover_member(
+                    member,
+                    pos,
+                    day_data,
+                    position_list,
+                    staff,
+                    groups,
+                    day=day_date,
+                    exclude_name=current_name,
+                    used_names=split_names,
+                )
             ]
             if not candidates:
                 continue
@@ -296,6 +334,8 @@ def _apply_split_positions(day_data, positions, staff, groups, day_date):
                     "pm": {"status": "substitute", "person": partner, "workload": half},
                 },
             }
+            split_names.add(current_name)
+            split_names.add(partner)
             loads = new_loads
             applied = True
             break
@@ -304,11 +344,13 @@ def _apply_split_positions(day_data, positions, staff, groups, day_date):
             break
 
 
-def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: int, off_persons=None) -> dict:
+def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: int, off_persons=None, scatter_groups: bool = False) -> dict:
     position_list = _positions_iter(positions)
     pos_map = _pos_map(position_list)
     group_names = _group_name_set(groups)
     day_data = build_day_base(position_list, off_persons)
+    if scatter_groups:
+        day_data["_scatter_groups"] = True
     day_date = _datetime.date(year, month, day)
 
     fill_targets = []
@@ -321,7 +363,7 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
         cell = day_data.get(pos_id, {})
 
         if default_person in group_names:
-            if group_is_fully_off(default_person, day_data, position_list, staff, groups):
+            if scatter_groups or group_is_fully_off(default_person, day_data, position_list, staff, groups):
                 fill_targets.append(pos)
             continue
 
@@ -337,7 +379,15 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
         candidates = [
             member
             for member in staff or []
-            if can_cover_member(member, pos, day_data, position_list, staff, groups, day=day_date)
+            if can_cover_member(
+                member,
+                pos,
+                day_data,
+                position_list,
+                staff,
+                groups,
+                day=day_date,
+            )
         ]
 
         if not candidates:
@@ -347,7 +397,17 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
             }
             continue
 
-        candidates.sort(key=lambda member: person_day_workload(member["name"], day_data, position_list, staff, groups))
+        preferred_group_members = set()
+        if scatter_groups and default_person in group_names:
+            preferred_group_members = set(group_member_names(default_person, staff, groups))
+
+        def _candidate_sort_key(member):
+            member_name = _normalize_name(member.get("name"))
+            load = person_day_workload(member_name, day_data, position_list, staff, groups)
+            group_bias = 0 if not preferred_group_members or member_name in preferred_group_members else 1
+            return (load, group_bias, member_name)
+
+        candidates.sort(key=_candidate_sort_key)
         chosen_name = candidates[0]["name"]
         chosen_status = "on" if default_person and day_data.get(pos_id, {}).get("status") == "off" and chosen_name == default_person else "substitute"
         day_data[pos_id] = {
@@ -386,12 +446,14 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
     }
 
 
-def can_cover_member(member, pos, day_data, positions, staff, groups, *, day: _datetime.date, exclude_name="") -> bool:
+def can_cover_member(member, pos, day_data, positions, staff, groups, *, day: _datetime.date, exclude_name="", used_names=None) -> bool:
     member_name = _normalize_name((member or {}).get("name"))
     target_default = _normalize_name((pos or {}).get("default_person"))
     if not member_name:
         return False
     if exclude_name and member_name == _normalize_name(exclude_name):
+        return False
+    if used_names and member_name in used_names:
         return False
     if (member or {}).get("no_substitute"):
         return False
