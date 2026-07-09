@@ -21,7 +21,7 @@ from schedule_core import (
 
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR / "data")).resolve()
 STATIC_DIR = BASE_DIR / "static"
 BACKUP_DIR = DATA_DIR / "backup"
 
@@ -482,7 +482,10 @@ def static_files(filename):
 @app.route("/api/server-info")
 def server_info():
     ip = _get_server_ip()
-    return jsonify({"ip": ip, "port": 3000, "url": f"http://{ip}:3000"})
+    host = request.host.split(":", 1)[0] if request.host else ip
+    scheme = request.headers.get("X-Forwarded-Proto", request.scheme)
+    port = int(os.environ.get("PORT", "3000"))
+    return jsonify({"ip": host, "port": port, "url": f"{scheme}://{request.host}"})
 
 
 @app.route("/api/routes")
@@ -1018,12 +1021,13 @@ def memo_api_month(year, month):
 
 
 def main():
+    port = int(os.environ.get("PORT", "3000"))
     print("=" * 50)
     print("智能排班系统启动中... [bootstrap]")
-    print("本地访问: http://127.0.0.1:3000")
-    print(f"局域网访问: http://{_get_server_ip()}:3000")
+    print(f"本地访问: http://127.0.0.1:{port}")
+    print(f"局域网访问: http://{_get_server_ip()}:{port}")
     print("=" * 50)
-    app.run(host="0.0.0.0", port=3000, debug=False)
+    app.run(host="0.0.0.0", port=port, debug=False)
 
 
 _init_data()
