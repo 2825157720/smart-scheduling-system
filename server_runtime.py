@@ -134,7 +134,8 @@ def _init_data():
         db_json_store.ensure_document(SCHEDULE_FILE, {}, DATA_DIR, _load_json_file)
         db_json_store.ensure_document(HIDDEN_DAYS_FILE, {}, DATA_DIR, _load_json_file)
         db_json_store.ensure_document(MEMO_FILE, {}, DATA_DIR, _load_json_file)
-        return
+        if db_json_store.is_enabled():
+            return
     if not STAFF_FILE.exists():
         save_json(STAFF_FILE, DEFAULT_STAFF)
     if not POSITION_FILE.exists():
@@ -510,6 +511,15 @@ def server_info():
     scheme = request.headers.get("X-Forwarded-Proto", request.scheme)
     port = int(os.environ.get("PORT", "3000"))
     return jsonify({"ip": host, "port": port, "url": f"{scheme}://{request.host}"})
+
+
+@app.route("/api/storage-info")
+def storage_info():
+    return jsonify({
+        "mode": "database" if db_json_store.is_enabled() else "file",
+        "database_configured": db_json_store.is_configured(),
+        "database_available": db_json_store.is_enabled(),
+    })
 
 
 @app.route("/api/routes")

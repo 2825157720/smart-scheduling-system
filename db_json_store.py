@@ -5,18 +5,32 @@ import json
 import os
 import sqlite3
 from pathlib import Path
-from urllib.parse import urlparse, unquote
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse, unquote
 
 
 TABLE_NAME = "app_json_documents"
+_disabled_reason = None
 
 
 def database_url() -> str:
     return os.environ.get("DATABASE_URL", "").strip()
 
 
-def is_enabled() -> bool:
+def is_configured() -> bool:
     return bool(database_url())
+
+
+def is_enabled() -> bool:
+    return bool(database_url()) and not _disabled_reason
+
+
+def disabled_reason():
+    return _disabled_reason
+
+
+def _disable(exc):
+    global _disabled_reason
+    _disabled_reason = str(exc)
 
 
 def document_key(path, data_dir=None) -> str:
@@ -31,26 +45,34 @@ def document_key(path, data_dir=None) -> str:
 
 def load_document(path, data_dir=None):
     url = database_url()
-    if not url:
+    if not url or _disabled_reason:
         return None
 
     key = document_key(path, data_dir)
-    if url.startswith("sqlite:"):
-        return _load_sqlite(url, key)
-    return _load_postgres(url, key)
+    try:
+        if url.startswith("sqlite:"):
+            return _load_sqlite(url, key)
+        return _load_postgres(url, key)
+    except Exception as exc:
+        _disable(exc)
+        return None
 
 
 def save_document(path, data, data_dir=None) -> bool:
     url = database_url()
-    if not url:
+    if not url or _disabled_reason:
         return False
 
     key = document_key(path, data_dir)
-    if url.startswith("sqlite:"):
-        _save_sqlite(url, key, data)
-    else:
-        _save_postgres(url, key, data)
-    return True
+    try:
+        if url.startswith("sqlite:"):
+            _save_sqlite(url, key, data)
+        else:
+            _save_postgres(url, key, data)
+        return True
+    except Exception as exc:
+        _disable(exc)
+        return False
 
 
 def ensure_document(path, default, data_dir=None, file_loader=None):
@@ -122,7 +144,7 @@ def _postgres_connect(url: str):
     except ImportError as exc:
         raise RuntimeError("DATABASE_URL is set, but psycopg is not installed") from exc
 
-    conn = psycopg.connect(url)
+    conn = psycopg.connect(_postgres_url(url), prepare_threshold=None)
     with conn.cursor() as cur:
         cur.execute(
             f"""
@@ -135,6 +157,13 @@ def _postgres_connect(url: str):
         )
     conn.commit()
     return conn
+
+
+def _postgres_url(url: str) -> str:
+    parsed = urlparse(url)
+    params = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    params.setdefault("sslmode", "require")
+    return urlunparse(parsed._replace(query=urlencode(params)))
 
 
 def _load_postgres(url: str, key: str):

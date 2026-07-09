@@ -43,6 +43,19 @@ class DatabaseJsonStoreTests(unittest.TestCase):
                 app_module.save_json(target, {"ok": True})
                 self.assertEqual(app_module.load_json(target, {}), {"ok": True})
 
+    def test_postgres_url_defaults_to_ssl_required(self):
+        url = db_json_store._postgres_url("postgresql://user:pass@example.com:5432/postgres")
+        self.assertIn("sslmode=require", url)
+
+    def test_storage_info_reports_file_mode_without_database_url(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with app_module.app.test_request_context("/api/storage-info"):
+                payload = app_module.storage_info().get_json()
+
+        self.assertEqual(payload["mode"], "file")
+        self.assertFalse(payload["database_configured"])
+        self.assertFalse(payload["database_available"])
+
 
 if __name__ == "__main__":
     unittest.main()
