@@ -31,6 +31,12 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertTrue(config["env"]["production"]["workers_dev"])
         self.assertFalse(config["env"]["production"]["preview_urls"])
 
+    def test_production_worker_uses_short_public_name(self):
+        config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+
+        self.assertEqual(config["env"]["production"]["name"], "paiban")
+
     def test_public_worker_does_not_require_cloudflare_access_token(self):
         source_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "src" / "index.js"
         source = source_path.read_text(encoding="utf-8")

@@ -24,7 +24,7 @@
       ]
     },
     "production": {
-      "name": "smart-scheduling-system-production",
+      "name": "paiban",
       "workers_dev": true,
       "preview_urls": false,
       "d1_databases": [
