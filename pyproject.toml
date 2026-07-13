@@ -1,0 +1,22 @@
+[project]
+name = "smart-scheduling-system"
+version = "0.1.0"
+description = "Cloudflare Worker migration target for the scheduling system"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.115,<1",
+    "workers-py>=0.1,<1",
+    "workers-runtime-sdk>=0.0.23,<1",
+]
+
+[dependency-groups]
+dev = [
+    "flask>=3.1,<4",
+    "httpx>=0.28,<1",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.24,<1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
