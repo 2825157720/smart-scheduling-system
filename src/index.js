@@ -94,6 +94,60 @@ async function getMemo(db, id = "global") {
   return row || { content: "", updated_at: "" };
 }
 
+async function subjectMaps(db) {
+  const [staff, groups] = await Promise.all([
+    rows(db.prepare("SELECT id, name FROM staff")), rows(db.prepare("SELECT id, name FROM groups")),
+  ]);
+  return { staff: new Map(staff.map((item) => [item.name, item.id])), groups: new Map(groups.map((item) => [item.name, item.id])) };
+}
+
+function subjectId(name, subjects) {
+  if (!name) return { staffId: null, groupId: null };
+  if (subjects.staff.has(name)) return { staffId: subjects.staff.get(name), groupId: null };
+  if (subjects.groups.has(name)) return { staffId: null, groupId: subjects.groups.get(name) };
+  throw new Error("排班引用了不存在的人员或小组");
+}
+
+async function saveMonth(db, year, month, monthData) {
+  const prefix = `${year}-${String(month).padStart(2, "0")}`;
+  const subjects = await subjectMaps(db);
+  const statements = [
+    db.prepare("DELETE FROM schedule_slots WHERE schedule_cell_id IN (SELECT c.id FROM schedule_cells c JOIN schedule_days d ON d.id=c.schedule_day_id WHERE d.schedule_date LIKE ?)").bind(`${prefix}-%`),
+    db.prepare("DELETE FROM schedule_day_off_staff WHERE schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date LIKE ?)").bind(`${prefix}-%`),
+    db.prepare("DELETE FROM schedule_day_off_groups WHERE schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date LIKE ?)").bind(`${prefix}-%`),
+    db.prepare("DELETE FROM schedule_cells WHERE schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date LIKE ?)").bind(`${prefix}-%`),
+    db.prepare("DELETE FROM schedule_days WHERE schedule_date LIKE ?").bind(`${prefix}-%`),
+  ];
+  for (const [dayText, data] of Object.entries(monthData)) {
+    const day = Number(dayText);
+    if (!Number.isInteger(day) || day < 1 || day > 31 || !data || typeof data !== "object") continue;
+    const date = `${prefix}-${String(day).padStart(2, "0")}`;
+    const dayId = `day_${date}`;
+    statements.push(db.prepare("INSERT INTO schedule_days (id, schedule_date, scatter_groups) VALUES (?, ?, ?)").bind(dayId, date, data._scatter_groups ? 1 : 0));
+    for (const person of data._off_persons || []) {
+      const subject = subjectId(String(person || ""), subjects);
+      if (subject.staffId) statements.push(db.prepare("INSERT INTO schedule_day_off_staff (schedule_day_id, staff_id) VALUES (?, ?)").bind(dayId, subject.staffId));
+      if (subject.groupId) statements.push(db.prepare("INSERT INTO schedule_day_off_groups (schedule_day_id, group_id) VALUES (?, ?)").bind(dayId, subject.groupId));
+    }
+    for (const [positionId, cell] of Object.entries(data)) {
+      if (!positionId.startsWith("p") || !cell || typeof cell !== "object") continue;
+      const cellId = `cell_${date}_${positionId}`;
+      const subject = subjectId(String(cell.person || ""), subjects);
+      const status = String(cell.status || "pending");
+      statements.push(db.prepare("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id) VALUES (?, ?, ?, ?, ?, ?)")
+        .bind(cellId, dayId, positionId, status, subject.staffId, subject.groupId));
+      for (const slot of ["am", "pm"]) {
+        const detail = cell.slots?.[slot];
+        if (!detail || typeof detail !== "object") continue;
+        const slotSubject = subjectId(String(detail.person || ""), subjects);
+        statements.push(db.prepare("INSERT INTO schedule_slots (id, schedule_cell_id, slot, status, staff_id, group_id, workload) VALUES (?, ?, ?, ?, ?, ?, ?)")
+          .bind(`${cellId}_${slot}`, cellId, slot, String(detail.status || "pending"), slotSubject.staffId, slotSubject.groupId, Number(detail.workload || 0)));
+      }
+    }
+  }
+  await db.batch(statements);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -113,6 +167,38 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/positions") return json(await getPositions(env.DB));
     const schedule = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})$/);
     if (request.method === "GET" && schedule) return json(await getSchedule(env.DB, schedule[1], schedule[2]));
+    if (request.method === "POST" && schedule) {
+      const body = await request.json();
+      const monthData = body?.schedule ?? body;
+      if (!monthData || Array.isArray(monthData) || typeof monthData !== "object") return json({ success: false, msg: "排班数据格式错误" }, { status: 400 });
+      try {
+        await saveMonth(env.DB, schedule[1], schedule[2], monthData);
+      } catch (error) {
+        return json({ success: false, msg: error.message || "保存排班失败" }, { status: 400 });
+      }
+      return json({ success: true, schedule: monthData });
+    }
+    const scheduleDay = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/day$/);
+    if (request.method === "POST" && scheduleDay) {
+      const body = await request.json();
+      const day = Number(body.day);
+      if (!Number.isInteger(day) || day < 1 || !body.pos_id) return json({ success: false, msg: "日期或岗位无效" }, { status: 400 });
+      const monthData = await getSchedule(env.DB, scheduleDay[1], scheduleDay[2]);
+      const dayData = monthData[String(day)] ||= {};
+      if (body.split && typeof body.split === "object") {
+        const slots = Object.fromEntries(["am", "pm"].map((slot) => [slot, { status: body.split[slot]?.status || "pending", person: body.split[slot]?.person || "", workload: body.split[slot]?.workload || 0 }]));
+        dayData[body.pos_id] = { status: "split", person: slots.am.person || slots.pm.person, slots };
+      } else if (["am", "pm"].includes(String(body.slot || "").toLowerCase())) {
+        const slots = dayData[body.pos_id]?.slots || { am: { status: "pending", person: "" }, pm: { status: "pending", person: "" } };
+        const slot = String(body.slot).toLowerCase(); slots[slot] = { status: body.status || "pending", person: body.person || "", workload: body.workload || 0 };
+        dayData[body.pos_id] = { status: "split", person: slots.am.person || slots.pm.person, slots };
+      } else dayData[body.pos_id] = { status: body.status || "pending", person: body.person || "" };
+      if (body.status === "off" && body.person) dayData._off_persons = [...new Set([...(dayData._off_persons || []), body.person])];
+      if (body.status === "on" && body.person) dayData._off_persons = (dayData._off_persons || []).filter((name) => name !== body.person);
+      try { await saveMonth(env.DB, scheduleDay[1], scheduleDay[2], monthData); }
+      catch (error) { return json({ success: false, msg: error.message || "保存排班失败" }, { status: 400 }); }
+      return json({ success: true, schedule: monthData, cleared_positions: [] });
+    }
     const hiddenDays = url.pathname.match(/^\/api\/hidden-days\/(\d{4})\/(\d{1,2})$/);
     if (request.method === "GET" && hiddenDays) {
       const prefix = `${hiddenDays[1]}-${String(hiddenDays[2]).padStart(2, "0")}`;
