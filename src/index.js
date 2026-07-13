@@ -375,7 +375,9 @@ export default {
     }
     const reset = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/reset$/);
     if (request.method === "POST" && reset) {
-      const body = await request.json(); if (String(body.password || "") !== "11050") return failure("密码错误", 403);
+      const body = await request.json();
+      if (!env.ADMIN_PASSWORD) return failure("管理员密码未配置", 503);
+      if (String(body.password || "") !== env.ADMIN_PASSWORD) return failure("密码错误", 403);
       const scheduleData = defaultMonth(await getPositions(env.DB), reset[1], reset[2]);
       await saveMonth(env.DB, reset[1], reset[2], scheduleData);
       return json({ success: true, schedule: scheduleData });
@@ -389,7 +391,9 @@ export default {
     }
     const restore = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/restore$/);
     if (request.method === "POST" && restore) {
-      const body = await request.json(); if (String(body.password || "") !== "11050") return failure("密码错误", 403);
+      const body = await request.json();
+      if (!env.ADMIN_PASSWORD) return failure("管理员密码未配置", 503);
+      if (String(body.password || "") !== env.ADMIN_PASSWORD) return failure("密码错误", 403);
       const record = await env.DB.prepare("SELECT created_at, payload FROM schedule_backups WHERE year=? AND month=? ORDER BY created_at DESC LIMIT 1")
         .bind(Number(restore[1]), Number(restore[2])).first();
       if (!record) return failure("未找到备份文件，请先备份", 404);

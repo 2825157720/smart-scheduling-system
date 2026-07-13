@@ -1,10 +1,10 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "smart-scheduling-system",
+  "name": "smart-scheduling-system-base",
   "main": "src/index.js",
   "compatibility_date": "2026-07-13",
-  "workers_dev": true,
-  "preview_urls": true,
+  "workers_dev": false,
+  "preview_urls": false,
   "assets": {
     "directory": "./static",
     "binding": "ASSETS",
@@ -13,6 +13,8 @@
   "env": {
     "preview": {
       "name": "smart-scheduling-system-preview",
+      "workers_dev": true,
+      "preview_urls": false,
       "d1_databases": [
         {
           "binding": "DB",
@@ -22,7 +24,9 @@
       ]
     },
     "production": {
-      "name": "smart-scheduling-system",
+      "name": "smart-scheduling-system-production",
+      "workers_dev": true,
+      "preview_urls": false,
       "d1_databases": [
         {
           "binding": "DB",

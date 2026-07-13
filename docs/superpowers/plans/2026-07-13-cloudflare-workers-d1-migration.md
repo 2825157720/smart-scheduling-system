@@ -1,5 +1,7 @@
 # Cloudflare Workers + D1 迁移 Implementation Plan
 
+> **实施结果说明（2026-07-13）：** 本文保留迁移前的原始设计与门禁，实际切换结果以 [`docs/cloudflare/cutover-record.md`](../../cloudflare/cutover-record.md) 和 [`docs/cloudflare/operations-runbook.md`](../../cloudflare/operations-runbook.md) 为准。实施中基于 Cloudflare Python Workers 兼容性验证改用 JavaScript Worker；用户明确接受风险并要求正式地址无需登录，因此 production 为公开访问，preview 仍受 Access 保护。原计划中关于 Python Worker、production Access 和 GitHub 自动构建的条目不再代表当前状态。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 把智能排班系统从 Render + PostgreSQL 安全迁移到一个受 Cloudflare Access 保护的 Cloudflare Python Worker，静态前端和 `/api/*` 同源发布，数据进入独立 preview/production D1，并具备校验、回滚和 GitHub 自动部署能力。

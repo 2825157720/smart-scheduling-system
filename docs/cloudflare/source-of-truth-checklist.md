@@ -10,13 +10,15 @@
 
 1. 项目交接文档明确写明“正式数据已改为 Supabase PostgreSQL 存储”。
 2. 用户已明确说明“数据库托管在 Supabase，服务器在 Render”。
-3. 当前线上 `GET https://smart-scheduling-system-ty94.onrender.com/api/storage-info` 返回：
+3. 切换前审计时，旧 Render 线上 `GET https://smart-scheduling-system-ty94.onrender.com/api/storage-info` 返回：
 
 ```json
 {"database_available": true, "database_configured": true, "mode": "database"}
 ```
 
 4. 开发分支的 `render.yaml` 没有 Render PostgreSQL binding。正式工作区未提交的 `render.yaml` 虽新增 Render PostgreSQL blueprint，但它不是已部署且已验证的数据源，不能用于本次导出。
+
+> 生产切换完成后，旧 Render 服务已暂停；以上响应仅作为迁移前历史证据，不代表当前运行状态。
 
 ## 导出前检查
 

@@ -22,6 +22,39 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertEqual(production["binding"], "DB")
         self.assertNotEqual(preview["database_id"], production["database_id"])
 
+        self.assertNotIn("ACCESS_AUD", config["env"]["preview"].get("vars", {}))
+        self.assertNotIn("ACCESS_AUD", config["env"]["production"].get("vars", {}))
+        self.assertFalse(config["workers_dev"])
+        self.assertFalse(config["preview_urls"])
+        self.assertTrue(config["env"]["preview"]["workers_dev"])
+        self.assertFalse(config["env"]["preview"]["preview_urls"])
+        self.assertTrue(config["env"]["production"]["workers_dev"])
+        self.assertFalse(config["env"]["production"]["preview_urls"])
+
+    def test_public_worker_does_not_require_cloudflare_access_token(self):
+        source_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "src" / "index.js"
+        source = source_path.read_text(encoding="utf-8")
+
+        self.assertNotIn("verifyAccessRequest", source)
+        self.assertNotIn("ACCESS_AUD", source)
+
+    def test_destructive_actions_use_server_side_admin_secret(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[2]
+        worker_source = (root / "src" / "index.js").read_text(encoding="utf-8")
+        frontend_source = (root / "static" / "index.html").read_text(encoding="utf-8")
+
+        self.assertIn("env.ADMIN_PASSWORD", worker_source)
+        self.assertNotIn('"11050"', worker_source)
+        self.assertNotIn("'11050'", frontend_source)
+
+    def test_deployment_environments_use_unique_worker_names(self):
+        config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+
+        names = [config["name"]]
+        names.extend(environment["name"] for environment in config["env"].values())
+        self.assertEqual(len(names), len(set(names)))
+
     def test_fastapi_app_exposes_live_endpoint_and_json_not_found(self):
         import httpx
         from src.api import app
