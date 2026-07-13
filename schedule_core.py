@@ -16,6 +16,17 @@ def _group_name_set(groups) -> set[str]:
     return {_normalize_name(group.get("name")) for group in groups or [] if _normalize_name(group.get("name"))}
 
 
+def find_global_name_collisions(staff, groups) -> list[str]:
+    """Return names that make legacy person/group references ambiguous.
+
+    This is intentionally a migration gate, not a change to the legacy
+    runtime API.  The old format stores some assignees as a bare name, so an
+    overlap cannot be converted to typed D1 references safely.
+    """
+    staff_names = {_normalize_name(member.get("name")) for member in staff or [] if _normalize_name(member.get("name"))}
+    return sorted(staff_names & _group_name_set(groups))
+
+
 def _positions_iter(positions) -> list[dict]:
     if isinstance(positions, dict):
         return list(positions.values())

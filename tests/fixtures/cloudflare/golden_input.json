@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "timezone": "Asia/Shanghai",
+  "scenario": "split-workload-leap-day",
+  "year": 2028,
+  "month": 2,
+  "day": 29,
+  "groups": [
+    {"id": "g1", "name": "早班组"}
+  ],
+  "staff": [
+    {"id": "s1", "name": "Alice", "group_id": "g1", "can_cpin": true, "can_jd": true, "saturday_only": false, "no_substitute": false},
+    {"id": "s2", "name": "Bob", "group_id": "g1", "can_cpin": true, "can_jd": true, "saturday_only": false, "no_substitute": false},
+    {"id": "s3", "name": "Carol", "group_id": "", "can_cpin": true, "can_jd": true, "saturday_only": false, "no_substitute": false}
+  ],
+  "positions": [
+    {"id": "p1", "name": "分班岗位", "workload": 8, "default_person": "", "category": "", "split_allowed": true},
+    {"id": "p2", "name": "固定岗位", "workload": 2, "default_person": "Carol", "category": "", "split_allowed": false}
+  ],
+  "off_persons": []
+}

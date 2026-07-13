@@ -4,6 +4,7 @@ import unittest
 
 from schedule_core import (
     can_cover_member,
+    find_global_name_collisions,
     group_active_members,
     group_is_fully_off,
     group_member_names,
@@ -73,6 +74,14 @@ class ScheduleCoreTests(unittest.TestCase):
             {"id": "p_jd", "name": "Jd", "workload": 7, "default_person": "", "category": "京东"},
             {"id": "p_target", "name": "Target", "workload": 7, "default_person": "Target", "category": ""},
         ]
+
+    def test_global_name_collision_is_reported_for_migration_gate(self):
+        collisions = find_global_name_collisions(
+            [{"id": "s1", "name": "同名主体"}, {"id": "s2", "name": "独立人员"}],
+            [{"id": "g1", "name": "同名主体"}, {"id": "g2", "name": "独立小组"}],
+        )
+
+        self.assertEqual(collisions, ["同名主体"])
 
     def test_group_members_come_from_staff_group_id(self):
         self.assertEqual(group_member_names("Alpha", self.staff, self.groups), ["Bob", "Alice"])
