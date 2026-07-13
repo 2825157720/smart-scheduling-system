@@ -21,6 +21,7 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertEqual(preview["binding"], "DB")
         self.assertEqual(production["binding"], "DB")
         self.assertNotEqual(preview["database_id"], production["database_id"])
+        self.assertEqual(production["database_id"], "a31cca3c-92c8-4f11-b5c7-42172c5da53e")
 
         self.assertNotIn("ACCESS_AUD", config["env"]["preview"].get("vars", {}))
         self.assertNotIn("ACCESS_AUD", config["env"]["production"].get("vars", {}))
@@ -36,6 +37,16 @@ class WorkerSkeletonTests(unittest.TestCase):
         config = json.loads(config_path.read_text(encoding="utf-8"))
 
         self.assertEqual(config["env"]["production"]["name"], "paiban")
+
+    def test_legacy_redirect_worker_has_no_application_bindings(self):
+        config_path = (
+            __import__("pathlib").Path(__file__).resolve().parents[2]
+            / "wrangler.legacy-redirect.jsonc"
+        )
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+
+        self.assertNotIn("d1_databases", config)
+        self.assertNotIn("assets", config)
 
     def test_public_worker_does_not_require_cloudflare_access_token(self):
         source_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "src" / "index.js"

@@ -42,8 +42,8 @@
 
 ## 部署与验收证据
 
-- 正式 Worker `paiban` 版本：`bf1ed883-44d5-455e-a8c6-c66890a388e7`
-- 旧地址跳转 Worker 版本：`cca37640-3bb7-40d0-ae9d-3d1349491813`
+- 正式 Worker `paiban` 应用部署版本：`bf1ed883-44d5-455e-a8c6-c66890a388e7`；写入 Secret 后当前版本：`83f7c540-a9e1-4995-8a04-95f67354deea`
+- 旧地址跳转 Worker 应用部署版本：`cca37640-3bb7-40d0-ae9d-3d1349491813`；删除遗留 Secret 后当前版本：`689f1a27-de19-4144-8946-5e5101988332`
 - 预览 Worker 版本：`2d01f239-18e1-49e8-8e3b-961e87dabb70`
 - 匿名 `GET /api/live`：200，`{"ok":true}`
 - `GET /api/storage-info`：`mode=d1`、`database_available=true`、`staff_count=11`
@@ -51,7 +51,8 @@
 - 可逆写入冒烟：创建唯一临时小组、读取确认、删除、再次确认消失；最终小组数仍为 5
 - 新地址 Secret 验收：错误管理密码返回 `403`，前端源码不包含旧密码。
 - 旧地址验收：根路径跳转到新首页；`/api/live?probe=1` 跳转后路径和查询参数保持不变，并返回 `{"ok":true}`。
-- 误建 Worker `smart-scheduling-system` 已删除，旧地址返回 404
+- 旧跳转 Worker 的遗留 `ADMIN_PASSWORD` Secret 已删除，`secret list` 返回空数组。
+- 误建 Worker `smart-scheduling-system` 已删除；其独立地址 `smart-scheduling-system.2825157720.workers.dev` 返回 404。
 - 旧 Render 服务 `smart-scheduling-system` 已暂停，避免新旧数据库同时写入
 - Supabase 暂不删除，作为稳定期回滚依据
 
