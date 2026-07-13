@@ -183,6 +183,9 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/server-info") {
       return json({ ip: url.hostname, port: 443, url: url.origin });
     }
+    if (request.method === "GET" && url.pathname === "/api/routes") {
+      return json({ success: true, version: "cloudflare-d1", route_count: 22 });
+    }
     if (request.method === "GET" && url.pathname === "/api/groups") return json(await getGroups(env.DB));
     if (request.method === "GET" && url.pathname === "/api/staff") return json(await getStaff(env.DB));
     if (request.method === "GET" && url.pathname === "/api/positions") return json(await getPositions(env.DB));
@@ -329,6 +332,14 @@ export default {
         else if (cell.person === person && body.person_is_off && ["on", "pending", ""].includes(cell.status)) { dayData[pos.id] = { status: "off", person }; updated.push({ pos_id: pos.id, person, status: "off", pos_name: pos.name }); }
       }
       await saveMonth(env.DB, year, month, current); return json({ success: true, updated });
+    }
+    if (request.method === "POST" && url.pathname === "/api/auto-fill-all") {
+      const body = await request.json(); const { year, month, day } = body;
+      if (!(year && month && day)) return failure("参数无效");
+      const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month)]);
+      const result = planDaySchedule(positions, staff, groups, { year: Number(year), month: Number(month), day: Number(day), offPersons: current[String(day)]?._off_persons || [], scatterGroups: Boolean(body.scatter_groups) });
+      current[String(day)] = result.day_data; await saveMonth(env.DB, year, month, current);
+      return json({ success: true, ...result });
     }
     const hiddenDays = url.pathname.match(/^\/api\/hidden-days\/(\d{4})\/(\d{1,2})$/);
     if (request.method === "GET" && hiddenDays) {
