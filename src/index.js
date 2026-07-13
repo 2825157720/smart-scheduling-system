@@ -157,6 +157,16 @@ async function saveMonth(db, year, month, monthData) {
   await db.batch(statements);
 }
 
+function defaultMonth(positions, year, month) {
+  const days = new Date(Number(year), Number(month), 0).getDate();
+  return Object.fromEntries(Array.from({ length: days }, (_, index) => {
+    const day = String(index + 1);
+    return [day, Object.fromEntries(positions.map((position) => [position.id, {
+      status: position.default_person ? "on" : "pending", person: position.default_person || "",
+    }]))];
+  }));
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -288,6 +298,38 @@ export default {
       const prefix = `${hiddenDays[1]}-${String(hiddenDays[2]).padStart(2, "0")}`;
       const values = await rows(env.DB.prepare("SELECT schedule_date FROM hidden_days WHERE schedule_date LIKE ? ORDER BY schedule_date").bind(`${prefix}-%`));
       return json(values.map((item) => Number(item.schedule_date.slice(-2))));
+    }
+    if (request.method === "POST" && hiddenDays) {
+      const body = await request.json(); const prefix = `${hiddenDays[1]}-${String(hiddenDays[2]).padStart(2, "0")}`;
+      const days = [...new Set((Array.isArray(body) ? body : []).map(Number).filter((day) => Number.isInteger(day) && day > 0 && day <= 31))].sort((a, b) => a - b);
+      await env.DB.batch([
+        env.DB.prepare("DELETE FROM hidden_days WHERE schedule_date LIKE ?").bind(`${prefix}-%`),
+        ...days.map((day) => env.DB.prepare("INSERT INTO hidden_days (schedule_date) VALUES (?)").bind(`${prefix}-${String(day).padStart(2, "0")}`)),
+      ]);
+      return json({ success: true });
+    }
+    const reset = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/reset$/);
+    if (request.method === "POST" && reset) {
+      const body = await request.json(); if (String(body.password || "") !== "11050") return failure("密码错误", 403);
+      const scheduleData = defaultMonth(await getPositions(env.DB), reset[1], reset[2]);
+      await saveMonth(env.DB, reset[1], reset[2], scheduleData);
+      return json({ success: true, schedule: scheduleData });
+    }
+    const backup = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/backup$/);
+    if (request.method === "POST" && backup) {
+      const scheduleData = await getSchedule(env.DB, backup[1], backup[2]); const backupTime = now();
+      await env.DB.prepare("INSERT INTO schedule_backups (id, year, month, created_at, payload) VALUES (?, ?, ?, ?, ?)")
+        .bind(crypto.randomUUID(), Number(backup[1]), Number(backup[2]), backupTime, JSON.stringify(scheduleData)).run();
+      return json({ success: true, backup_time: backupTime });
+    }
+    const restore = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/restore$/);
+    if (request.method === "POST" && restore) {
+      const body = await request.json(); if (String(body.password || "") !== "11050") return failure("密码错误", 403);
+      const record = await env.DB.prepare("SELECT created_at, payload FROM schedule_backups WHERE year=? AND month=? ORDER BY created_at DESC LIMIT 1")
+        .bind(Number(restore[1]), Number(restore[2])).first();
+      if (!record) return failure("未找到备份文件，请先备份", 404);
+      const scheduleData = JSON.parse(record.payload); await saveMonth(env.DB, restore[1], restore[2], scheduleData);
+      return json({ success: true, schedule: scheduleData, backup_time: record.created_at });
     }
     if (request.method === "GET" && url.pathname === "/api/memo") return json(await getMemo(env.DB));
     const monthMemo = url.pathname.match(/^\/api\/memo\/(\d{4})\/(\d{1,2})$/);
