@@ -1,3 +1,5 @@
+import { canCoverMember, personDayWorkload, planDaySchedule } from "./schedule-core.js";
+
 const json = (body, init = {}) => Response.json(body, init);
 const rows = async (statement) => (await statement.all()).results;
 const now = () => new Date().toISOString();
@@ -292,6 +294,41 @@ export default {
       try { await saveMonth(env.DB, scheduleDay[1], scheduleDay[2], monthData); }
       catch (error) { return json({ success: false, msg: error.message || "保存排班失败" }, { status: 400 }); }
       return json({ success: true, schedule: monthData, cleared_positions: [] });
+    }
+    const planDay = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/plan-day$/);
+    if (request.method === "POST" && planDay) {
+      const body = await request.json(); const day = Number(body.day);
+      const maxDay = new Date(Number(planDay[1]), Number(planDay[2]), 0).getDate();
+      if (!Number.isInteger(day) || day < 1 || day > maxDay) return failure(day > maxDay ? "日期超出当月范围" : "日期无效");
+      const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, planDay[1], planDay[2])]);
+      const offIds = new Set(body.off_person_ids || []); const supplied = [...(body.off_persons || []), ...staff.filter((item) => offIds.has(item.id)).map((item) => item.name)];
+      const saved = current[String(day)]?._off_persons || []; const offPersons = body.use_saved_off_persons || (!("off_person_ids" in body) && !("off_persons" in body) && saved.length) ? saved : supplied;
+      const result = planDaySchedule(positions, staff, groups, { year: Number(planDay[1]), month: Number(planDay[2]), day, offPersons, scatterGroups: Boolean(body.scatter_groups) });
+      current[String(day)] = result.day_data; await saveMonth(env.DB, planDay[1], planDay[2], current);
+      return json({ success: true, ...result });
+    }
+    if (request.method === "POST" && url.pathname === "/api/auto-substitute") {
+      const body = await request.json(); const { year, month, day, pos_id: posId } = body;
+      if (!(year && month && day && posId)) return failure("参数无效");
+      const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month)]);
+      const pos = positions.find((item) => item.id === posId); if (!pos) return failure("岗位不存在", 404);
+      const dayData = current[String(day)] || {}; const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+      const choices = staff.filter((member) => canCoverMember(member, pos, dayData, positions, staff, groups, { day: iso })).sort((a, b) => personDayWorkload(a.name, dayData, positions, staff, groups) - personDayWorkload(b.name, dayData, positions, staff, groups) || a.name.localeCompare(b.name));
+      return choices.length ? json({ success: true, person: choices[0].name }) : json({ success: false, msg: "无可用替班人" });
+    }
+    if (request.method === "POST" && url.pathname === "/api/cascade-off") {
+      const body = await request.json(); const { year, month, day, person } = body;
+      if (!(year && month && day && person)) return failure("参数无效");
+      const [positions, current] = await Promise.all([getPositions(env.DB), getSchedule(env.DB, year, month)]); const dayData = current[String(day)] ||= {};
+      if (body.person_is_off) dayData._off_persons = [...new Set([...(dayData._off_persons || []), person])];
+      const updated = [];
+      for (const pos of positions) {
+        const cell = dayData[pos.id]; if (!cell) continue;
+        if (cell.status === "split" && cell.slots) for (const slot of ["am", "pm"]) { const item = cell.slots[slot]; if (!item || item.person !== person) continue; if (item.status === "substitute") { cell.slots[slot] = { status: "pending", person: "" }; updated.push({ pos_id: pos.id, slot, person: "", status: "pending", pos_name: pos.name }); } else if (body.person_is_off && ["on", "pending", ""].includes(item.status)) { cell.slots[slot] = { ...item, status: "off" }; updated.push({ pos_id: pos.id, slot, person, status: "off", pos_name: pos.name }); } }
+        else if (cell.person === person && cell.status === "substitute") { dayData[pos.id] = { status: "pending", person: "" }; updated.push({ pos_id: pos.id, person: "", status: "pending", pos_name: pos.name }); }
+        else if (cell.person === person && body.person_is_off && ["on", "pending", ""].includes(cell.status)) { dayData[pos.id] = { status: "off", person }; updated.push({ pos_id: pos.id, person, status: "off", pos_name: pos.name }); }
+      }
+      await saveMonth(env.DB, year, month, current); return json({ success: true, updated });
     }
     const hiddenDays = url.pathname.match(/^\/api\/hidden-days\/(\d{4})\/(\d{1,2})$/);
     if (request.method === "GET" && hiddenDays) {
