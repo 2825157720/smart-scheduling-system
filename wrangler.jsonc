@@ -1,9 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "smart-scheduling-system",
-  "main": "src/entry.py",
+  "main": "src/index.js",
   "compatibility_date": "2026-07-13",
-  "compatibility_flags": ["python_workers"],
   "workers_dev": true,
   "preview_urls": true,
   "assets": {
