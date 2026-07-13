@@ -4,6 +4,9 @@ __pycache__/
 .workbuddy/
 .superpowers/
 .worktrees/
+.migration/
+.dev.vars
+.wrangler/
 
 *.log
 server.out.log
