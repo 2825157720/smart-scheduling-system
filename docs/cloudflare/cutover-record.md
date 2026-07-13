@@ -4,9 +4,10 @@
 
 ## 最终架构
 
-- 前端和 API：Cloudflare Worker `smart-scheduling-system-production`
+- 前端和 API：Cloudflare Worker `paiban`
 - 数据库：Cloudflare D1 `smart-scheduling-production`
-- 正式地址：<https://smart-scheduling-system-production.2825157720.workers.dev/>
+- 正式地址：<https://paiban.2825157720.workers.dev/>
+- 旧地址兼容：`smart-scheduling-system-production.2825157720.workers.dev` 仅运行无 D1/Assets 绑定的 `308` 跳转 Worker，保留原路径与查询参数。
 - 访问方式：公开访问，无需邮箱登录；这是用户明确确认的取舍。
 - 高风险操作：整月 reset/restore 仍要求 `ADMIN_PASSWORD` Worker secret，网页和仓库不保存密码。
 - 预览环境：`smart-scheduling-system-preview`，独立 D1，Cloudflare Access 限制访问，版本预览 URL 关闭。
@@ -41,12 +42,15 @@
 
 ## 部署与验收证据
 
-- 正式 Worker 版本：`0a09aeb8-3d02-47e1-9fae-0e196e8bd97f`
+- 正式 Worker `paiban` 版本：`bf1ed883-44d5-455e-a8c6-c66890a388e7`
+- 旧地址跳转 Worker 版本：`cca37640-3bb7-40d0-ae9d-3d1349491813`
 - 预览 Worker 版本：`2d01f239-18e1-49e8-8e3b-961e87dabb70`
 - 匿名 `GET /api/live`：200，`{"ok":true}`
 - `GET /api/storage-info`：`mode=d1`、`database_available=true`、`staff_count=11`
 - 浏览器首页：标题“智能排班系统”，显示 2026 年 7 月排班、备忘录和“✓ 已同步”
 - 可逆写入冒烟：创建唯一临时小组、读取确认、删除、再次确认消失；最终小组数仍为 5
+- 新地址 Secret 验收：错误管理密码返回 `403`，前端源码不包含旧密码。
+- 旧地址验收：根路径跳转到新首页；`/api/live?probe=1` 跳转后路径和查询参数保持不变，并返回 `{"ok":true}`。
 - 误建 Worker `smart-scheduling-system` 已删除，旧地址返回 404
 - 旧 Render 服务 `smart-scheduling-system` 已暂停，避免新旧数据库同时写入
 - Supabase 暂不删除，作为稳定期回滚依据

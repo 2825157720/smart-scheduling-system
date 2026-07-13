@@ -4,8 +4,9 @@
 
 | 环境 | Worker | D1 | 访问方式 |
 | --- | --- | --- | --- |
-| 正式 | `smart-scheduling-system-production` | `smart-scheduling-production` | 公开，无需登录 |
+| 正式 | `paiban` | `smart-scheduling-production` | 公开，无需登录 |
 | 预览 | `smart-scheduling-system-preview` | `smart-scheduling-preview` | Cloudflare Access 限制 |
+| 旧地址跳转 | `smart-scheduling-system-production` | 无 | 公开，仅返回到正式地址的 308 跳转 |
 | 基础配置 | `smart-scheduling-system-base` | 无 | `workers.dev` 和 preview URL 均关闭 |
 
 不得把 preview 的 D1 ID 改成 production D1 ID。不得直接在 Cloudflare Dashboard 编辑正式代码。
@@ -27,7 +28,7 @@ npx wrangler deploy --env preview
 ```powershell
 npx wrangler deploy --env production --dry-run
 npx wrangler deploy --env production
-$base = 'https://smart-scheduling-system-production.2825157720.workers.dev'
+$base = 'https://paiban.2825157720.workers.dev'
 Invoke-RestMethod "$base/api/live"
 Invoke-RestMethod "$base/api/storage-info"
 ```
@@ -37,11 +38,22 @@ Invoke-RestMethod "$base/api/storage-info"
 匿名暴露面也是发布门禁：正式环境必须返回 200，预览环境必须跳转到 Access 登录页或拒绝访问。
 
 ```powershell
-curl.exe -sS -o NUL -w "%{http_code}`n" 'https://smart-scheduling-system-production.2825157720.workers.dev/api/live'
+curl.exe -sS -o NUL -w "%{http_code}`n" 'https://paiban.2825157720.workers.dev/api/live'
 curl.exe -sS -o NUL -w "%{http_code} %{redirect_url}`n" --max-redirs 0 'https://smart-scheduling-system-preview.2825157720.workers.dev/api/live'
 ```
 
 预期：正式为 `200`；预览不得为 `200`，应返回指向 `cloudflareaccess.com` 的跳转。若预览匿名返回业务 JSON，立即停止发布并恢复 Access 策略。
+
+## 短网址与旧地址兼容
+
+正式业务只部署到 `paiban`。旧 Worker 使用独立配置 `wrangler.legacy-redirect.jsonc`，不得添加 D1、Assets 或业务 Secret。只有跳转逻辑变更时才单独部署旧 Worker：
+
+```powershell
+npx wrangler deploy --config wrangler.legacy-redirect.jsonc --dry-run
+npx wrangler deploy --config wrangler.legacy-redirect.jsonc
+```
+
+发布后分别检查旧根路径和旧 `/api/live?probe=1`，最终地址必须位于 `paiban.2825157720.workers.dev`，且路径及查询参数保持不变。普通业务发布无需重复部署跳转 Worker。
 
 ## D1 migration
 
@@ -101,10 +113,19 @@ npx wrangler rollback --env production
 
 回滚后重新检查 `/api/live`、`/api/storage-info` 和浏览器首页。代码回滚不会自动还原 D1 数据。
 
+旧地址跳转器需要独立查看或回滚：
+
+```powershell
+npx wrangler deployments status --config wrangler.legacy-redirect.jsonc
+npx wrangler versions list --config wrangler.legacy-redirect.jsonc
+npx wrangler rollback --config wrangler.legacy-redirect.jsonc
+```
+
 ## 故障处理
 
 - 正式 API 失败但静态页正常：先检查 Worker 当前版本和 D1 binding，禁止在请求中临时建表。
 - Wrangler 偶发提示无法解析 `api.cloudflare.com`：先用 `curl.exe -I https://api.cloudflare.com/client/v4/` 验证网络；恢复后重试同一只读或部署命令，不重复导入数据。
+- 公司网络若把 `*.workers.dev` 解析到异常地址或重置连接：先用浏览器安全 DNS/其他网络交叉验证，不要修改 Worker 或重复迁移数据；若同事普遍受影响，长期方案应改用自有域名，而不是继续依赖 `workers.dev`。
 - 数据异常：立即停止继续修改，先导出当前 D1，再比较表行数和业务样本。
 - 需要恢复旧 Render：先确认 Cloudflare 上线后是否有新写入；有写入时必须先完成 D1 → Supabase 同步和校验。
 

@@ -2,7 +2,8 @@
 
 当前正式系统已迁移到 Cloudflare Workers + D1：
 
-- 正式地址：<https://smart-scheduling-system-production.2825157720.workers.dev/>
+- 正式地址：<https://paiban.2825157720.workers.dev/>
+- 原正式地址会自动跳转到新地址，已保存的旧书签仍可使用。
 - 正式环境：无需登录，获得网址的人均可查看和编辑。
 - 整月重置和恢复仍需管理员密码；密码仅保存在 Cloudflare Worker secret 中，不在网页或仓库里。
 - 预览环境：Cloudflare Access 限制访问，且版本预览 URL 已关闭。
@@ -24,7 +25,7 @@ npx wrangler deploy --env preview
 ```powershell
 npx wrangler deploy --env production --dry-run
 npx wrangler deploy --env production
-Invoke-RestMethod 'https://smart-scheduling-system-production.2825157720.workers.dev/api/storage-info'
+Invoke-RestMethod 'https://paiban.2825157720.workers.dev/api/storage-info'
 ```
 
 完整的发布、备份和回滚步骤见 [Cloudflare 运维手册](docs/cloudflare/operations-runbook.md)，本次迁移证据见 [生产切换记录](docs/cloudflare/cutover-record.md)。
