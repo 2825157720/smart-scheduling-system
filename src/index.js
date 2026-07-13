@@ -1,6 +1,7 @@
 const json = (body, init = {}) => Response.json(body, init);
 const rows = async (statement) => (await statement.all()).results;
 const now = () => new Date().toISOString();
+const failure = (msg, status = 400) => json({ success: false, msg }, { status });
 
 async function getGroups(db) {
   return rows(db.prepare(`
@@ -30,7 +31,7 @@ async function getPositions(db) {
     FROM positions p
     LEFT JOIN staff s ON s.id = p.default_staff_id
     LEFT JOIN groups g ON g.id = p.default_group_id
-    ORDER BY p.id
+    ORDER BY p.sort_order, p.id
   `)).then((items) => items.map((item) => ({ ...item, split_allowed: Boolean(item.split_allowed) })));
 }
 
@@ -92,6 +93,14 @@ async function getSchedule(db, year, month) {
 async function getMemo(db, id = "global") {
   const row = await db.prepare("SELECT content, updated_at FROM memos WHERE id = ?").bind(id).first();
   return row || { content: "", updated_at: "" };
+}
+
+async function nameExists(db, name, except = {}) {
+  const [staff, groups] = await Promise.all([
+    db.prepare("SELECT id FROM staff WHERE name = ? AND id != ?").bind(name, except.staffId || "").first(),
+    db.prepare("SELECT id FROM groups WHERE name = ? AND id != ?").bind(name, except.groupId || "").first(),
+  ]);
+  return Boolean(staff || groups);
 }
 
 async function subjectMaps(db) {
@@ -165,6 +174,81 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/groups") return json(await getGroups(env.DB));
     if (request.method === "GET" && url.pathname === "/api/staff") return json(await getStaff(env.DB));
     if (request.method === "GET" && url.pathname === "/api/positions") return json(await getPositions(env.DB));
+    if (request.method === "POST" && url.pathname === "/api/groups") {
+      const body = await request.json(); const name = String(body.name || "").trim();
+      if (!name) return failure("小组名称不能为空");
+      if (await nameExists(env.DB, name)) return failure("名称已存在");
+      const groupId = crypto.randomUUID();
+      await env.DB.prepare("INSERT INTO groups (id, name) VALUES (?, ?)").bind(groupId, name).run();
+      return json({ success: true, group_id: groupId });
+    }
+    const group = url.pathname.match(/^\/api\/groups\/([^/]+)$/);
+    if (group && request.method === "PUT") {
+      const body = await request.json(); const name = String(body.name || "").trim();
+      if (!name) return failure("小组名称不能为空");
+      if (await nameExists(env.DB, name, { groupId: group[1] })) return failure("名称已存在");
+      const result = await env.DB.prepare("UPDATE groups SET name = ? WHERE id = ?").bind(name, group[1]).run();
+      return result.meta.changes ? json({ success: true }) : failure("小组不存在", 404);
+    }
+    if (group && request.method === "DELETE") {
+      const inSchedule = await env.DB.prepare("SELECT 1 FROM schedule_cells WHERE group_id = ? LIMIT 1").bind(group[1]).first();
+      if (inSchedule) return failure("该小组已被排班历史引用，不能删除", 409);
+      await env.DB.prepare("DELETE FROM groups WHERE id = ?").bind(group[1]).run();
+      return json({ success: true });
+    }
+    if (request.method === "POST" && url.pathname === "/api/staff") {
+      const body = await request.json(); const name = String(body.name || "").trim();
+      if (!name) return failure("姓名不能为空");
+      if (await nameExists(env.DB, name)) return failure("名称已存在");
+      const staffId = crypto.randomUUID(); const groupId = body.group_id || null;
+      await env.DB.prepare("INSERT INTO staff (id, name, group_id, can_cpin, can_jd, saturday_only, no_substitute) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(staffId, name, groupId, body.can_cpin ? 1 : 0, body.can_jd ? 1 : 0, body.saturday_only ? 1 : 0, body.no_substitute ? 1 : 0).run();
+      return json({ success: true, staff_id: staffId });
+    }
+    const staff = url.pathname.match(/^\/api\/staff\/([^/]+)$/);
+    if (staff && request.method === "PUT") {
+      const body = await request.json(); const name = String(body.name || "").trim();
+      if (!name) return failure("姓名不能为空");
+      if (await nameExists(env.DB, name, { staffId: staff[1] })) return failure("名称已存在");
+      const result = await env.DB.prepare("UPDATE staff SET name=?, group_id=?, can_cpin=?, can_jd=?, saturday_only=?, no_substitute=? WHERE id=?")
+        .bind(name, body.group_id || null, body.can_cpin ? 1 : 0, body.can_jd ? 1 : 0, body.saturday_only ? 1 : 0, body.no_substitute ? 1 : 0, staff[1]).run();
+      return result.meta.changes ? json({ success: true }) : failure("人员不存在", 404);
+    }
+    if (staff && request.method === "DELETE") {
+      const inSchedule = await env.DB.prepare("SELECT 1 FROM schedule_cells WHERE staff_id = ? LIMIT 1").bind(staff[1]).first();
+      if (inSchedule) return failure("该人员已被排班历史引用，不能删除", 409);
+      await env.DB.prepare("DELETE FROM staff WHERE id = ?").bind(staff[1]).run();
+      return json({ success: true });
+    }
+    if (request.method === "POST" && url.pathname === "/api/positions") {
+      const body = await request.json(); const name = String(body.name || "").trim();
+      if (!name) return failure("岗位名称不能为空");
+      const posId = crypto.randomUUID(); const subject = await subjectMaps(env.DB); const defaultSubject = subjectId(String(body.default_person || ""), subject);
+      const rank = (await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS rank FROM positions").first()).rank + 1;
+      await env.DB.prepare("INSERT INTO positions (id, name, workload, default_staff_id, default_group_id, category, split_allowed, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(posId, name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, rank).run();
+      return json({ success: true, pos_id: posId });
+    }
+    const position = url.pathname.match(/^\/api\/positions\/([^/]+)$/);
+    if (position && request.method === "PUT") {
+      const body = await request.json(); const name = String(body.name || "").trim();
+      if (!name) return failure("岗位名称不能为空");
+      const subject = await subjectMaps(env.DB); const defaultSubject = subjectId(String(body.default_person || ""), subject);
+      const result = await env.DB.prepare("UPDATE positions SET name=?, workload=?, default_staff_id=?, default_group_id=?, category=?, split_allowed=? WHERE id=?")
+        .bind(name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, position[1]).run();
+      return result.meta.changes ? json({ success: true, synced_days: [] }) : failure("岗位不存在", 404);
+    }
+    if (position && request.method === "DELETE") {
+      const inSchedule = await env.DB.prepare("SELECT 1 FROM schedule_cells WHERE position_id = ? LIMIT 1").bind(position[1]).first();
+      if (inSchedule) return failure("该岗位已被排班历史引用，不能删除", 409);
+      await env.DB.prepare("DELETE FROM positions WHERE id = ?").bind(position[1]).run();
+      return json({ success: true });
+    }
+    if (request.method === "POST" && url.pathname === "/api/positions/reorder") {
+      const payload = await request.json(); const ids = Array.isArray(payload) ? payload.map((item) => typeof item === "object" ? item.id : item) : [];
+      await env.DB.batch(ids.map((id, index) => env.DB.prepare("UPDATE positions SET sort_order = ? WHERE id = ?").bind(index + 1, id)));
+      return json({ success: true });
+    }
     const schedule = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})$/);
     if (request.method === "GET" && schedule) return json(await getSchedule(env.DB, schedule[1], schedule[2]));
     if (request.method === "POST" && schedule) {

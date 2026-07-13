@@ -1,0 +1,6 @@
+ALTER TABLE positions ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0;
+UPDATE positions
+SET sort_order = CASE
+  WHEN id GLOB 'p[0-9]*' THEN CAST(SUBSTR(id, 2) AS INTEGER)
+  ELSE 0
+END;
