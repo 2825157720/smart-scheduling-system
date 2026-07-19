@@ -45,6 +45,7 @@
 - 旧 Flask 对 POST `/api/schedule/:year/:month` 的 JSON 数组按空排班 `{}` 接受。Worker 首版保持此行为，后续只能通过版本化接口收紧。
 - 小组 GET 必须包含 `member_names`，人员 GET 必须包含 `group_name`。
 - `split` 排班单元使用 `am` 与 `pm` 两个 slot；slot 内的 workload 与人员分配不得在黄金比较中被省略。
+- 修改岗位默认人时，只同步 `Asia/Shanghai` 业务日期严格晚于当天、状态为默认上班 `on` 的排班单元；今天、历史日期以及休假、替班、待定、双槽位等特殊排班保持不变。响应中的 `synced_days` 返回实际同步的日期。
 - 重置排班只替换 `Asia/Shanghai` 业务日期严格晚于当天的日期；今天和历史日期原样保留，过去月份返回空 `reset_dates` 且不执行 D1 写入。
 
 ## 排休导入规则

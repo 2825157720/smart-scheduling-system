@@ -2924,17 +2924,31 @@ async function savePos(){
   };
   loading(true);
   try{
+    let updateResult=null;
     if(G.editingPosId){
-      await api('/api/positions/'+G.editingPosId,'PUT',body);
-      toast('岗位已更新');
+      updateResult=await api('/api/positions/'+G.editingPosId,'PUT',body);
     } else {
       await api('/api/positions','POST',body);
-      toast('岗位已新增');
     }
-    G.positions=await api('/api/positions');
+    const [positions,schedule]=await Promise.all([
+      api('/api/positions'),
+      api(`/api/schedule/${G.year}/${G.month}`)
+    ]);
+    G.positions=positions;
+    G.schedule=schedule;
+    G.lastPollHash=JSON.stringify({positions:G.positions,staff:G.staff,schedule:G.schedule});
     renderPosTable();
     closePosModal();
     renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+    if(updateResult){
+      const count=(updateResult.synced_days||[]).length;
+      toast(count ? `岗位已更新，已同步 ${count} 个未来日期` : '岗位已更新');
+    } else {
+      toast('岗位已新增');
+    }
   }catch(e){ toast('保存失败: '+e.message,3000); }
   finally{ loading(false); }
 }

@@ -264,23 +264,19 @@ export default {
       const body = await request.json(); const name = String(body.name || "").trim();
       if (!name) return failure("岗位名称不能为空");
       const subject = await subjectMaps(env.DB); const defaultSubject = subjectId(String(body.default_person || ""), subject);
-      const previous = await env.DB.prepare("SELECT default_staff_id, default_group_id FROM positions WHERE id=?").bind(position[1]).first();
-      if (!previous) return failure("岗位不存在", 404);
-      const today = new Date().toISOString().slice(0, 10);
+      const existing = await env.DB.prepare("SELECT id FROM positions WHERE id=?").bind(position[1]).first();
+      if (!existing) return failure("岗位不存在", 404);
+      const today = shanghaiBusinessDate();
       const synced = await rows(env.DB.prepare(`
         SELECT DISTINCT d.schedule_date FROM schedule_days d JOIN schedule_cells c ON c.schedule_day_id=d.id
-        WHERE c.position_id=? AND d.schedule_date>=? AND (c.staff_id=? OR c.group_id=?)
-        UNION
-        SELECT DISTINCT d.schedule_date FROM schedule_days d JOIN schedule_cells c ON c.schedule_day_id=d.id JOIN schedule_slots sl ON sl.schedule_cell_id=c.id
-        WHERE c.position_id=? AND d.schedule_date>=? AND (sl.staff_id=? OR sl.group_id=?)
-      `).bind(position[1], today, previous.default_staff_id, previous.default_group_id, position[1], today, previous.default_staff_id, previous.default_group_id));
+        WHERE c.position_id=? AND d.schedule_date>? AND c.status='on'
+      `).bind(position[1], today));
+      const nextStatus = defaultSubject.staffId || defaultSubject.groupId ? "on" : "pending";
       const statements = [
         env.DB.prepare("UPDATE positions SET name=?, workload=?, default_staff_id=?, default_group_id=?, category=?, split_allowed=? WHERE id=?")
           .bind(name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, position[1]),
-        env.DB.prepare(`UPDATE schedule_cells SET staff_id=?, group_id=? WHERE position_id=? AND status != 'split' AND schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date>=?) AND (staff_id=? OR group_id=?)`)
-          .bind(defaultSubject.staffId, defaultSubject.groupId, position[1], today, previous.default_staff_id, previous.default_group_id),
-        env.DB.prepare(`UPDATE schedule_slots SET staff_id=?, group_id=? WHERE schedule_cell_id IN (SELECT c.id FROM schedule_cells c JOIN schedule_days d ON d.id=c.schedule_day_id WHERE c.position_id=? AND d.schedule_date>=?) AND (staff_id=? OR group_id=?)`)
-          .bind(defaultSubject.staffId, defaultSubject.groupId, position[1], today, previous.default_staff_id, previous.default_group_id),
+        env.DB.prepare(`UPDATE schedule_cells SET status=?, staff_id=?, group_id=? WHERE position_id=? AND status='on' AND schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date>?)`)
+          .bind(nextStatus, defaultSubject.staffId, defaultSubject.groupId, position[1], today),
       ];
       await env.DB.batch(statements);
       return json({ success: true, synced_days: synced.map((item) => item.schedule_date) });

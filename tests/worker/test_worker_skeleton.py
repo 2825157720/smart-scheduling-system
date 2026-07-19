@@ -77,6 +77,17 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertIn("replaceDayStatements", reset_block)
         self.assertNotIn("saveMonth", reset_block)
 
+    def test_position_default_change_repairs_only_future_default_assignments(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[2]
+        worker_source = (root / "src" / "index.js").read_text(encoding="utf-8")
+        position_block = worker_source.split('const position = url.pathname.match', 1)[1].split('if (position && request.method === "DELETE")', 1)[0]
+
+        self.assertIn("const today = shanghaiBusinessDate()", position_block)
+        self.assertIn("d.schedule_date>?", position_block)
+        self.assertIn("c.status='on'", position_block)
+        self.assertNotIn("previous.default_staff_id", position_block)
+        self.assertNotIn("previous.default_group_id", position_block)
+
     def test_deployment_environments_use_unique_worker_names(self):
         config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
         config = json.loads(config_path.read_text(encoding="utf-8"))

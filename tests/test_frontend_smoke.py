@@ -51,6 +51,15 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("今天和历史日期保持不变", block)
         self.assertIn("reset_dates", block)
 
+    def test_position_save_immediately_refreshes_schedule_and_statistics(self):
+        block = self._block("async function savePos(){", "async function delPos(id,name){")
+
+        self.assertIn("Promise.all", block)
+        self.assertIn("api(`/api/schedule/${G.year}/${G.month}`)", block)
+        self.assertIn("renderDayStat()", block)
+        self.assertIn("renderWeekStat()", block)
+        self.assertIn("renderMonthStat()", block)
+
     def test_day_plan_day_selector_uses_current_month(self):
         block = self._block("function buildDayPlanDaySel(){", "function openDayPlanModal(){")
         self.assertIn("daysInMonth(G.year,G.month)", block)
