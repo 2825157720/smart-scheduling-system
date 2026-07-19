@@ -1,4 +1,5 @@
 import { canCoverMember, personDayWorkload, planDaySchedule } from "./schedule-core.js";
+import { buildImportPreview, createImportToken, normalizeImportPayload, shanghaiBusinessDate, verifyAdminPassword } from "./import-off-days.js";
 
 const json = (body, init = {}) => Response.json(body, init);
 const rows = async (statement) => (await statement.all()).results;
@@ -89,6 +90,7 @@ async function getSchedule(db, year, month) {
     const day = days.find((candidate) => candidate.id === item.schedule_day_id);
     result[String(Number(day.schedule_date.slice(-2)))]._off_persons.push(item.name);
   }
+  for (const data of Object.values(result)) data._off_persons.sort((a, b) => a.localeCompare(b, "zh-CN"));
   return result;
 }
 
@@ -119,6 +121,50 @@ function subjectId(name, subjects) {
   throw new Error("排班引用了不存在的人员或小组");
 }
 
+function insertDayStatements(db, date, data, subjects) {
+  const dayId = `day_${date}`;
+  const statements = [
+    db.prepare("INSERT INTO schedule_days (id, schedule_date, scatter_groups) VALUES (?, ?, ?)").bind(dayId, date, data._scatter_groups ? 1 : 0),
+  ];
+  for (const person of data._off_persons || []) {
+    const subject = subjectId(String(person || ""), subjects);
+    if (subject.staffId) statements.push(db.prepare("INSERT INTO schedule_day_off_staff (schedule_day_id, staff_id) VALUES (?, ?)").bind(dayId, subject.staffId));
+    if (subject.groupId) statements.push(db.prepare("INSERT INTO schedule_day_off_groups (schedule_day_id, group_id) VALUES (?, ?)").bind(dayId, subject.groupId));
+  }
+  for (const [positionId, cell] of Object.entries(data)) {
+    if (!positionId.startsWith("p") || !cell || typeof cell !== "object") continue;
+    const cellId = `cell_${date}_${positionId}`;
+    const subject = subjectId(String(cell.person || ""), subjects);
+    const status = String(cell.status || "pending");
+    statements.push(db.prepare("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(cellId, dayId, positionId, status, subject.staffId, subject.groupId));
+    for (const slot of ["am", "pm"]) {
+      const detail = cell.slots?.[slot];
+      if (!detail || typeof detail !== "object") continue;
+      const slotSubject = subjectId(String(detail.person || ""), subjects);
+      statements.push(db.prepare("INSERT INTO schedule_slots (id, schedule_cell_id, slot, status, staff_id, group_id, workload) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .bind(`${cellId}_${slot}`, cellId, slot, String(detail.status || "pending"), slotSubject.staffId, slotSubject.groupId, Number(detail.workload || 0)));
+    }
+  }
+  return statements;
+}
+
+function replaceDayStatements(db, datesAndData, subjects) {
+  const statements = [];
+  for (const { date, data } of datesAndData) {
+    const dayId = `day_${date}`;
+    statements.push(
+      db.prepare("DELETE FROM schedule_slots WHERE schedule_cell_id IN (SELECT id FROM schedule_cells WHERE schedule_day_id = ?)").bind(dayId),
+      db.prepare("DELETE FROM schedule_day_off_staff WHERE schedule_day_id = ?").bind(dayId),
+      db.prepare("DELETE FROM schedule_day_off_groups WHERE schedule_day_id = ?").bind(dayId),
+      db.prepare("DELETE FROM schedule_cells WHERE schedule_day_id = ?").bind(dayId),
+      db.prepare("DELETE FROM schedule_days WHERE id = ?").bind(dayId),
+      ...insertDayStatements(db, date, data, subjects),
+    );
+  }
+  return statements;
+}
+
 async function saveMonth(db, year, month, monthData) {
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
   const subjects = await subjectMaps(db);
@@ -133,28 +179,7 @@ async function saveMonth(db, year, month, monthData) {
     const day = Number(dayText);
     if (!Number.isInteger(day) || day < 1 || day > 31 || !data || typeof data !== "object") continue;
     const date = `${prefix}-${String(day).padStart(2, "0")}`;
-    const dayId = `day_${date}`;
-    statements.push(db.prepare("INSERT INTO schedule_days (id, schedule_date, scatter_groups) VALUES (?, ?, ?)").bind(dayId, date, data._scatter_groups ? 1 : 0));
-    for (const person of data._off_persons || []) {
-      const subject = subjectId(String(person || ""), subjects);
-      if (subject.staffId) statements.push(db.prepare("INSERT INTO schedule_day_off_staff (schedule_day_id, staff_id) VALUES (?, ?)").bind(dayId, subject.staffId));
-      if (subject.groupId) statements.push(db.prepare("INSERT INTO schedule_day_off_groups (schedule_day_id, group_id) VALUES (?, ?)").bind(dayId, subject.groupId));
-    }
-    for (const [positionId, cell] of Object.entries(data)) {
-      if (!positionId.startsWith("p") || !cell || typeof cell !== "object") continue;
-      const cellId = `cell_${date}_${positionId}`;
-      const subject = subjectId(String(cell.person || ""), subjects);
-      const status = String(cell.status || "pending");
-      statements.push(db.prepare("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id) VALUES (?, ?, ?, ?, ?, ?)")
-        .bind(cellId, dayId, positionId, status, subject.staffId, subject.groupId));
-      for (const slot of ["am", "pm"]) {
-        const detail = cell.slots?.[slot];
-        if (!detail || typeof detail !== "object") continue;
-        const slotSubject = subjectId(String(detail.person || ""), subjects);
-        statements.push(db.prepare("INSERT INTO schedule_slots (id, schedule_cell_id, slot, status, staff_id, group_id, workload) VALUES (?, ?, ?, ?, ?, ?, ?)")
-          .bind(`${cellId}_${slot}`, cellId, slot, String(detail.status || "pending"), slotSubject.staffId, slotSubject.groupId, Number(detail.workload || 0)));
-      }
-    }
+    statements.push(...insertDayStatements(db, date, data, subjects));
   }
   await db.batch(statements);
 }
@@ -184,7 +209,7 @@ export default {
       return json({ ip: url.hostname, port: 443, url: url.origin });
     }
     if (request.method === "GET" && url.pathname === "/api/routes") {
-      return json({ success: true, version: "cloudflare-d1", route_count: 22 });
+      return json({ success: true, version: "cloudflare-d1", route_count: 23 });
     }
     if (request.method === "GET" && url.pathname === "/api/groups") return json(await getGroups(env.DB));
     if (request.method === "GET" && url.pathname === "/api/staff") return json(await getStaff(env.DB));
@@ -327,6 +352,61 @@ export default {
       current[String(day)] = result.day_data; await saveMonth(env.DB, planDay[1], planDay[2], current);
       return json({ success: true, ...result });
     }
+    const importOffDays = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/import-off-days$/);
+    if (request.method === "POST" && importOffDays) {
+      const year = Number(importOffDays[1]);
+      const month = Number(importOffDays[2]);
+      if (month < 1 || month > 12) return failure("月份无效");
+      const body = await request.json();
+      const action = String(body.action || "preview");
+      if (!["preview", "apply"].includes(action)) return failure("导入操作无效");
+      const maxDay = new Date(year, month, 0).getDate();
+      const [positions, staff, groups, current] = await Promise.all([
+        getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month),
+      ]);
+      let imported;
+      try {
+        imported = normalizeImportPayload(body, staff, maxDay);
+      } catch (error) {
+        return failure(error.message || "导入数据格式错误");
+      }
+      const today = shanghaiBusinessDate();
+      const preview = buildImportPreview({ year, month, today, staff, positions, groups, current, imported });
+      const previewToken = await createImportToken({ year, month, today, current, imported });
+      const summary = {
+        changed_dates: preview.changed_dates,
+        ignored_dates: preview.ignored_dates,
+        changes: preview.changes,
+        plan_results: preview.plan_results,
+        added_count: preview.added_count,
+        removed_count: preview.removed_count,
+        matched_count: imported.length,
+        today,
+        preview_token: previewToken,
+      };
+      if (action === "preview") return json({ success: true, ...summary });
+      if (!env.ADMIN_PASSWORD) return failure("管理员密码未配置", 503);
+      if (!await verifyAdminPassword(body.password, env.ADMIN_PASSWORD)) return failure("密码错误", 403);
+      if (!body.preview_token || body.preview_token !== previewToken) return failure("排班数据已变化，请重新预览后再导入", 409);
+      if (!preview.changed_dates.length) return json({ success: true, schedule: current, backup_time: "", ...summary });
+      const backupTime = now();
+      const subjects = await subjectMaps(env.DB);
+      const changedDays = preview.changed_dates.map((day) => ({
+        date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+        data: preview.schedule[String(day)],
+      }));
+      const statements = [
+        env.DB.prepare("INSERT INTO schedule_backups (id, year, month, created_at, payload) VALUES (?, ?, ?, ?, ?)")
+          .bind(crypto.randomUUID(), year, month, backupTime, JSON.stringify(current)),
+        ...replaceDayStatements(env.DB, changedDays, subjects),
+      ];
+      try {
+        await env.DB.batch(statements);
+      } catch (error) {
+        return json({ success: false, msg: error.message || "导入排休失败" }, { status: 400 });
+      }
+      return json({ success: true, schedule: preview.schedule, backup_time: backupTime, ...summary });
+    }
     if (request.method === "POST" && url.pathname === "/api/auto-substitute") {
       const body = await request.json(); const { year, month, day, pos_id: posId } = body;
       if (!(year && month && day && posId)) return failure("参数无效");
@@ -377,7 +457,7 @@ export default {
     if (request.method === "POST" && reset) {
       const body = await request.json();
       if (!env.ADMIN_PASSWORD) return failure("管理员密码未配置", 503);
-      if (String(body.password || "") !== env.ADMIN_PASSWORD) return failure("密码错误", 403);
+      if (!await verifyAdminPassword(body.password, env.ADMIN_PASSWORD)) return failure("密码错误", 403);
       const scheduleData = defaultMonth(await getPositions(env.DB), reset[1], reset[2]);
       await saveMonth(env.DB, reset[1], reset[2], scheduleData);
       return json({ success: true, schedule: scheduleData });
@@ -393,7 +473,7 @@ export default {
     if (request.method === "POST" && restore) {
       const body = await request.json();
       if (!env.ADMIN_PASSWORD) return failure("管理员密码未配置", 503);
-      if (String(body.password || "") !== env.ADMIN_PASSWORD) return failure("密码错误", 403);
+      if (!await verifyAdminPassword(body.password, env.ADMIN_PASSWORD)) return failure("密码错误", 403);
       const record = await env.DB.prepare("SELECT created_at, payload FROM schedule_backups WHERE year=? AND month=? ORDER BY created_at DESC LIMIT 1")
         .bind(Number(restore[1]), Number(restore[2])).first();
       if (!record) return failure("未找到备份文件，请先备份", 404);

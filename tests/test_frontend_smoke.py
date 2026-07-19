@@ -35,6 +35,17 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("runDayPlan", self.text)
         self.assertIn("\u53f3\u952e\u81ea\u5b9a\u4e49\u66ff\u73ed", self.text)
 
+    def test_schedule_import_ui_and_local_parser_exist(self):
+        self.assertIn("导入排休", self.text)
+        self.assertIn("schedule-import-modal", self.text)
+        self.assertIn("schedule-import-file", self.text)
+        self.assertIn("schedule-import-password", self.text)
+        self.assertIn("/vendor/xlsx.full.min.js", self.text)
+        self.assertIn("/schedule-import.js", self.text)
+        self.assertIn("import-off-days", self.text)
+        self.assertIn("今天之后", self.text)
+        self.assertIn("全天智能排班", self.text)
+
     def test_day_plan_day_selector_uses_current_month(self):
         block = self._block("function buildDayPlanDaySel(){", "function openDayPlanModal(){")
         self.assertIn("daysInMonth(G.year,G.month)", block)

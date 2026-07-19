@@ -63,6 +63,10 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertIn("env.ADMIN_PASSWORD", worker_source)
         self.assertNotIn('"11050"', worker_source)
         self.assertNotIn("'11050'", frontend_source)
+        self.assertIn("import-off-days", worker_source)
+        self.assertIn("verifyAdminPassword(body.password, env.ADMIN_PASSWORD)", worker_source)
+        self.assertIn("preview_token", worker_source)
+        self.assertIn("schedule_backups", worker_source)
 
     def test_deployment_environments_use_unique_worker_names(self):
         config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"

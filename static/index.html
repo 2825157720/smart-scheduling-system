@@ -76,7 +76,8 @@ body{
 .btn-blue{background:#1976d2;color:#fff}.btn-blue:hover{background:#0d47a1}
 .btn-red{background:#e53935;color:#fff}.btn-red:hover{background:#b71c1c}
 .btn-gray{background:#607d8b;color:#fff}.btn-gray:hover{background:#455a64}
-.btn-teal{background:#00897b;color:#fff}.btn-teal:hover{background:#00695c}
+.btn-teal{background:#00897b;color:#fff}.btn-teal:hover{background:#00695c}
+.btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.25)}
 .ip-hint{font-size:11px;opacity:.7;white-space:nowrap;line-height:1;display:inline-flex;align-items:center}
 
 /* 鈹€鈹€鈹€ 璁块棶鍦板潃妯箙 鈹€鈹€鈹€ */
@@ -301,6 +302,18 @@ body{
    flex-shrink:0;
  }
 #day-plan-meta{font-size:11px;color:#78909c;line-height:1.4;margin-top:2px}
+#schedule-import-note{font-size:12px;color:#455a64;line-height:1.6;background:#f4fbff;border:1px solid #d7eaf5;border-radius:8px;padding:10px 12px}
+.schedule-import-file{display:block;width:100%;padding:10px;border:1px dashed #90bdd8;border-radius:8px;background:#f8fcff;color:#17324d;cursor:pointer}
+.schedule-import-summary{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px;margin:12px 0}
+.schedule-import-stat{border:1px solid #d7e7f1;border-radius:8px;padding:9px;background:#fff}
+.schedule-import-stat strong{display:block;font-size:18px;color:#1a6fb5;line-height:1.1;margin-bottom:4px}
+.schedule-import-stat span{font-size:11px;color:#607d8b}
+.schedule-import-detail{border:1px solid #e2ebf0;border-radius:8px;padding:9px 10px;margin-top:8px;background:#fbfdff;color:#455a64;line-height:1.55}
+.schedule-import-detail strong{color:#17324d}
+.schedule-import-warning{border-color:#ffe082;background:#fff8e1;color:#7a5a00}
+#schedule-import-error{display:none;margin-top:10px;border:1px solid #ef9a9a;background:#ffebee;color:#b71c1c;border-radius:8px;padding:9px 10px;line-height:1.45}
+#schedule-import-password{flex:1;padding:7px 9px;border:1px solid #b8cbd7;border-radius:4px;font-size:12px;min-width:180px}
+@media(max-width:700px){.schedule-import-summary{grid-template-columns:repeat(2,minmax(100px,1fr))}}
 
 /* 鈹€鈹€鈹€ 寮圭獥 鈹€鈹€鈹€ */
 .modal-overlay{
@@ -408,6 +421,8 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
   <button class="btn btn-orange" onclick="openMgr()">👥 人员/岗位管理</button>
   <button class="btn btn-red" onclick="resetSchedule()">🔄 重置休假</button>
   <button class="btn btn-green" onclick="openDayPlanModal()">🗓 当天排班</button>
+
+  <button class="btn btn-blue" onclick="openScheduleImportModal()">📥 导入排休</button>
 
   <button class="btn btn-teal" onclick="openColSettings()">📅 列设置</button>
   <button class="btn btn-blue" onclick="backupSchedule()">💾 备份休假</button>
@@ -526,7 +541,48 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
 </div>
 
 
-<div id="col-settings-modal" class="modal-overlay" style="display:none">
+<!-- 导入排休 -->
+<div id="schedule-import-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="schedule-import-title">
+  <div class="modal" style="width:720px;max-width:94vw">
+    <span class="modal-close" onclick="closeScheduleImportModal()" aria-label="关闭">×</span>
+    <h2 id="schedule-import-title">导入排休</h2>
+    <div id="schedule-import-note">
+      导入目标为 <strong id="schedule-import-target"></strong>。Excel 仅在当前浏览器中读取，原文件不会上传。<br>
+      只修改<strong>今天之后</strong>的日期；休、年、年假均按休息处理。休假名单实际变化的日期会执行<strong>全天智能排班</strong>，可能覆盖当天已有的人工岗位安排。
+    </div>
+    <div class="form-row" style="align-items:flex-start;margin-top:12px">
+      <label style="margin-top:8px">排休文件</label>
+      <div style="flex:1">
+        <input class="schedule-import-file" type="file" id="schedule-import-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="previewScheduleImport()">
+        <div style="font-size:11px;color:#78909c;margin-top:5px">请选择从钉钉下载的 .xlsx 文件，最大 20 MB。</div>
+      </div>
+    </div>
+    <div id="schedule-import-error" role="alert"></div>
+    <div id="schedule-import-preview" style="display:none" aria-live="polite">
+      <div class="schedule-import-summary">
+        <div class="schedule-import-stat"><strong id="schedule-import-matched">0</strong><span>匹配系统人员</span></div>
+        <div class="schedule-import-stat"><strong id="schedule-import-changed">0</strong><span>变化并重排日期</span></div>
+        <div class="schedule-import-stat"><strong id="schedule-import-added">0</strong><span>新增休息记录</span></div>
+        <div class="schedule-import-stat"><strong id="schedule-import-removed">0</strong><span>取消休息记录</span></div>
+      </div>
+      <div class="schedule-import-detail"><strong>变化日期：</strong><span id="schedule-import-days">无</span></div>
+      <div class="schedule-import-detail" id="schedule-import-ignored-wrap"><strong>忽略的表外人员：</strong><span id="schedule-import-ignored">无</span></div>
+      <div class="schedule-import-detail schedule-import-warning" id="schedule-import-locked-wrap" style="display:none"><strong>已锁定日期：</strong><span id="schedule-import-locked"></span>（今天及过去日期不会修改）</div>
+      <div class="schedule-import-detail schedule-import-warning" id="schedule-import-failed-wrap" style="display:none"><strong>排班提示：</strong><span id="schedule-import-failed"></span></div>
+      <div class="form-row" id="schedule-import-password-row" style="margin-top:12px;margin-bottom:0">
+        <label for="schedule-import-password">管理员密码</label>
+        <input type="password" id="schedule-import-password" autocomplete="current-password" placeholder="输入系统现有管理员密码">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-gray" onclick="closeScheduleImportModal()">取消</button>
+      <button class="btn btn-green" id="schedule-import-apply" onclick="applyScheduleImport()" disabled>确认导入并排班</button>
+    </div>
+  </div>
+</div>
+
+
+<div id="col-settings-modal" class="modal-overlay" style="display:none">
   <div class="modal" style="min-width:520px;max-width:90vw">
     <span class="modal-close" onclick="closeColSettings()">×</span>
     <h2>列设置</h2>
@@ -687,6 +743,8 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
 <!-- Loading -->
 <div id="loading" style="display:none">⏳ 加载中...</div>
 
+<script src="/vendor/xlsx.full.min.js"></script>
+<script type="module" src="/schedule-import.js"></script>
 <script>
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 //  鍏ㄥ眬鐘舵€?
@@ -706,6 +764,8 @@ let G = {
   dayPlanDay: null,
   dayPlanScatterGroups: false,
   dayPlanDirty: false,
+  scheduleImportPayload: null,
+  scheduleImportPreview: null,
   // 杞鐩稿叧
   polling: null,        // setInterval 鍙ユ焺
   userBusy: false,      // 鐢ㄦ埛姝ｅ湪鎿嶄綔锛堝脊绐?鍙抽敭鑿滃崟鎵撳紑鏃舵殏鍋滆疆璇㈠埛鏂帮級
@@ -727,8 +787,123 @@ async function api(url, method='GET', body=null){
   const opts = { method, headers:{'Content-Type':'application/json'} };
   if(body) opts.body = JSON.stringify(body);
   const r = await fetch(targetUrl, opts);
-  if(!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
+  let data = null;
+  try{ data = await r.json(); }catch(e){}
+  if(!r.ok) throw new Error(data?.msg || `HTTP ${r.status}`);
+  return data;
+}
+
+function openScheduleImportModal(){
+  G.userBusy = true;
+  G.scheduleImportPayload = null;
+  G.scheduleImportPreview = null;
+  $('schedule-import-target').textContent = `${G.year}年${G.month}月`;
+  $('schedule-import-file').value = '';
+  $('schedule-import-password').value = '';
+  $('schedule-import-preview').style.display = 'none';
+  $('schedule-import-error').style.display = 'none';
+  $('schedule-import-apply').disabled = true;
+  $('schedule-import-modal').style.display = 'flex';
+}
+
+function closeScheduleImportModal(){
+  $('schedule-import-modal').style.display = 'none';
+  $('schedule-import-password').value = '';
+  G.scheduleImportPayload = null;
+  G.scheduleImportPreview = null;
+  G.userBusy = false;
+  setTimeout(pollData, 300);
+}
+
+function showScheduleImportError(message, keepPreview=false){
+  const el = $('schedule-import-error');
+  el.textContent = message;
+  el.style.display = 'block';
+  if(!keepPreview){
+    $('schedule-import-preview').style.display = 'none';
+    $('schedule-import-apply').disabled = true;
+  }
+}
+
+function renderScheduleImportPreview(parsed, preview){
+  $('schedule-import-error').style.display = 'none';
+  $('schedule-import-preview').style.display = 'block';
+  $('schedule-import-matched').textContent = preview.matched_count;
+  $('schedule-import-changed').textContent = preview.changed_dates.length;
+  $('schedule-import-added').textContent = preview.added_count;
+  $('schedule-import-removed').textContent = preview.removed_count;
+  $('schedule-import-days').textContent = preview.changed_dates.length ? preview.changed_dates.map(day => `${G.month}月${day}日`).join('、') : '无（未来日期的休假名单没有变化）';
+  $('schedule-import-ignored').textContent = parsed.ignored.length ? parsed.ignored.join('、') : '无';
+  $('schedule-import-ignored-wrap').style.display = parsed.ignored.length ? 'block' : 'none';
+  $('schedule-import-locked').textContent = preview.ignored_dates.map(day => `${G.month}月${day}日`).join('、');
+  $('schedule-import-locked-wrap').style.display = preview.ignored_dates.length ? 'block' : 'none';
+  const failed = preview.plan_results.filter(item => item.failed > 0);
+  $('schedule-import-failed').textContent = failed.map(item => `${G.month}月${item.day}日有 ${item.failed} 个岗位待定`).join('；');
+  $('schedule-import-failed-wrap').style.display = failed.length ? 'block' : 'none';
+  $('schedule-import-password-row').style.display = preview.changed_dates.length ? 'flex' : 'none';
+  $('schedule-import-apply').disabled = !preview.changed_dates.length;
+}
+
+async function previewScheduleImport(){
+  const file = $('schedule-import-file').files?.[0];
+  if(!file) return;
+  if(file.size > 20 * 1024 * 1024){
+    showScheduleImportError('文件超过 20 MB，请确认选择的是排休工作簿。');
+    return;
+  }
+  if(!window.ScheduleImport){
+    showScheduleImportError('Excel 解析组件尚未加载，请刷新页面后重试。');
+    return;
+  }
+  loading(true);
+  try{
+    const parsed = await window.ScheduleImport.readScheduleWorkbook(file, G.year, G.month, G.staff);
+    const payload = { action:'preview', staff_off_days:parsed.staff_off_days };
+    const preview = await api(`/api/schedule/${G.year}/${G.month}/import-off-days`, 'POST', payload);
+    G.scheduleImportPayload = parsed;
+    G.scheduleImportPreview = preview;
+    renderScheduleImportPreview(parsed, preview);
+  }catch(e){
+    G.scheduleImportPayload = null;
+    G.scheduleImportPreview = null;
+    showScheduleImportError(e.message || '排休文件预览失败');
+  }finally{
+    loading(false);
+  }
+}
+
+async function applyScheduleImport(){
+  if(!G.scheduleImportPayload || !G.scheduleImportPreview) return;
+  const password = $('schedule-import-password').value;
+  if(!password){ toast('请输入系统现有管理员密码', 3000); return; }
+  loading(true);
+  try{
+    const res = await api(`/api/schedule/${G.year}/${G.month}/import-off-days`, 'POST', {
+      action:'apply',
+      staff_off_days:G.scheduleImportPayload.staff_off_days,
+      preview_token:G.scheduleImportPreview.preview_token,
+      password,
+    });
+    G.schedule = res.schedule;
+    G.lastPollHash = '';
+    renderTable();
+    renderDayStat();
+    renderWeekStat();
+    renderMonthStat();
+    const count = res.changed_dates.length;
+    closeScheduleImportModal();
+    toast(`已导入排休并完成 ${count} 天全天智能排班`, 3500);
+  }catch(e){
+    const mustPreviewAgain = String(e.message || '').includes('重新预览');
+    showScheduleImportError(e.message || '导入排休失败', !mustPreviewAgain);
+    if(mustPreviewAgain){
+      G.scheduleImportPreview = null;
+      $('schedule-import-file').value = '';
+    }
+  }finally{
+    $('schedule-import-password').value = '';
+    loading(false);
+  }
 }
 
 // 宸ヤ綔鏃ュ垽鏂?(0=鍛ㄤ竴..6=鍛ㄦ棩)
