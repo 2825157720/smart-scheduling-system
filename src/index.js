@@ -269,13 +269,13 @@ export default {
       const today = shanghaiBusinessDate();
       const synced = await rows(env.DB.prepare(`
         SELECT DISTINCT d.schedule_date FROM schedule_days d JOIN schedule_cells c ON c.schedule_day_id=d.id
-        WHERE c.position_id=? AND d.schedule_date>? AND c.status='on'
+        WHERE c.position_id=? AND d.schedule_date>? AND c.status IN ('on','pending')
       `).bind(position[1], today));
       const nextStatus = defaultSubject.staffId || defaultSubject.groupId ? "on" : "pending";
       const statements = [
         env.DB.prepare("UPDATE positions SET name=?, workload=?, default_staff_id=?, default_group_id=?, category=?, split_allowed=? WHERE id=?")
           .bind(name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, position[1]),
-        env.DB.prepare(`UPDATE schedule_cells SET status=?, staff_id=?, group_id=? WHERE position_id=? AND status='on' AND schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date>?)`)
+        env.DB.prepare(`UPDATE schedule_cells SET status=?, staff_id=?, group_id=? WHERE position_id=? AND status IN ('on','pending') AND schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date>?)`)
           .bind(nextStatus, defaultSubject.staffId, defaultSubject.groupId, position[1], today),
       ];
       await env.DB.batch(statements);

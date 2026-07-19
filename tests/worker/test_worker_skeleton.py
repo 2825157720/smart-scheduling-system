@@ -84,7 +84,7 @@ class WorkerSkeletonTests(unittest.TestCase):
 
         self.assertIn("const today = shanghaiBusinessDate()", position_block)
         self.assertIn("d.schedule_date>?", position_block)
-        self.assertIn("c.status='on'", position_block)
+        self.assertIn("c.status IN ('on','pending')", position_block)
         self.assertNotIn("previous.default_staff_id", position_block)
         self.assertNotIn("previous.default_group_id", position_block)
 
