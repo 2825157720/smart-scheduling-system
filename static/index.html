@@ -2514,7 +2514,7 @@ async function saveCellState(pos_id, day, status, person, options={}){
 //  閲嶇疆鎺掔彮
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 async function resetSchedule(){
-  if(!confirm(`确定要重置 ${G.year}年 ${G.month}月 的所有排班吗？\n所有人将设为在班，无默认人员的岗位显示待定。`)) return;
+  if(!confirm(`确定要重置 ${G.year}年 ${G.month}月 今天之后的排班吗？\n明天及以后将恢复默认排班；今天和历史日期保持不变。`)) return;
   
   // 瀵嗙爜楠岃瘉
   const pwd = prompt('请输入重置密码：');
@@ -2531,7 +2531,8 @@ async function resetSchedule(){
     renderDayStat();
     renderWeekStat();
     renderMonthStat();
-    toast('排班已重置');
+    const count = (res.reset_dates || []).length;
+    toast(count ? `已重置 ${count} 个未来日期，今天和历史排班未修改` : '本月没有可重置的未来日期，排班未修改', 3500);
   }catch(e){
     toast('重置失败: '+e.message, 3000);
   }finally{

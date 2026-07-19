@@ -1,4 +1,4 @@
-import { canCoverMember, personDayWorkload, planDaySchedule } from "./schedule-core.js";
+import { buildFutureResetSchedule, canCoverMember, personDayWorkload, planDaySchedule } from "./schedule-core.js";
 import { buildImportPreview, createImportToken, normalizeImportPayload, shanghaiBusinessDate, verifyAdminPassword } from "./import-off-days.js";
 
 const json = (body, init = {}) => Response.json(body, init);
@@ -182,16 +182,6 @@ async function saveMonth(db, year, month, monthData) {
     statements.push(...insertDayStatements(db, date, data, subjects));
   }
   await db.batch(statements);
-}
-
-function defaultMonth(positions, year, month) {
-  const days = new Date(Number(year), Number(month), 0).getDate();
-  return Object.fromEntries(Array.from({ length: days }, (_, index) => {
-    const day = String(index + 1);
-    return [day, Object.fromEntries(positions.map((position) => [position.id, {
-      status: position.default_person ? "on" : "pending", person: position.default_person || "",
-    }]))];
-  }));
 }
 
 export default {
@@ -458,9 +448,18 @@ export default {
       const body = await request.json();
       if (!env.ADMIN_PASSWORD) return failure("管理员密码未配置", 503);
       if (!await verifyAdminPassword(body.password, env.ADMIN_PASSWORD)) return failure("密码错误", 403);
-      const scheduleData = defaultMonth(await getPositions(env.DB), reset[1], reset[2]);
-      await saveMonth(env.DB, reset[1], reset[2], scheduleData);
-      return json({ success: true, schedule: scheduleData });
+      const year = Number(reset[1]); const month = Number(reset[2]);
+      const [positions, current] = await Promise.all([getPositions(env.DB), getSchedule(env.DB, year, month)]);
+      const result = buildFutureResetSchedule(positions, { year, month, today: shanghaiBusinessDate(), current });
+      if (result.reset_dates.length) {
+        const subjects = await subjectMaps(env.DB);
+        const changedDays = result.reset_dates.map((day) => ({
+          date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
+          data: result.schedule[String(day)],
+        }));
+        await env.DB.batch(replaceDayStatements(env.DB, changedDays, subjects));
+      }
+      return json({ success: true, schedule: result.schedule, reset_dates: result.reset_dates });
     }
     const backup = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/backup$/);
     if (request.method === "POST" && backup) {

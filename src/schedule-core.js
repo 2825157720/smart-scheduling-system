@@ -57,6 +57,21 @@ export function buildDayBase(positions, offPersons = []) {
   for (const pos of posList(positions)) { const person = norm(pos.default_person); result[pos.id] = person ? { status: offSet.has(person) ? "off" : "on", person } : { status: "pending", person: "" }; }
   return result;
 }
+export function buildFutureResetSchedule(positions, { year, month, today, current = {} }) {
+  const schedule = { ...current };
+  const resetDates = [];
+  const days = new Date(Number(year), Number(month), 0).getDate();
+  for (let day = 1; day <= days; day += 1) {
+    const date = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    if (date <= today) continue;
+    schedule[String(day)] = Object.fromEntries(posList(positions).map((position) => [position.id, {
+      status: norm(position.default_person) ? "on" : "pending",
+      person: norm(position.default_person),
+    }]));
+    resetDates.push(day);
+  }
+  return { schedule, reset_dates: resetDates };
+}
 function score(loads) { const positive = [...loads.values()].filter((value) => value > 0); if (positive.length <= 1) return [0, 0]; const avg = positive.reduce((a, b) => a + b, 0) / positive.length; return [Math.max(...positive) - Math.min(...positive), Math.sqrt(positive.reduce((sum, v) => sum + (v - avg) ** 2, 0) / positive.length)]; }
 function better(next, current) { return next[0] < current[0] - 1e-9 || (Math.abs(next[0] - current[0]) <= 1e-9 && next[1] < current[1] - 1e-9); }
 function applySplits(data, positions, staff, groups, day) {

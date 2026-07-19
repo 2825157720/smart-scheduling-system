@@ -46,6 +46,11 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("今天之后", self.text)
         self.assertIn("全天智能排班", self.text)
 
+    def test_reset_schedule_preserves_today_and_history(self):
+        block = self._block("async function resetSchedule(){", "async function backupSchedule(){")
+        self.assertIn("今天和历史日期保持不变", block)
+        self.assertIn("reset_dates", block)
+
     def test_day_plan_day_selector_uses_current_month(self):
         block = self._block("function buildDayPlanDaySel(){", "function openDayPlanModal(){")
         self.assertIn("daysInMonth(G.year,G.month)", block)

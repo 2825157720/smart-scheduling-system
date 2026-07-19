@@ -68,6 +68,15 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertIn("preview_token", worker_source)
         self.assertIn("schedule_backups", worker_source)
 
+    def test_reset_only_replaces_future_days(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[2]
+        worker_source = (root / "src" / "index.js").read_text(encoding="utf-8")
+        reset_block = worker_source.split('const reset = url.pathname.match', 1)[1].split('const backup = url.pathname.match', 1)[0]
+
+        self.assertIn("buildFutureResetSchedule", reset_block)
+        self.assertIn("replaceDayStatements", reset_block)
+        self.assertNotIn("saveMonth", reset_block)
+
     def test_deployment_environments_use_unique_worker_names(self):
         config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
         config = json.loads(config_path.read_text(encoding="utf-8"))
