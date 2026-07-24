@@ -5,6 +5,7 @@ from typing import Iterable
 
 
 FAIRNESS_LOAD_TOLERANCE = 2.0
+FAIRNESS_ROTATION_LOAD_TOLERANCE = 6.0
 
 
 def _normalize_name(value) -> str:
@@ -346,7 +347,7 @@ def rank_fair_candidates(
     fairness_context=None,
     tolerance: float = FAIRNESS_LOAD_TOLERANCE,
 ) -> list[dict]:
-    """Apply the day-load guard, then rank candidates by cross-day fairness."""
+    """Apply the base and rotation load guards, then rank by cross-day fairness."""
     candidate_list = list(candidates or [])
     if not candidate_list:
         return []
@@ -362,7 +363,7 @@ def rank_fair_candidates(
         for member in candidate_list
     }
     minimum_load = min(loads.values())
-    fair_pool = [
+    base_pool = [
         member
         for member in candidate_list
         if loads.get(_normalize_name(member.get("name")), 0.0) <= minimum_load + float(tolerance) + 1e-9
@@ -380,13 +381,30 @@ def rank_fair_candidates(
         for name in (preferred_names or [])
         if _normalize_name(name)
     }
+    if any(_normalize_name(member.get("name")) not in previous_substitutes for member in base_pool):
+        fair_pool = base_pool
+    else:
+        fair_pool = [
+            member
+            for member in candidate_list
+            if (
+                loads.get(_normalize_name(member.get("name")), 0.0)
+                <= minimum_load + float(tolerance) + 1e-9
+                or (
+                    _normalize_name(member.get("name")) not in previous_substitutes
+                    and loads.get(_normalize_name(member.get("name")), 0.0)
+                    <= minimum_load + FAIRNESS_ROTATION_LOAD_TOLERANCE + 1e-9
+                )
+            )
+        ]
 
     def _sort_key(member):
         name = _normalize_name(member.get("name"))
         group_bias = 0 if not preferred or name in preferred else 1
         previous_day_bias = 1 if name in previous_substitutes else 0
+        load_band = 0 if loads.get(name, 0.0) <= minimum_load + float(tolerance) + 1e-9 else 1
         month_load = float(month_substitute_workloads.get(name, 0) or 0)
-        return (group_bias, previous_day_bias, month_load, loads.get(name, 0.0), name)
+        return (group_bias, previous_day_bias, load_band, month_load, loads.get(name, 0.0), name)
 
     return sorted(fair_pool, key=_sort_key)
 

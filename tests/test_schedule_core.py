@@ -3,6 +3,8 @@ from collections import Counter
 import unittest
 
 from schedule_core import (
+    FAIRNESS_LOAD_TOLERANCE,
+    FAIRNESS_ROTATION_LOAD_TOLERANCE,
     build_fairness_context,
     can_cover_member,
     find_global_name_collisions,
@@ -11,6 +13,7 @@ from schedule_core import (
     group_member_names,
     plan_day_schedule,
     person_day_workload,
+    rank_fair_candidates,
 )
 
 
@@ -505,6 +508,106 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertEqual(full_counts["Alice"], 1)
         self.assertEqual(result["failed"], 0)
 
+    def test_rank_fair_candidates_expands_to_fresh_plus_six_only_when_base_pool_is_stale(self):
+        candidate_loads = [
+            ("Low10", 10),
+            ("Low12", 12),
+            ("Old16", 16),
+            ("Fresh16", 16),
+            ("Fresh16.01", 16.01),
+        ]
+        positions = [
+            {
+                "id": f"p_{name}",
+                "name": f"{name} base",
+                "workload": workload,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name, workload in candidate_loads
+        ]
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "no_substitute": False,
+            }
+            for name, _ in candidate_loads
+        ]
+        day_data = {
+            pos["id"]: {"status": "on", "person": pos["default_person"]}
+            for pos in positions
+        }
+        ranked = rank_fair_candidates(
+            staff,
+            day_data,
+            positions,
+            staff,
+            [],
+            fairness_context={
+                "previous_substitutes": {"Low10", "Low12", "Old16"},
+                "month_substitute_workloads": {},
+            },
+        )
+
+        self.assertEqual(FAIRNESS_LOAD_TOLERANCE, 2.0)
+        self.assertEqual(FAIRNESS_ROTATION_LOAD_TOLERANCE, 6.0)
+        self.assertEqual(
+            [member["name"] for member in ranked],
+            ["Fresh16", "Low10", "Low12"],
+        )
+
+    def test_rank_fair_candidates_keeps_plus_two_when_base_pool_has_a_fresh_candidate(self):
+        candidate_loads = [("Old10", 10), ("Fresh12", 12), ("Fresh16", 16)]
+        positions = [
+            {
+                "id": f"p_{name}",
+                "name": f"{name} base",
+                "workload": workload,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name, workload in candidate_loads
+        ]
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "no_substitute": False,
+            }
+            for name, _ in candidate_loads
+        ]
+        day_data = {
+            pos["id"]: {"status": "on", "person": pos["default_person"]}
+            for pos in positions
+        }
+        ranked = rank_fair_candidates(
+            staff,
+            day_data,
+            positions,
+            staff,
+            [],
+            fairness_context={
+                "previous_substitutes": {"Old10"},
+                "month_substitute_workloads": {"Fresh12": 100, "Fresh16": 0},
+            },
+        )
+
+        self.assertEqual(
+            [member["name"] for member in ranked],
+            ["Fresh12", "Old10"],
+        )
+
     def test_plan_day_schedule_fair_pool_includes_plus_two_and_excludes_plus_two_point_zero_one(self):
         candidate_loads = [
             ("A10", 10),
@@ -576,18 +679,26 @@ class ScheduleCoreTests(unittest.TestCase):
         # tiebreaks if it incorrectly entered the pool.
         self.assertEqual(result["day_data"]["p_target"], {"status": "substitute", "person": "E12"})
 
-    def test_plan_day_schedule_rotates_at_least_one_of_four_split_workers_on_the_next_day(self):
-        names = ["A", "B", "C", "D", "E"]
+    def test_plan_day_schedule_repeats_at_most_one_of_four_split_workers_on_the_next_day(self):
+        candidate_loads = [
+            ("A", 10),
+            ("B", 10),
+            ("C", 10),
+            ("D", 12),
+            ("E", 12),
+            ("F", 16),
+            ("G", 20),
+        ]
         positions = [
             {
                 "id": f"p_base_{name}",
                 "name": f"{name} base",
-                "workload": 10,
+                "workload": workload,
                 "default_person": name,
                 "category": "",
                 "split_allowed": False,
             }
-            for name in names
+            for name, workload in candidate_loads
         ]
         positions.extend([
             {
@@ -617,7 +728,7 @@ class ScheduleCoreTests(unittest.TestCase):
                 "saturday_only": False,
                 "no_substitute": False,
             }
-            for name in names
+            for name, _ in candidate_loads
         ]
 
         first = plan_day_schedule(
@@ -629,6 +740,20 @@ class ScheduleCoreTests(unittest.TestCase):
             day=28,
             month_schedule={},
         )
+        first["day_data"]["p_target_1"] = {
+            "status": "split",
+            "slots": {
+                "am": {"status": "substitute", "person": "A", "workload": 5},
+                "pm": {"status": "substitute", "person": "B", "workload": 5},
+            },
+        }
+        first["day_data"]["p_target_2"] = {
+            "status": "split",
+            "slots": {
+                "am": {"status": "substitute", "person": "C", "workload": 5},
+                "pm": {"status": "substitute", "person": "G", "workload": 5},
+            },
+        }
         second = plan_day_schedule(
             positions,
             staff,
@@ -663,7 +788,7 @@ class ScheduleCoreTests(unittest.TestCase):
         second_names = substitute_names(second["day_data"])
         self.assertEqual(len(first_names), 4)
         self.assertEqual(len(second_names), 4)
-        self.assertGreaterEqual(len(second_names - first_names), 1)
+        self.assertLessEqual(len(second_names & first_names), 1)
         self.assertEqual(second["day_data"], repeated["day_data"])
 
     def test_plan_day_schedule_uses_weighted_prior_substitutions_and_ignores_target_day(self):

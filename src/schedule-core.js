@@ -8,6 +8,7 @@ const defaultCell = (pos) => ({ status: norm(pos.default_person) ? "on" : "pendi
 const cellFor = (data, pos) => data?.[pos.id] || defaultCell(pos);
 
 export const FAIRNESS_LOAD_TOLERANCE = 2;
+export const FAIRNESS_ROTATION_LOAD_TOLERANCE = 6;
 
 export function groupMemberNames(name, staff, groups) {
   const group = (groups || []).find((item) => norm(item.name) === norm(name));
@@ -89,11 +90,19 @@ export function rankFairCandidates(candidates, pos, dayData, positions, staff, g
   }));
   if (!rows.length) return [];
   const minLoad = Math.min(...rows.map((item) => item.dayLoad));
-  return rows
-    .filter((item) => item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON)
+  const baseRows = rows.filter((item) => item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON);
+  const pool = baseRows.some((item) => !previous.has(item.name))
+    ? baseRows
+    : rows.filter((item) => (
+      item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON
+      || (!previous.has(item.name) && item.dayLoad <= minLoad + FAIRNESS_ROTATION_LOAD_TOLERANCE + FLOAT_EPSILON)
+    ));
+  return pool
+    .map((item) => ({ ...item, loadBand: item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON ? 0 : 1 }))
     .sort((a, b) => (
       (preferred.has(a.name) ? 0 : 1) - (preferred.has(b.name) ? 0 : 1)
       || (previous.has(a.name) ? 1 : 0) - (previous.has(b.name) ? 1 : 0)
+      || a.loadBand - b.loadBand
       || historicalLoad(a.name) - historicalLoad(b.name)
       || a.dayLoad - b.dayLoad
       || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)

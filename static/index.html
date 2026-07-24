@@ -511,7 +511,7 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
 
     <span class="modal-close" onclick="closeDayPlanModal()">×</span>
     <h2>当天排班</h2>
-    <div id="day-plan-note">先选日期，再勾选当天需要休息的人员，提交后会按当天工作量重新排班，并兼顾本月截至前一天的替班工作量。候选单日工作量容差 2 点，优先避免连续两天由同一人替班。周五/周六/周日默认开启散排，可手动修改。</div>
+    <div id="day-plan-note">先选日期，再勾选当天需要休息的人员，提交后会按当天工作量重新排班，并兼顾本月截至前一天的替班工作量。正常容差 2 点；为避免连续替班，可按需扩展至 6 点。周五/周六/周日默认开启散排，可手动修改。</div>
 
     <div class="form-row" style="margin-top:12px">
       <label>排班日期</label>
@@ -549,7 +549,7 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
     <div id="schedule-import-note">
       导入目标为 <strong id="schedule-import-target"></strong>。Excel 仅在当前浏览器中读取，原文件不会上传。<br>
       只修改<strong>今天之后</strong>的日期；休、年、年假、门店均按不在岗处理，门店表示出差，也会安排替班。不在岗名单实际变化的日期会执行<strong>全天智能排班</strong>，可能覆盖当天已有的人工岗位安排。<br>
-      自动排班会兼顾本月截至前一天的替班工作量；候选单日工作量容差 2 点，并优先避免连续两天由同一人替班。勾选“强制重排”后，即使不在岗名单没有变化，也会重排明天至月底。
+      自动排班会兼顾本月截至前一天的替班工作量；正常容差 2 点，为避免连续替班可按需扩展至 6 点。勾选“强制重排”后，即使不在岗名单没有变化，也会重排明天至月底。
     </div>
     <div class="form-row" style="align-items:flex-start;margin-top:12px">
       <label style="margin-top:8px">排休文件</label>

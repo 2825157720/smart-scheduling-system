@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   FAIRNESS_LOAD_TOLERANCE,
+  FAIRNESS_ROTATION_LOAD_TOLERANCE,
   buildFairnessContext,
   planDaySchedule,
   rankFairCandidates,
@@ -27,7 +28,7 @@ const position = (name, workload, extra = {}) => ({
   ...extra,
 });
 
-test("fair candidate pool includes +2 but excludes +2.01", () => {
+test("base fair candidate pool includes +2 but excludes +2.01 when a fresh base candidate exists", () => {
   const staff = ["甲", "乙", "丙"].map(member);
   const positions = [
     position("甲", 10),
@@ -49,7 +50,68 @@ test("fair candidate pool includes +2 but excludes +2.01", () => {
   );
 
   assert.equal(FAIRNESS_LOAD_TOLERANCE, 2);
+  assert.equal(FAIRNESS_ROTATION_LOAD_TOLERANCE, 6);
   assert.deepEqual(ranked.map((item) => item.name), ["甲", "乙"]);
+});
+
+test("rotation pool admits a fresh +6 candidate but excludes +6.01 when base candidates worked yesterday", () => {
+  const staff = ["低10", "低12", "旧16", "新16", "新16.01"].map(member);
+  const positions = [
+    position("低10", 10),
+    position("低12", 12),
+    position("旧16", 16),
+    position("新16", 16),
+    position("新16.01", 16.01),
+  ];
+  const dayData = Object.fromEntries(positions.map((pos) => [
+    pos.id,
+    { status: "on", person: pos.default_person },
+  ]));
+  const ranked = rankFairCandidates(
+    staff,
+    position("缺勤", 10),
+    dayData,
+    positions,
+    staff,
+    [],
+    {
+      fairnessContext: {
+        previousDaySubstitutes: new Set(["低10", "低12", "旧16"]),
+        substituteWorkloads: new Map(),
+      },
+    },
+  );
+
+  assert.deepEqual(ranked.map((item) => item.name), ["新16", "低10", "低12"]);
+});
+
+test("a fresh base candidate prevents unnecessary expansion to +6", () => {
+  const staff = ["旧10", "新12", "新16"].map(member);
+  const positions = [
+    position("旧10", 10),
+    position("新12", 12),
+    position("新16", 16),
+  ];
+  const dayData = Object.fromEntries(positions.map((pos) => [
+    pos.id,
+    { status: "on", person: pos.default_person },
+  ]));
+  const ranked = rankFairCandidates(
+    staff,
+    position("缺勤", 10),
+    dayData,
+    positions,
+    staff,
+    [],
+    {
+      fairnessContext: {
+        previousDaySubstitutes: new Set(["旧10"]),
+        substituteWorkloads: new Map([["新12", 100], ["新16", 0]]),
+      },
+    },
+  );
+
+  assert.deepEqual(ranked.map((item) => item.name), ["新12", "旧10"]);
 });
 
 test("fairness context counts weighted substitutes before the target day", () => {
@@ -191,16 +253,21 @@ test("split planning tries the next fair candidate when the first does not impro
   assert.equal(result.day_data["p-X"].slots.pm.person, "C");
 });
 
-test("identical consecutive absences rotate at least one split substitute", () => {
-  const staff = ["A", "B", "C", "D", "E", "X", "Y"].map(member);
+test("identical consecutive absences repeat at most one of four split substitutes", () => {
+  const candidateLoads = [
+    ["A", 10],
+    ["B", 10],
+    ["C", 10],
+    ["D", 12],
+    ["E", 12],
+    ["F", 16],
+    ["G", 20],
+  ];
+  const staff = candidateLoads.map(([name]) => member(name));
   const positions = [
-    position("A", 10),
-    position("B", 10),
-    position("C", 10),
-    position("D", 12),
-    position("E", 12),
-    position("X", 10, { split_allowed: true }),
-    position("Y", 10, { split_allowed: true }),
+    ...candidateLoads.map(([name, workload]) => position(name, workload)),
+    position("X", 10, { default_person: "", split_allowed: true }),
+    position("Y", 10, { default_person: "", split_allowed: true }),
   ];
   const args = {
     year: 2026,
@@ -209,6 +276,20 @@ test("identical consecutive absences rotate at least one split substitute", () =
   };
 
   const day28 = planDaySchedule(positions, staff, [], { ...args, day: 28 });
+  day28.day_data["p-X"] = {
+    status: "split",
+    slots: {
+      am: { status: "substitute", person: "A", workload: 5 },
+      pm: { status: "substitute", person: "B", workload: 5 },
+    },
+  };
+  day28.day_data["p-Y"] = {
+    status: "split",
+    slots: {
+      am: { status: "substitute", person: "C", workload: 5 },
+      pm: { status: "substitute", person: "G", workload: 5 },
+    },
+  };
   const day29 = planDaySchedule(positions, staff, [], {
     ...args,
     day: 29,
@@ -229,5 +310,5 @@ test("identical consecutive absences rotate at least one split substitute", () =
 
   assert.equal(first.size, 4);
   assert.equal(second.size, 4);
-  assert.notDeepEqual([...second].sort(), [...first].sort());
+  assert.ok([...second].filter((name) => first.has(name)).length <= 1);
 });
