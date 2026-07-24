@@ -5,7 +5,7 @@ const NAME_ALIASES = Object.freeze({
   "吴绍基": "绍基",
   "崔盼": "盼盼",
 });
-const OFF_MARKERS = new Set(["休", "年", "年假"]);
+const OFF_MARKERS = new Set(["休", "年", "年假", "门店"]);
 const norm = (value) => String(value ?? "").replace(/\s+/g, "").trim();
 
 function sourceYear(sheetName) {

@@ -15,7 +15,7 @@ test("parses the selected month across a month boundary and applies name aliases
     ["小组", "序号", "工号姓名", 29, 30, 1, 2],
     ["", "", "", "", "", "", ""],
     ["", "", "", "三", "四", "五", "六"],
-    ["管控组", 1, "潘岐峰", "√", "休", "年", "√"],
+    ["管控组", 1, "潘岐峰", "√", "休", "年", "门店"],
     ["管控组", 2, "覃丽彬", "休", "√", "年假", "休"],
     ["加盟组", 3, "表外人员", "√", "√", "休", "√"],
     ["", "", "在班人数", 2, 2, 1, 1],
@@ -24,7 +24,7 @@ test("parses the selected month across a month boundary and applies name aliases
   const parsed = parseScheduleMatrix(matrix, "商品部2026年", 2026, 8, systemStaff);
 
   assert.deepEqual(parsed.staff_off_days, [
-    { staff_id: "s1", off_days: [1] },
+    { staff_id: "s1", off_days: [1, 2] },
     { staff_id: "s2", off_days: [1, 2] },
   ]);
   assert.deepEqual(parsed.matched.map((item) => item.source_name), ["潘岐峰", "覃丽彬"]);

@@ -548,7 +548,7 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
     <h2 id="schedule-import-title">导入排休</h2>
     <div id="schedule-import-note">
       导入目标为 <strong id="schedule-import-target"></strong>。Excel 仅在当前浏览器中读取，原文件不会上传。<br>
-      只修改<strong>今天之后</strong>的日期；休、年、年假均按休息处理。休假名单实际变化的日期会执行<strong>全天智能排班</strong>，可能覆盖当天已有的人工岗位安排。
+      只修改<strong>今天之后</strong>的日期；休、年、年假、门店均按不在岗处理，门店表示出差，也会安排替班。不在岗名单实际变化的日期会执行<strong>全天智能排班</strong>，可能覆盖当天已有的人工岗位安排。
     </div>
     <div class="form-row" style="align-items:flex-start;margin-top:12px">
       <label style="margin-top:8px">排休文件</label>
@@ -562,8 +562,8 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
       <div class="schedule-import-summary">
         <div class="schedule-import-stat"><strong id="schedule-import-matched">0</strong><span>匹配系统人员</span></div>
         <div class="schedule-import-stat"><strong id="schedule-import-changed">0</strong><span>变化并重排日期</span></div>
-        <div class="schedule-import-stat"><strong id="schedule-import-added">0</strong><span>新增休息记录</span></div>
-        <div class="schedule-import-stat"><strong id="schedule-import-removed">0</strong><span>取消休息记录</span></div>
+        <div class="schedule-import-stat"><strong id="schedule-import-added">0</strong><span>新增不在岗记录</span></div>
+        <div class="schedule-import-stat"><strong id="schedule-import-removed">0</strong><span>取消不在岗记录</span></div>
       </div>
       <div class="schedule-import-detail"><strong>变化日期：</strong><span id="schedule-import-days">无</span></div>
       <div class="schedule-import-detail" id="schedule-import-ignored-wrap"><strong>忽略的表外人员：</strong><span id="schedule-import-ignored">无</span></div>
@@ -832,7 +832,7 @@ function renderScheduleImportPreview(parsed, preview){
   $('schedule-import-changed').textContent = preview.changed_dates.length;
   $('schedule-import-added').textContent = preview.added_count;
   $('schedule-import-removed').textContent = preview.removed_count;
-  $('schedule-import-days').textContent = preview.changed_dates.length ? preview.changed_dates.map(day => `${G.month}月${day}日`).join('、') : '无（未来日期的休假名单没有变化）';
+  $('schedule-import-days').textContent = preview.changed_dates.length ? preview.changed_dates.map(day => `${G.month}月${day}日`).join('、') : '无（未来日期的不在岗名单没有变化）';
   $('schedule-import-ignored').textContent = parsed.ignored.length ? parsed.ignored.join('、') : '无';
   $('schedule-import-ignored-wrap').style.display = parsed.ignored.length ? 'block' : 'none';
   $('schedule-import-locked').textContent = preview.ignored_dates.map(day => `${G.month}月${day}日`).join('、');
@@ -892,7 +892,7 @@ async function applyScheduleImport(){
     renderMonthStat();
     const count = res.changed_dates.length;
     closeScheduleImportModal();
-    toast(`已导入排休并完成 ${count} 天全天智能排班`, 3500);
+    toast(`已导入排休/出差并完成 ${count} 天全天智能排班`, 3500);
   }catch(e){
     const mustPreviewAgain = String(e.message || '').includes('重新预览');
     showScheduleImportError(e.message || '导入排休失败', !mustPreviewAgain);

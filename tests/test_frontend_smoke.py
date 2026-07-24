@@ -45,6 +45,7 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("import-off-days", self.text)
         self.assertIn("今天之后", self.text)
         self.assertIn("全天智能排班", self.text)
+        self.assertIn("门店表示出差", self.text)
 
     def test_reset_schedule_preserves_today_and_history(self):
         block = self._block("async function resetSchedule(){", "async function backupSchedule(){")
