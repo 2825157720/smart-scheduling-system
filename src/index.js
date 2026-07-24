@@ -346,6 +346,7 @@ export default {
       const body = await request.json();
       const action = String(body.action || "preview");
       if (!["preview", "apply"].includes(action)) return failure("导入操作无效");
+      const forceReplan = body.force_replan === true;
       const maxDay = new Date(year, month, 0).getDate();
       const [positions, staff, groups, current] = await Promise.all([
         getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month),
@@ -357,8 +358,8 @@ export default {
         return failure(error.message || "导入数据格式错误");
       }
       const today = shanghaiBusinessDate();
-      const preview = buildImportPreview({ year, month, today, staff, positions, groups, current, imported });
-      const previewToken = await createImportToken({ year, month, today, current, imported });
+      const preview = buildImportPreview({ year, month, today, staff, positions, groups, current, imported, forceReplan });
+      const previewToken = await createImportToken({ year, month, today, current, imported, forceReplan });
       const summary = {
         changed_dates: preview.changed_dates,
         ignored_dates: preview.ignored_dates,
@@ -367,6 +368,7 @@ export default {
         added_count: preview.added_count,
         removed_count: preview.removed_count,
         matched_count: imported.length,
+        force_replan: forceReplan,
         today,
         preview_token: previewToken,
       };

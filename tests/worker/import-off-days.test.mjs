@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { buildImportPreview, normalizeImportPayload } from "../../src/import-off-days.js";
+import { buildImportPreview, createImportToken, normalizeImportPayload } from "../../src/import-off-days.js";
 
 const staff = [
   { id: "s1", name: "岐峰", group_id: "" },
@@ -79,6 +79,77 @@ test("unchanged system staff stay untouched and changed days are fully replanned
   assert.deepEqual(preview.schedule[21].p1, { status: "on", person: "岐峰" });
   assert.deepEqual(preview.schedule[21].p2, { status: "on", person: "丽彬" });
   assert.equal(preview.removed_count, 1);
+});
+
+test("force replan rebuilds every future date even when off lists are unchanged", () => {
+  const current = {
+    24: {
+      _off_persons: [],
+      p1: { status: "substitute", person: "丽彬" },
+    },
+    25: {
+      _off_persons: ["岐峰"],
+      p1: { status: "off", person: "岐峰" },
+      p2: { status: "substitute", person: "未导入人员" },
+    },
+  };
+  const normalized = normalizeImportPayload({
+    staff_off_days: [
+      { staff_id: "s1", off_days: [24, 25] },
+      { staff_id: "s2", off_days: [] },
+    ],
+  }, staff, 31);
+
+  const unchanged = buildImportPreview({
+    year: 2026,
+    month: 7,
+    today: "2026-07-24",
+    staff,
+    positions,
+    groups: [],
+    current,
+    imported: normalized,
+  });
+  const forced = buildImportPreview({
+    year: 2026,
+    month: 7,
+    today: "2026-07-24",
+    staff,
+    positions,
+    groups: [],
+    current,
+    imported: normalized,
+    forceReplan: true,
+  });
+
+  assert.deepEqual(unchanged.changed_dates, []);
+  assert.deepEqual(forced.changed_dates, [25, 26, 27, 28, 29, 30, 31]);
+  assert.deepEqual(forced.ignored_dates, [24]);
+  assert.deepEqual(forced.schedule[24], current[24]);
+  assert.deepEqual(forced.schedule[25]._off_persons, ["岐峰"]);
+  assert.deepEqual(forced.schedule[25].p2, { status: "on", person: "丽彬" });
+  assert.equal(forced.added_count, 0);
+  assert.equal(forced.removed_count, 0);
+});
+
+test("preview token binds the force replan choice", async () => {
+  const imported = [{ staff_id: "s1", off_days: [] }];
+  const common = {
+    year: 2026,
+    month: 7,
+    today: "2026-07-24",
+    current: {},
+    imported,
+  };
+
+  const regular = await createImportToken({ ...common, forceReplan: false });
+  const forced = await createImportToken({ ...common, forceReplan: true });
+
+  assert.notEqual(regular, forced);
+  assert.equal(
+    forced,
+    await createImportToken({ ...common, forceReplan: true }),
+  );
 });
 
 test("Friday, Saturday and Sunday use the existing scatter-groups default", () => {

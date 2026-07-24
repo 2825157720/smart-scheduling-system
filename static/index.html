@@ -549,7 +549,7 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
     <div id="schedule-import-note">
       导入目标为 <strong id="schedule-import-target"></strong>。Excel 仅在当前浏览器中读取，原文件不会上传。<br>
       只修改<strong>今天之后</strong>的日期；休、年、年假、门店均按不在岗处理，门店表示出差，也会安排替班。不在岗名单实际变化的日期会执行<strong>全天智能排班</strong>，可能覆盖当天已有的人工岗位安排。<br>
-      自动排班会兼顾本月截至前一天的替班工作量；候选单日工作量容差 2 点，并优先避免连续两天由同一人替班。
+      自动排班会兼顾本月截至前一天的替班工作量；候选单日工作量容差 2 点，并优先避免连续两天由同一人替班。勾选“强制重排”后，即使不在岗名单没有变化，也会重排明天至月底。
     </div>
     <div class="form-row" style="align-items:flex-start;margin-top:12px">
       <label style="margin-top:8px">排休文件</label>
@@ -558,15 +558,20 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
         <div style="font-size:11px;color:#78909c;margin-top:5px">请选择从钉钉下载的 .xlsx 文件，最大 20 MB。</div>
       </div>
     </div>
+    <div class="form-row">
+      <label for="schedule-import-force">强制重排</label>
+      <input type="checkbox" id="schedule-import-force" onchange="handleScheduleImportForceChange()">
+      <span style="font-size:12px;color:#455a64">开启后重排明天至月底</span>
+    </div>
     <div id="schedule-import-error" role="alert"></div>
     <div id="schedule-import-preview" style="display:none" aria-live="polite">
       <div class="schedule-import-summary">
         <div class="schedule-import-stat"><strong id="schedule-import-matched">0</strong><span>匹配系统人员</span></div>
-        <div class="schedule-import-stat"><strong id="schedule-import-changed">0</strong><span>变化并重排日期</span></div>
+        <div class="schedule-import-stat"><strong id="schedule-import-changed">0</strong><span>重排日期</span></div>
         <div class="schedule-import-stat"><strong id="schedule-import-added">0</strong><span>新增不在岗记录</span></div>
         <div class="schedule-import-stat"><strong id="schedule-import-removed">0</strong><span>取消不在岗记录</span></div>
       </div>
-      <div class="schedule-import-detail"><strong>变化日期：</strong><span id="schedule-import-days">无</span></div>
+      <div class="schedule-import-detail"><strong>重排日期：</strong><span id="schedule-import-days">无</span></div>
       <div class="schedule-import-detail" id="schedule-import-ignored-wrap"><strong>忽略的表外人员：</strong><span id="schedule-import-ignored">无</span></div>
       <div class="schedule-import-detail schedule-import-warning" id="schedule-import-locked-wrap" style="display:none"><strong>已锁定日期：</strong><span id="schedule-import-locked"></span>（今天及过去日期不会修改）</div>
       <div class="schedule-import-detail schedule-import-warning" id="schedule-import-failed-wrap" style="display:none"><strong>排班提示：</strong><span id="schedule-import-failed"></span></div>
@@ -800,6 +805,7 @@ function openScheduleImportModal(){
   G.scheduleImportPreview = null;
   $('schedule-import-target').textContent = `${G.year}年${G.month}月`;
   $('schedule-import-file').value = '';
+  $('schedule-import-force').checked = false;
   $('schedule-import-password').value = '';
   $('schedule-import-preview').style.display = 'none';
   $('schedule-import-error').style.display = 'none';
@@ -810,6 +816,7 @@ function openScheduleImportModal(){
 function closeScheduleImportModal(){
   $('schedule-import-modal').style.display = 'none';
   $('schedule-import-password').value = '';
+  $('schedule-import-force').checked = false;
   G.scheduleImportPayload = null;
   G.scheduleImportPreview = null;
   G.userBusy = false;
@@ -845,6 +852,13 @@ function renderScheduleImportPreview(parsed, preview){
   $('schedule-import-apply').disabled = !preview.changed_dates.length;
 }
 
+function handleScheduleImportForceChange(){
+  G.scheduleImportPreview = null;
+  $('schedule-import-preview').style.display = 'none';
+  $('schedule-import-apply').disabled = true;
+  if($('schedule-import-file').files?.[0]) previewScheduleImport();
+}
+
 async function previewScheduleImport(){
   const file = $('schedule-import-file').files?.[0];
   if(!file) return;
@@ -859,7 +873,11 @@ async function previewScheduleImport(){
   loading(true);
   try{
     const parsed = await window.ScheduleImport.readScheduleWorkbook(file, G.year, G.month, G.staff);
-    const payload = { action:'preview', staff_off_days:parsed.staff_off_days };
+    const payload = {
+      action:'preview',
+      staff_off_days:parsed.staff_off_days,
+      force_replan:$('schedule-import-force').checked,
+    };
     const preview = await api(`/api/schedule/${G.year}/${G.month}/import-off-days`, 'POST', payload);
     G.scheduleImportPayload = parsed;
     G.scheduleImportPreview = preview;
@@ -883,6 +901,7 @@ async function applyScheduleImport(){
       action:'apply',
       staff_off_days:G.scheduleImportPayload.staff_off_days,
       preview_token:G.scheduleImportPreview.preview_token,
+      force_replan:G.scheduleImportPreview.force_replan === true,
       password,
     });
     G.schedule = res.schedule;
@@ -893,7 +912,7 @@ async function applyScheduleImport(){
     renderMonthStat();
     const count = res.changed_dates.length;
     closeScheduleImportModal();
-    toast(`已导入排休/出差并完成 ${count} 天全天智能排班`, 3500);
+    toast(res.force_replan ? `已强制重排 ${count} 天` : `已导入排休/出差并完成 ${count} 天全天智能排班`, 3500);
   }catch(e){
     const mustPreviewAgain = String(e.message || '').includes('重新预览');
     showScheduleImportError(e.message || '导入排休失败', !mustPreviewAgain);

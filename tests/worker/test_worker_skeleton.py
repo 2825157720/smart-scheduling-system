@@ -105,6 +105,16 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertIn("monthSchedule: current", fill_block)
         self.assertIn("monthSchedule: schedule", import_source)
 
+    def test_import_force_replan_is_bound_to_preview_and_apply(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[2]
+        worker_source = (root / "src" / "index.js").read_text(encoding="utf-8")
+        import_block = worker_source.split("const importOffDays =", 1)[1].split('url.pathname === "/api/auto-substitute"', 1)[0]
+
+        self.assertIn("force_replan", import_block)
+        self.assertIn("forceReplan", import_block)
+        self.assertIn("createImportToken", import_block)
+        self.assertIn("buildImportPreview", import_block)
+
     def test_deployment_environments_use_unique_worker_names(self):
         config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
         config = json.loads(config_path.read_text(encoding="utf-8"))

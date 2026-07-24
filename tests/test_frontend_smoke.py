@@ -54,6 +54,11 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("兼顾本月截至前一天的替班工作量", block)
         self.assertIn("候选单日工作量容差 2 点", block)
         self.assertIn("优先避免连续两天由同一人替班", block)
+        self.assertIn('id="schedule-import-force"', block)
+        self.assertIn("强制重排", block)
+        self.assertIn("明天至月底", block)
+        self.assertIn("force_replan", self.text)
+        self.assertIn("handleScheduleImportForceChange", self.text)
 
     def test_reset_schedule_preserves_today_and_history(self):
         block = self._block("async function resetSchedule(){", "async function backupSchedule(){")

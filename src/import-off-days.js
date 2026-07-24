@@ -51,7 +51,7 @@ function defaultScatterGroups(year, month, day) {
   return weekday === 5 || weekday === 6 || weekday === 0;
 }
 
-export function buildImportPreview({ year, month, today, staff, positions, groups, current, imported }) {
+export function buildImportPreview({ year, month, today, staff, positions, groups, current, imported, forceReplan = false }) {
   const maxDay = new Date(Number(year), Number(month), 0).getDate();
   const schedule = structuredClone(current || {});
   const changedDates = [];
@@ -64,12 +64,13 @@ export function buildImportPreview({ year, month, today, staff, positions, group
   for (let day = 1; day <= maxDay; day += 1) {
     const currentDay = current?.[String(day)] || {};
     const difference = importedDayDifference(currentDay._off_persons || [], imported, day);
-    if (!difference.added.length && !difference.removed.length) continue;
+    const hasDifference = difference.added.length > 0 || difference.removed.length > 0;
     const date = isoDate(year, month, day);
     if (date <= today) {
-      ignoredDates.push(day);
+      if (hasDifference) ignoredDates.push(day);
       continue;
     }
+    if (!hasDifference && !forceReplan) continue;
     const planned = planDaySchedule(positions, staff, groups, {
       year: Number(year),
       month: Number(month),
@@ -105,13 +106,14 @@ function stableValue(value) {
   return value;
 }
 
-export async function createImportToken({ year, month, today, current, imported }) {
+export async function createImportToken({ year, month, today, current, imported, forceReplan = false }) {
   const canonical = JSON.stringify(stableValue({
     year: Number(year),
     month: Number(month),
     today,
     current,
     imported: imported.map((item) => ({ staff_id: item.staff_id, off_days: item.off_days })),
+    force_replan: Boolean(forceReplan),
   }));
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(canonical));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
