@@ -4,6 +4,9 @@ import datetime as _datetime
 from typing import Iterable
 
 
+FAIRNESS_LOAD_TOLERANCE = 2.0
+
+
 def _normalize_name(value) -> str:
     return (value or "").strip()
 
@@ -267,7 +270,136 @@ def _is_better_load_score(new_score, current_score, epsilon: float = 1e-9) -> bo
     return False
 
 
-def _apply_split_positions(day_data, positions, staff, groups, day_date, used_names=None):
+def _month_day_data(month_schedule, day: int) -> dict:
+    if not isinstance(month_schedule, dict):
+        return {}
+    day_data = month_schedule.get(str(day))
+    if day_data is None:
+        day_data = month_schedule.get(day)
+    return day_data if isinstance(day_data, dict) else {}
+
+
+def build_fairness_context(month_schedule, positions, *, day: int) -> dict:
+    """Summarize substitute work before ``day`` within the current month."""
+    position_list = _positions_iter(positions)
+    target_day = int(day)
+    previous_substitutes: set[str] = set()
+    month_substitute_workloads: dict[str, float] = {}
+
+    for schedule_day in range(1, target_day):
+        day_data = _month_day_data(month_schedule, schedule_day)
+        is_previous_day = schedule_day == target_day - 1
+        for pos in position_list:
+            cell = day_data.get((pos or {}).get("id"), {})
+            if _is_split_cell(cell):
+                raw_slots = cell.get("slots", {})
+                fallback_workload = float((pos or {}).get("workload", 0) or 0) / 2.0
+                historical_assignments = []
+                for slot_name in ("am", "pm"):
+                    raw_slot = raw_slots.get(slot_name, {})
+                    if not isinstance(raw_slot, dict):
+                        continue
+                    raw_workload = raw_slot.get("workload")
+                    try:
+                        slot_workload = float(raw_workload or 0) or fallback_workload
+                    except (TypeError, ValueError):
+                        slot_workload = fallback_workload
+                    historical_assignments.append({
+                        "status": raw_slot.get("status", "pending"),
+                        "person": raw_slot.get("person", ""),
+                        "workload": slot_workload,
+                    })
+            else:
+                historical_assignments = [{
+                    "status": cell.get("status", ""),
+                    "person": cell.get("person", ""),
+                    "workload": float((pos or {}).get("workload", 0) or 0),
+                }]
+
+            for assignment in historical_assignments:
+                if assignment["status"] != "substitute":
+                    continue
+                person = _normalize_name(assignment["person"])
+                if not person:
+                    continue
+                if is_previous_day:
+                    previous_substitutes.add(person)
+                month_substitute_workloads[person] = (
+                    month_substitute_workloads.get(person, 0.0)
+                    + assignment["workload"]
+                )
+
+    return {
+        "previous_substitutes": previous_substitutes,
+        "month_substitute_workloads": month_substitute_workloads,
+    }
+
+
+def rank_fair_candidates(
+    candidates,
+    day_data,
+    positions,
+    staff,
+    groups,
+    *,
+    preferred_names=None,
+    fairness_context=None,
+    tolerance: float = FAIRNESS_LOAD_TOLERANCE,
+) -> list[dict]:
+    """Apply the day-load guard, then rank candidates by cross-day fairness."""
+    candidate_list = list(candidates or [])
+    if not candidate_list:
+        return []
+
+    loads = {
+        _normalize_name(member.get("name")): person_day_workload(
+            member.get("name"),
+            day_data,
+            positions,
+            staff,
+            groups,
+        )
+        for member in candidate_list
+    }
+    minimum_load = min(loads.values())
+    fair_pool = [
+        member
+        for member in candidate_list
+        if loads.get(_normalize_name(member.get("name")), 0.0) <= minimum_load + float(tolerance) + 1e-9
+    ]
+
+    context = fairness_context or {}
+    previous_substitutes = {
+        _normalize_name(name)
+        for name in context.get("previous_substitutes", set())
+        if _normalize_name(name)
+    }
+    month_substitute_workloads = context.get("month_substitute_workloads", {}) or {}
+    preferred = {
+        _normalize_name(name)
+        for name in (preferred_names or [])
+        if _normalize_name(name)
+    }
+
+    def _sort_key(member):
+        name = _normalize_name(member.get("name"))
+        group_bias = 0 if not preferred or name in preferred else 1
+        previous_day_bias = 1 if name in previous_substitutes else 0
+        month_load = float(month_substitute_workloads.get(name, 0) or 0)
+        return (group_bias, previous_day_bias, month_load, loads.get(name, 0.0), name)
+
+    return sorted(fair_pool, key=_sort_key)
+
+
+def _apply_split_positions(
+    day_data,
+    positions,
+    staff,
+    groups,
+    day_date,
+    used_names=None,
+    fairness_context=None,
+):
     position_list = _positions_iter(positions)
     group_names = _group_name_set(groups)
     scatter_groups = bool((day_data or {}).get("_scatter_groups"))
@@ -328,34 +460,61 @@ def _apply_split_positions(day_data, positions, staff, groups, day_date, used_na
             if not candidates:
                 continue
 
-            candidates.sort(key=lambda member: (loads.get(member["name"], 0.0), member["name"]))
-            partner = candidates[0]["name"]
-            new_loads = dict(loads)
-            new_loads[current_name] = max(0.0, new_loads.get(current_name, 0.0) - half)
-            new_loads[partner] = new_loads.get(partner, 0.0) + half
+            preferred_names = []
+            if scatter_groups and default_person in group_names:
+                preferred_names = group_member_names(default_person, staff, groups)
+            ranked_candidates = rank_fair_candidates(
+                candidates,
+                day_data,
+                position_list,
+                staff,
+                groups,
+                preferred_names=preferred_names,
+                fairness_context=fairness_context,
+            )
 
-            if not _is_better_load_score((_load_spread(new_loads), _load_std(new_loads)), current_score):
-                continue
+            for member in ranked_candidates:
+                partner = _normalize_name(member.get("name"))
+                new_loads = dict(loads)
+                new_loads[current_name] = max(0.0, new_loads.get(current_name, 0.0) - half)
+                new_loads[partner] = new_loads.get(partner, 0.0) + half
 
-            day_data[pos_id] = {
-                "status": "split",
-                "person": current_name,
-                "slots": {
-                    "am": {"status": current_status, "person": current_name, "workload": half},
-                    "pm": {"status": "substitute", "person": partner, "workload": half},
-                },
-            }
-            split_names.add(current_name)
-            split_names.add(partner)
-            loads = new_loads
-            applied = True
-            break
+                if not _is_better_load_score((_load_spread(new_loads), _load_std(new_loads)), current_score):
+                    continue
+
+                day_data[pos_id] = {
+                    "status": "split",
+                    "person": current_name,
+                    "slots": {
+                        "am": {"status": current_status, "person": current_name, "workload": half},
+                        "pm": {"status": "substitute", "person": partner, "workload": half},
+                    },
+                }
+                split_names.add(current_name)
+                split_names.add(partner)
+                loads = new_loads
+                applied = True
+                break
+
+            if applied:
+                break
 
         if not applied:
             break
 
 
-def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: int, off_persons=None, scatter_groups: bool = False) -> dict:
+def plan_day_schedule(
+    positions,
+    staff,
+    groups,
+    *,
+    year: int,
+    month: int,
+    day: int,
+    off_persons=None,
+    scatter_groups: bool = False,
+    month_schedule=None,
+) -> dict:
     position_list = _positions_iter(positions)
     pos_map = _pos_map(position_list)
     group_names = _group_name_set(groups)
@@ -363,6 +522,7 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
     if scatter_groups:
         day_data["_scatter_groups"] = True
     day_date = _datetime.date(year, month, day)
+    fairness_context = build_fairness_context(month_schedule, position_list, day=day)
 
     fill_targets = []
     for pos in position_list:
@@ -412,13 +572,15 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
         if scatter_groups and default_person in group_names:
             preferred_group_members = set(group_member_names(default_person, staff, groups))
 
-        def _candidate_sort_key(member):
-            member_name = _normalize_name(member.get("name"))
-            load = person_day_workload(member_name, day_data, position_list, staff, groups)
-            group_bias = 0 if not preferred_group_members or member_name in preferred_group_members else 1
-            return (load, group_bias, member_name)
-
-        candidates.sort(key=_candidate_sort_key)
+        candidates = rank_fair_candidates(
+            candidates,
+            day_data,
+            position_list,
+            staff,
+            groups,
+            preferred_names=preferred_group_members,
+            fairness_context=fairness_context,
+        )
         chosen_name = candidates[0]["name"]
         chosen_status = "on" if default_person and day_data.get(pos_id, {}).get("status") == "off" and chosen_name == default_person else "substitute"
         day_data[pos_id] = {
@@ -426,7 +588,14 @@ def plan_day_schedule(positions, staff, groups, *, year: int, month: int, day: i
             "person": chosen_name,
         }
 
-    _apply_split_positions(day_data, position_list, staff, groups, day_date)
+    _apply_split_positions(
+        day_data,
+        position_list,
+        staff,
+        groups,
+        day_date,
+        fairness_context=fairness_context,
+    )
 
     assigned = 0
     failed = 0

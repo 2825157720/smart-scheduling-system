@@ -12,12 +12,13 @@ import db_json_store
 from flask import Flask, jsonify, request, send_file, send_from_directory
 
 from schedule_core import (
+    build_fairness_context as core_build_fairness_context,
     can_cover_member as core_can_cover_member,
     group_active_members as core_group_active_members,
     group_is_fully_off as core_group_is_fully_off,
     group_member_names as core_group_member_names,
     plan_day_schedule as core_plan_day_schedule,
-    person_day_workload as core_person_day_workload,
+    rank_fair_candidates as core_rank_fair_candidates,
 )
 
 
@@ -861,6 +862,7 @@ def plan_day_schedule_api(year, month):
         day=day,
         off_persons=off_persons,
         scatter_groups=scatter_groups,
+        month_schedule=month_data,
     )
 
     month_data[str(day)] = result["day_data"]
@@ -944,7 +946,20 @@ def auto_substitute():
     ]
     if not candidates:
         return jsonify({"success": False, "msg": "无可用替班人"}), 200
-    candidates.sort(key=lambda m: core_person_day_workload(m["name"], day_data, positions, staff, groups))
+    preferred_names = (
+        core_group_member_names(pos.get("default_person"), staff, groups)
+        if day_data.get("_scatter_groups")
+        else []
+    )
+    candidates = core_rank_fair_candidates(
+        candidates,
+        day_data,
+        positions,
+        staff,
+        groups,
+        preferred_names=preferred_names,
+        fairness_context=core_build_fairness_context(month_data, positions, day=day),
+    )
     chosen = candidates[0]["name"]
     return jsonify({"success": True, "person": chosen})
 

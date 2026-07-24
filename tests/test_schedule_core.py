@@ -3,6 +3,7 @@ from collections import Counter
 import unittest
 
 from schedule_core import (
+    build_fairness_context,
     can_cover_member,
     find_global_name_collisions,
     group_active_members,
@@ -503,6 +504,244 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertLessEqual(split_counts["Alice"], 1)
         self.assertEqual(full_counts["Alice"], 1)
         self.assertEqual(result["failed"], 0)
+
+    def test_plan_day_schedule_fair_pool_includes_plus_two_and_excludes_plus_two_point_zero_one(self):
+        candidate_loads = [
+            ("A10", 10),
+            ("B10", 10),
+            ("C10", 10),
+            ("D12", 12),
+            ("E12", 12),
+            ("F12.01", 12.01),
+            ("G16", 16),
+            ("H20", 20),
+        ]
+        positions = [
+            {
+                "id": f"p_{name}",
+                "name": f"{name} base",
+                "workload": workload,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name, workload in candidate_loads
+        ]
+        positions.append(
+            {
+                "id": "p_target",
+                "name": "Target",
+                "workload": 4,
+                "default_person": "",
+                "category": "",
+                "split_allowed": False,
+            }
+        )
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "no_substitute": False,
+            }
+            for name, _ in candidate_loads
+        ]
+        month_schedule = {
+            "26": {
+                "p_target": {"status": "substitute", "person": "E12"},
+            },
+            "27": {
+                "p_A10": {"status": "substitute", "person": "A10"},
+                "p_B10": {"status": "substitute", "person": "B10"},
+                "p_C10": {"status": "substitute", "person": "C10"},
+                "p_D12": {"status": "substitute", "person": "D12"},
+            },
+        }
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=7,
+            day=28,
+            off_persons=[],
+            month_schedule=month_schedule,
+        )
+
+        # E12 remains eligible at exactly +2. F12.01 would win the fairness
+        # tiebreaks if it incorrectly entered the pool.
+        self.assertEqual(result["day_data"]["p_target"], {"status": "substitute", "person": "E12"})
+
+    def test_plan_day_schedule_rotates_at_least_one_of_four_split_workers_on_the_next_day(self):
+        names = ["A", "B", "C", "D", "E"]
+        positions = [
+            {
+                "id": f"p_base_{name}",
+                "name": f"{name} base",
+                "workload": 10,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name in names
+        ]
+        positions.extend([
+            {
+                "id": "p_target_1",
+                "name": "Target 1",
+                "workload": 10,
+                "default_person": "",
+                "category": "",
+                "split_allowed": True,
+            },
+            {
+                "id": "p_target_2",
+                "name": "Target 2",
+                "workload": 10,
+                "default_person": "",
+                "category": "",
+                "split_allowed": True,
+            },
+        ])
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "no_substitute": False,
+            }
+            for name in names
+        ]
+
+        first = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=7,
+            day=28,
+            month_schedule={},
+        )
+        second = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=7,
+            day=29,
+            month_schedule={"28": first["day_data"]},
+        )
+        repeated = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=7,
+            day=29,
+            month_schedule={"28": first["day_data"]},
+        )
+
+        def substitute_names(day_data):
+            result = set()
+            for pos_id in ("p_target_1", "p_target_2"):
+                cell = day_data[pos_id]
+                self.assertEqual(cell["status"], "split")
+                for slot_name in ("am", "pm"):
+                    slot = cell["slots"][slot_name]
+                    if slot["status"] == "substitute":
+                        result.add(slot["person"])
+            return result
+
+        first_names = substitute_names(first["day_data"])
+        second_names = substitute_names(second["day_data"])
+        self.assertEqual(len(first_names), 4)
+        self.assertEqual(len(second_names), 4)
+        self.assertGreaterEqual(len(second_names - first_names), 1)
+        self.assertEqual(second["day_data"], repeated["day_data"])
+
+    def test_plan_day_schedule_uses_weighted_prior_substitutions_and_ignores_target_day(self):
+        names = ["A", "B", "C"]
+        positions = [
+            {
+                "id": f"p_base_{name}",
+                "name": f"{name} base",
+                "workload": 10,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name in names
+        ]
+        positions.append(
+            {
+                "id": "p_target",
+                "name": "Target",
+                "workload": 8,
+                "default_person": "",
+                "category": "",
+                "split_allowed": False,
+            }
+        )
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "no_substitute": False,
+            }
+            for name in names
+        ]
+        month_schedule = {
+            1: {
+                "p_target": {"status": "substitute", "person": "A"},
+            },
+            "2": {
+                "p_target": {
+                    "status": "split",
+                    "person": "B",
+                    "slots": {
+                        "am": {"status": "substitute", "person": "B", "workload": 3},
+                        "pm": {"status": "substitute", "person": "C", "workload": 0},
+                    },
+                },
+            },
+            "3": {
+                "p_target": {"status": "on", "person": "B"},
+            },
+            "4": {
+                "p_target": {"status": "substitute", "person": "B"},
+            },
+        }
+
+        fairness_context = build_fairness_context(month_schedule, positions, day=4)
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=7,
+            day=4,
+            month_schedule=month_schedule,
+        )
+
+        # Prior substitute workload is A=8, B=3, C=4. The old result already
+        # stored for day 4 must not count against B.
+        self.assertEqual(fairness_context["previous_substitutes"], set())
+        self.assertEqual(
+            fairness_context["month_substitute_workloads"],
+            {"A": 8.0, "B": 3.0, "C": 4.0},
+        )
+        self.assertEqual(result["day_data"]["p_target"], {"status": "substitute", "person": "B"})
 
 
 

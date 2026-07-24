@@ -76,6 +76,7 @@ export function buildImportPreview({ year, month, today, staff, positions, group
       day,
       offPersons: difference.after,
       scatterGroups: defaultScatterGroups(Number(year), Number(month), day),
+      monthSchedule: schedule,
     });
     schedule[String(day)] = planned.day_data;
     changedDates.push(day);

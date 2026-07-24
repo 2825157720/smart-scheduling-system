@@ -323,8 +323,78 @@ class AppGroupRouteTests(unittest.TestCase):
         payload = response.get_json()
         self.assertTrue(payload["success"])
         self.assertTrue(plan_day_schedule.call_args.kwargs["scatter_groups"])
+        self.assertIn("month_schedule", plan_day_schedule.call_args.kwargs)
         saved_schedule = save_month_schedule.call_args.args[2]
         self.assertTrue(saved_schedule["28"]["_scatter_groups"])
+
+    def test_auto_substitute_uses_previous_day_fairness_context(self):
+        positions = [
+            {"id": "p_a", "name": "A base", "workload": 10, "default_person": "A", "category": ""},
+            {"id": "p_b", "name": "B base", "workload": 10, "default_person": "B", "category": ""},
+            {"id": "p_target", "name": "Target", "workload": 10, "default_person": "X", "category": ""},
+        ]
+        staff = [
+            {"id": "s_a", "name": "A", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s_b", "name": "B", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s_x", "name": "X", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+        month_data = {
+            "27": {"p_target": {"status": "substitute", "person": "A"}},
+            "28": {
+                "_off_persons": ["X"],
+                "p_a": {"status": "on", "person": "A"},
+                "p_b": {"status": "on", "person": "B"},
+                "p_target": {"status": "off", "person": "X"},
+            },
+        }
+
+        with patch.object(app_module, "_positions", return_value=positions):
+            with patch.object(app_module, "_staff", return_value=staff):
+                with patch.object(app_module, "_groups", return_value=[]):
+                    with patch.object(app_module, "_current_month_data", return_value=month_data):
+                        with app_module.app.test_request_context(
+                            "/api/auto-substitute",
+                            method="POST",
+                            json={"year": 2026, "month": 7, "day": 28, "pos_id": "p_target"},
+                        ):
+                            response = app_module.auto_substitute()
+
+        self.assertEqual(response.get_json(), {"success": True, "person": "B"})
+
+    def test_auto_substitute_preserves_scatter_group_preference(self):
+        positions = [
+            {"id": "p_a", "name": "A base", "workload": 12, "default_person": "A", "category": ""},
+            {"id": "p_b", "name": "B base", "workload": 10, "default_person": "B", "category": ""},
+            {"id": "p_target", "name": "Alpha scatter", "workload": 10, "default_person": "Alpha", "category": ""},
+        ]
+        staff = [
+            {"id": "s_a", "name": "A", "group_id": "g1", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s_b", "name": "B", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+        groups = [{"id": "g1", "name": "Alpha"}]
+        month_data = {
+            "27": {"p_target": {"status": "substitute", "person": "A"}},
+            "28": {
+                "_scatter_groups": True,
+                "_off_persons": [],
+                "p_a": {"status": "on", "person": "A"},
+                "p_b": {"status": "on", "person": "B"},
+                "p_target": {"status": "pending", "person": ""},
+            },
+        }
+
+        with patch.object(app_module, "_positions", return_value=positions):
+            with patch.object(app_module, "_staff", return_value=staff):
+                with patch.object(app_module, "_groups", return_value=groups):
+                    with patch.object(app_module, "_current_month_data", return_value=month_data):
+                        with app_module.app.test_request_context(
+                            "/api/auto-substitute",
+                            method="POST",
+                            json={"year": 2026, "month": 7, "day": 28, "pos_id": "p_target"},
+                        ):
+                            response = app_module.auto_substitute()
+
+        self.assertEqual(response.get_json(), {"success": True, "person": "A"})
 
     def test_cascade_off_clears_split_on_slot_and_substitute_slot(self):
         positions = [

@@ -1,4 +1,4 @@
-import { buildFutureResetSchedule, canCoverMember, personDayWorkload, planDaySchedule } from "./schedule-core.js";
+import { buildFairnessContext, buildFutureResetSchedule, canCoverMember, groupMemberNames, planDaySchedule, rankFairCandidates } from "./schedule-core.js";
 import { buildImportPreview, createImportToken, normalizeImportPayload, shanghaiBusinessDate, verifyAdminPassword } from "./import-off-days.js";
 
 const json = (body, init = {}) => Response.json(body, init);
@@ -334,7 +334,7 @@ export default {
       const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, planDay[1], planDay[2])]);
       const offIds = new Set(body.off_person_ids || []); const supplied = [...(body.off_persons || []), ...staff.filter((item) => offIds.has(item.id)).map((item) => item.name)];
       const saved = current[String(day)]?._off_persons || []; const offPersons = body.use_saved_off_persons || (!("off_person_ids" in body) && !("off_persons" in body) && saved.length) ? saved : supplied;
-      const result = planDaySchedule(positions, staff, groups, { year: Number(planDay[1]), month: Number(planDay[2]), day, offPersons, scatterGroups: Boolean(body.scatter_groups) });
+      const result = planDaySchedule(positions, staff, groups, { year: Number(planDay[1]), month: Number(planDay[2]), day, offPersons, scatterGroups: Boolean(body.scatter_groups), monthSchedule: current });
       current[String(day)] = result.day_data; await saveMonth(env.DB, planDay[1], planDay[2], current);
       return json({ success: true, ...result });
     }
@@ -399,7 +399,16 @@ export default {
       const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month)]);
       const pos = positions.find((item) => item.id === posId); if (!pos) return failure("岗位不存在", 404);
       const dayData = current[String(day)] || {}; const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-      const choices = staff.filter((member) => canCoverMember(member, pos, dayData, positions, staff, groups, { day: iso })).sort((a, b) => personDayWorkload(a.name, dayData, positions, staff, groups) - personDayWorkload(b.name, dayData, positions, staff, groups) || a.name.localeCompare(b.name));
+      const preferredNames = dayData?._scatter_groups ? groupMemberNames(pos.default_person, staff, groups) : [];
+      const choices = rankFairCandidates(
+        staff.filter((member) => canCoverMember(member, pos, dayData, positions, staff, groups, { day: iso })),
+        pos,
+        dayData,
+        positions,
+        staff,
+        groups,
+        { preferredNames, fairnessContext: buildFairnessContext(current, Number(day), positions) },
+      );
       return choices.length ? json({ success: true, person: choices[0].name }) : json({ success: false, msg: "无可用替班人" });
     }
     if (request.method === "POST" && url.pathname === "/api/cascade-off") {
@@ -420,7 +429,7 @@ export default {
       const body = await request.json(); const { year, month, day } = body;
       if (!(year && month && day)) return failure("参数无效");
       const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month)]);
-      const result = planDaySchedule(positions, staff, groups, { year: Number(year), month: Number(month), day: Number(day), offPersons: current[String(day)]?._off_persons || [], scatterGroups: Boolean(body.scatter_groups) });
+      const result = planDaySchedule(positions, staff, groups, { year: Number(year), month: Number(month), day: Number(day), offPersons: current[String(day)]?._off_persons || [], scatterGroups: Boolean(body.scatter_groups), monthSchedule: current });
       current[String(day)] = result.day_data; await saveMonth(env.DB, year, month, current);
       return json({ success: true, ...result });
     }

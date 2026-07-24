@@ -100,6 +100,71 @@ test("Friday, Saturday and Sunday use the existing scatter-groups default", () =
   assert.equal(Boolean(preview.schedule[27]._scatter_groups), false); // Monday
 });
 
+test("consecutive identical absences rotate at least one fair-pool substitute", () => {
+  const fairStaff = [
+    ...["A", "B", "C", "D", "E", "F", "G", "X", "Y"].map((name) => ({
+      id: `s${name}`,
+      name,
+      group_id: "",
+      can_cpin: true,
+      can_jd: true,
+      saturday_only: false,
+      no_substitute: false,
+    })),
+  ];
+  const fairPositions = [
+    ...[
+      ["A", 10],
+      ["B", 10],
+      ["C", 10],
+      ["D", 12],
+      ["E", 12],
+      ["F", 16],
+      ["G", 20],
+    ].map(([name, workload]) => ({
+      id: `p${name}`,
+      name: `${name} default`,
+      workload,
+      default_person: name,
+      split_allowed: false,
+    })),
+    { id: "pX", name: "X cover", workload: 10, default_person: "X", split_allowed: true },
+    { id: "pY", name: "Y cover", workload: 10, default_person: "Y", split_allowed: true },
+  ];
+  const normalized = normalizeImportPayload({
+    staff_off_days: [
+      { staff_id: "sX", off_days: [28, 29] },
+      { staff_id: "sY", off_days: [28, 29] },
+    ],
+  }, fairStaff, 31);
+
+  const preview = buildImportPreview({
+    year: 2026,
+    month: 7,
+    today: "2026-07-24",
+    staff: fairStaff,
+    positions: fairPositions,
+    groups: [],
+    current: {},
+    imported: normalized,
+  });
+  const substitutes = (day) => new Set(fairPositions.flatMap((position) => {
+    const cell = preview.schedule[String(day)]?.[position.id];
+    if (cell?.status === "split") {
+      return ["am", "pm"]
+        .map((slot) => cell.slots?.[slot])
+        .filter((detail) => detail?.status === "substitute")
+        .map((detail) => detail.person);
+    }
+    return cell?.status === "substitute" ? [cell.person] : [];
+  }));
+
+  assert.deepEqual(preview.changed_dates, [28, 29]);
+  assert.equal(substitutes(28).size, 4);
+  assert.equal(substitutes(29).size, 4);
+  assert.notDeepEqual([...substitutes(29)].sort(), [...substitutes(28)].sort());
+});
+
 test("payload rejects duplicate and unknown staff identifiers", () => {
   assert.throws(
     () => normalizeImportPayload({ staff_off_days: [

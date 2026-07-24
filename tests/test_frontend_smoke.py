@@ -34,6 +34,10 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("openDayPlanModal", self.text)
         self.assertIn("runDayPlan", self.text)
         self.assertIn("\u53f3\u952e\u81ea\u5b9a\u4e49\u66ff\u73ed", self.text)
+        block = self._block('id="day-plan-modal"', "<!-- 导入排休 -->")
+        self.assertIn("兼顾本月截至前一天的替班工作量", block)
+        self.assertIn("候选单日工作量容差 2 点", block)
+        self.assertIn("优先避免连续两天由同一人替班", block)
 
     def test_schedule_import_ui_and_local_parser_exist(self):
         self.assertIn("导入排休", self.text)
@@ -46,6 +50,10 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("今天之后", self.text)
         self.assertIn("全天智能排班", self.text)
         self.assertIn("门店表示出差", self.text)
+        block = self._block('id="schedule-import-modal"', 'id="col-settings-modal"')
+        self.assertIn("兼顾本月截至前一天的替班工作量", block)
+        self.assertIn("候选单日工作量容差 2 点", block)
+        self.assertIn("优先避免连续两天由同一人替班", block)
 
     def test_reset_schedule_preserves_today_and_history(self):
         block = self._block("async function resetSchedule(){", "async function backupSchedule(){")

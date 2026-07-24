@@ -88,6 +88,23 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertNotIn("previous.default_staff_id", position_block)
         self.assertNotIn("previous.default_group_id", position_block)
 
+    def test_automatic_worker_entries_use_month_fairness_context(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[2]
+        worker_source = (root / "src" / "index.js").read_text(encoding="utf-8")
+        import_source = (root / "src" / "import-off-days.js").read_text(encoding="utf-8")
+
+        plan_block = worker_source.split("const planDay =", 1)[1].split("const importOffDays =", 1)[0]
+        substitute_block = worker_source.split('url.pathname === "/api/auto-substitute"', 1)[1].split('url.pathname === "/api/cascade-off"', 1)[0]
+        fill_block = worker_source.split('url.pathname === "/api/auto-fill-all"', 1)[1].split("const hiddenDays =", 1)[0]
+
+        self.assertIn("monthSchedule: current", plan_block)
+        self.assertIn("buildFairnessContext(current", substitute_block)
+        self.assertIn("rankFairCandidates", substitute_block)
+        self.assertIn("groupMemberNames", substitute_block)
+        self.assertIn("preferredNames", substitute_block)
+        self.assertIn("monthSchedule: current", fill_block)
+        self.assertIn("monthSchedule: schedule", import_source)
+
     def test_deployment_environments_use_unique_worker_names(self):
         config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
         config = json.loads(config_path.read_text(encoding="utf-8"))
