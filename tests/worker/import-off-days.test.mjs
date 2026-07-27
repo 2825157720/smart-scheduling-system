@@ -171,7 +171,7 @@ test("Friday, Saturday and Sunday use the existing scatter-groups default", () =
   assert.equal(Boolean(preview.schedule[27]._scatter_groups), false); // Monday
 });
 
-test("consecutive identical absences rotate at least one fair-pool substitute", () => {
+test("consecutive import planning rotates substitutes and keeps at most one split per day", () => {
   const fairStaff = [
     ...["A", "B", "C", "D", "E", "F", "G", "X", "Y"].map((name) => ({
       id: `s${name}`,
@@ -229,10 +229,15 @@ test("consecutive identical absences rotate at least one fair-pool substitute", 
     }
     return cell?.status === "substitute" ? [cell.person] : [];
   }));
+  const splitCount = (day) => fairPositions.filter(
+    (position) => preview.schedule[String(day)]?.[position.id]?.status === "split",
+  ).length;
 
   assert.deepEqual(preview.changed_dates, [28, 29]);
-  assert.equal(substitutes(28).size, 4);
-  assert.equal(substitutes(29).size, 4);
+  assert.ok(substitutes(28).size >= 2 && substitutes(28).size <= 3);
+  assert.ok(substitutes(29).size >= 2 && substitutes(29).size <= 3);
+  assert.ok(splitCount(28) <= 1);
+  assert.ok(splitCount(29) <= 1);
   assert.notDeepEqual([...substitutes(29)].sort(), [...substitutes(28)].sort());
 });
 

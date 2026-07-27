@@ -3,6 +3,7 @@ from collections import Counter
 import unittest
 
 from schedule_core import (
+    AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT,
     FAIRNESS_LOAD_TOLERANCE,
     FAIRNESS_ROTATION_LOAD_TOLERANCE,
     build_fairness_context,
@@ -273,11 +274,11 @@ class ScheduleCoreTests(unittest.TestCase):
     def test_plan_day_schedule_splits_eligible_position_when_it_reduces_imbalance(self):
         positions = [
             {"id": "p1", "name": "Heavy", "workload": 8, "default_person": "", "category": "", "split_allowed": True},
-            {"id": "p2", "name": "Light", "workload": 1, "default_person": "", "category": "", "split_allowed": False},
+            {"id": "p2", "name": "Light", "workload": 1, "default_person": "Bob", "category": "", "split_allowed": False},
         ]
         staff = [
             {"id": "s1", "name": "Alice", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
-            {"id": "s2", "name": "Bob", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "Bob", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": True},
             {"id": "s3", "name": "Carol", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
         ]
 
@@ -294,6 +295,7 @@ class ScheduleCoreTests(unittest.TestCase):
         day_data = result["day_data"]
         pos_map = {p["id"]: p for p in positions}
 
+        self.assertEqual(AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT, 4.0)
         self.assertEqual(day_data["p1"]["status"], "split")
         self.assertEqual(day_data["p1"]["slots"]["am"]["workload"], 4.0)
         self.assertEqual(day_data["p1"]["slots"]["pm"]["workload"], 4.0)
@@ -306,7 +308,29 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertEqual(result["assigned"], 3)
         self.assertEqual(result["failed"], 0)
 
-    def test_plan_day_schedule_splits_when_spread_stays_the_same_but_balance_improves(self):
+    def test_plan_day_schedule_does_not_split_below_four_points_of_spread_improvement(self):
+        positions = [
+            {"id": "p1", "name": "Almost", "workload": 7.98, "default_person": "", "category": "", "split_allowed": True},
+            {"id": "p2", "name": "Light", "workload": 1, "default_person": "B", "category": "", "split_allowed": False},
+        ]
+        staff = [
+            {"id": "s1", "name": "A", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+            {"id": "s2", "name": "B", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": True},
+            {"id": "s3", "name": "C", "group_id": "", "can_cpin": True, "can_jd": True, "saturday_only": False, "no_substitute": False},
+        ]
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=8,
+            day=3,
+        )
+
+        self.assertEqual(result["day_data"]["p1"]["status"], "substitute")
+
+    def test_plan_day_schedule_does_not_split_when_only_standard_deviation_improves(self):
         positions = [
             {"id": "p1", "name": "Light", "workload": 3, "default_person": "", "category": "", "split_allowed": False},
             {"id": "p2", "name": "SplitMe", "workload": 4, "default_person": "", "category": "", "split_allowed": True},
@@ -330,15 +354,13 @@ class ScheduleCoreTests(unittest.TestCase):
         )
 
         day_data = result["day_data"]
-        self.assertEqual(day_data["p2"]["status"], "split")
-        self.assertEqual(day_data["p2"]["slots"]["am"]["workload"], 2.0)
-        self.assertEqual(day_data["p2"]["slots"]["pm"]["workload"], 2.0)
+        self.assertEqual(day_data["p2"]["status"], "substitute")
         loads = sorted(
             person_day_workload(name, day_data, pos_map, staff, [])
             for name in ["A", "B", "C", "D"]
         )
-        self.assertEqual(loads, [0.0, 2.0, 2.0, 3.0])
-        self.assertEqual(result["assigned"], 3)
+        self.assertEqual(loads, [0.0, 0.0, 3.0, 4.0])
+        self.assertEqual(result["assigned"], 2)
         self.assertEqual(result["failed"], 0)
 
     def test_plan_day_schedule_does_not_split_when_default_person_is_already_on_duty(self):
@@ -507,6 +529,84 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertLessEqual(split_counts["Alice"], 1)
         self.assertEqual(full_counts["Alice"], 1)
         self.assertEqual(result["failed"], 0)
+
+    def test_plan_day_schedule_applies_only_the_best_split_proposal(self):
+        base_loads = [
+            ("A", 4),
+            ("B", 11),
+            ("C", 9),
+            ("D", 3),
+            ("E", 5),
+            ("F", 10),
+        ]
+        positions = [
+            {
+                "id": f"p_{name}",
+                "name": f"{name} base",
+                "workload": workload,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name, workload in base_loads
+        ]
+        positions.extend([
+            {
+                "id": "p_target_1",
+                "name": "Target 1",
+                "workload": 12,
+                "default_person": "",
+                "category": "",
+                "split_allowed": True,
+            },
+            {
+                "id": "p_target_2",
+                "name": "Target 2",
+                "workload": 12,
+                "default_person": "",
+                "category": "",
+                "split_allowed": True,
+            },
+        ])
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "no_substitute": False,
+            }
+            for name, _ in base_loads
+        ]
+
+        first = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=8,
+            day=3,
+        )
+        repeated = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=8,
+            day=3,
+        )
+        split_ids = [
+            pos["id"]
+            for pos in positions
+            if first["day_data"][pos["id"]]["status"] == "split"
+        ]
+
+        self.assertEqual(split_ids, ["p_target_2"])
+        self.assertEqual(first["day_data"]["p_target_2"]["slots"]["am"]["person"], "A")
+        self.assertEqual(first["day_data"]["p_target_2"]["slots"]["pm"]["person"], "E")
+        self.assertEqual(first["day_data"], repeated["day_data"])
 
     def test_rank_fair_candidates_expands_to_fresh_plus_six_only_when_base_pool_is_stale(self):
         candidate_loads = [
@@ -679,45 +779,25 @@ class ScheduleCoreTests(unittest.TestCase):
         # tiebreaks if it incorrectly entered the pool.
         self.assertEqual(result["day_data"]["p_target"], {"status": "substitute", "person": "E12"})
 
-    def test_plan_day_schedule_repeats_at_most_one_of_four_split_workers_on_the_next_day(self):
-        candidate_loads = [
-            ("A", 10),
-            ("B", 10),
-            ("C", 10),
-            ("D", 12),
-            ("E", 12),
-            ("F", 16),
-            ("G", 20),
-        ]
+    def test_consecutive_planning_keeps_one_split_and_rotates_both_split_workers(self):
         positions = [
             {
-                "id": f"p_base_{name}",
-                "name": f"{name} base",
-                "workload": workload,
-                "default_person": name,
+                "id": "p_target",
+                "name": "Target",
+                "workload": 8,
+                "default_person": "",
+                "category": "",
+                "split_allowed": True,
+            },
+            {
+                "id": "p_b",
+                "name": "B base",
+                "workload": 1,
+                "default_person": "B",
                 "category": "",
                 "split_allowed": False,
-            }
-            for name, workload in candidate_loads
+            },
         ]
-        positions.extend([
-            {
-                "id": "p_target_1",
-                "name": "Target 1",
-                "workload": 10,
-                "default_person": "",
-                "category": "",
-                "split_allowed": True,
-            },
-            {
-                "id": "p_target_2",
-                "name": "Target 2",
-                "workload": 10,
-                "default_person": "",
-                "category": "",
-                "split_allowed": True,
-            },
-        ])
         staff = [
             {
                 "id": f"s_{name}",
@@ -726,69 +806,51 @@ class ScheduleCoreTests(unittest.TestCase):
                 "can_cpin": True,
                 "can_jd": True,
                 "saturday_only": False,
-                "no_substitute": False,
+                "no_substitute": name == "B",
             }
-            for name, _ in candidate_loads
+            for name in ("A", "B", "C", "D", "E")
         ]
+        day_one = {
+            "p_target": {
+                "status": "split",
+                "slots": {
+                    "am": {"status": "substitute", "person": "A", "workload": 4},
+                    "pm": {"status": "substitute", "person": "C", "workload": 4},
+                },
+            },
+            "p_b": {"status": "on", "person": "B"},
+        }
 
-        first = plan_day_schedule(
-            positions,
-            staff,
-            [],
-            year=2026,
-            month=7,
-            day=28,
-            month_schedule={},
-        )
-        first["day_data"]["p_target_1"] = {
-            "status": "split",
-            "slots": {
-                "am": {"status": "substitute", "person": "A", "workload": 5},
-                "pm": {"status": "substitute", "person": "B", "workload": 5},
-            },
-        }
-        first["day_data"]["p_target_2"] = {
-            "status": "split",
-            "slots": {
-                "am": {"status": "substitute", "person": "C", "workload": 5},
-                "pm": {"status": "substitute", "person": "G", "workload": 5},
-            },
-        }
         second = plan_day_schedule(
             positions,
             staff,
             [],
             year=2026,
-            month=7,
-            day=29,
-            month_schedule={"28": first["day_data"]},
+            month=8,
+            day=2,
+            month_schedule={"1": day_one},
         )
         repeated = plan_day_schedule(
             positions,
             staff,
             [],
             year=2026,
-            month=7,
-            day=29,
-            month_schedule={"28": first["day_data"]},
+            month=8,
+            day=2,
+            month_schedule={"1": day_one},
         )
+        split_cells = [
+            cell
+            for cell in second["day_data"].values()
+            if isinstance(cell, dict) and cell.get("status") == "split"
+        ]
+        workers = {
+            split_cells[0]["slots"][slot]["person"]
+            for slot in ("am", "pm")
+        }
 
-        def substitute_names(day_data):
-            result = set()
-            for pos_id in ("p_target_1", "p_target_2"):
-                cell = day_data[pos_id]
-                self.assertEqual(cell["status"], "split")
-                for slot_name in ("am", "pm"):
-                    slot = cell["slots"][slot_name]
-                    if slot["status"] == "substitute":
-                        result.add(slot["person"])
-            return result
-
-        first_names = substitute_names(first["day_data"])
-        second_names = substitute_names(second["day_data"])
-        self.assertEqual(len(first_names), 4)
-        self.assertEqual(len(second_names), 4)
-        self.assertLessEqual(len(second_names & first_names), 1)
+        self.assertEqual(len(split_cells), 1)
+        self.assertEqual(workers, {"D", "E"})
         self.assertEqual(second["day_data"], repeated["day_data"])
 
     def test_plan_day_schedule_uses_weighted_prior_substitutions_and_ignores_target_day(self):

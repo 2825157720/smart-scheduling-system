@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT,
   FAIRNESS_LOAD_TOLERANCE,
   FAIRNESS_ROTATION_LOAD_TOLERANCE,
   buildFairnessContext,
@@ -253,62 +254,110 @@ test("split planning tries the next fair candidate when the first does not impro
   assert.equal(result.day_data["p-X"].slots.pm.person, "C");
 });
 
-test("identical consecutive absences repeat at most one of four split substitutes", () => {
-  const candidateLoads = [
-    ["A", 10],
-    ["B", 10],
-    ["C", 10],
-    ["D", 12],
-    ["E", 12],
-    ["F", 16],
-    ["G", 20],
+test("automatic split requires at least four points of spread improvement", () => {
+  const staff = [
+    member("A"),
+    { ...member("B"), no_substitute: true },
+    member("C"),
   ];
-  const staff = candidateLoads.map(([name]) => member(name));
-  const positions = [
-    ...candidateLoads.map(([name, workload]) => position(name, workload)),
-    position("X", 10, { default_person: "", split_allowed: true }),
-    position("Y", 10, { default_person: "", split_allowed: true }),
-  ];
-  const args = {
+  const plan = (workload) => planDaySchedule([
+    position("Target", workload, { default_person: "", split_allowed: true }),
+    position("B", 1),
+  ], staff, [], {
     year: 2026,
-    month: 7,
-    offPersons: ["X", "Y"],
-  };
-
-  const day28 = planDaySchedule(positions, staff, [], { ...args, day: 28 });
-  day28.day_data["p-X"] = {
-    status: "split",
-    slots: {
-      am: { status: "substitute", person: "A", workload: 5 },
-      pm: { status: "substitute", person: "B", workload: 5 },
-    },
-  };
-  day28.day_data["p-Y"] = {
-    status: "split",
-    slots: {
-      am: { status: "substitute", person: "C", workload: 5 },
-      pm: { status: "substitute", person: "G", workload: 5 },
-    },
-  };
-  const day29 = planDaySchedule(positions, staff, [], {
-    ...args,
-    day: 29,
-    monthSchedule: { 28: day28.day_data },
+    month: 8,
+    day: 3,
   });
-  const substitutes = (data) => new Set(positions.flatMap((pos) => {
-    const cell = data[pos.id];
-    if (cell?.status === "split") {
-      return ["am", "pm"]
-        .map((key) => cell.slots?.[key])
-        .filter((detail) => detail?.status === "substitute")
-        .map((detail) => detail.person);
-    }
-    return cell?.status === "substitute" ? [cell.person] : [];
-  }));
-  const first = substitutes(day28.day_data);
-  const second = substitutes(day29.day_data);
 
-  assert.equal(first.size, 4);
-  assert.equal(second.size, 4);
-  assert.ok([...second].filter((name) => first.has(name)).length <= 1);
+  const exact = plan(8);
+  const below = plan(7.98);
+
+  assert.equal(AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT, 4);
+  assert.equal(exact.day_data["p-Target"].status, "split");
+  assert.equal(below.day_data["p-Target"].status, "substitute");
+});
+
+test("automatic split does not run for standard deviation improvement alone", () => {
+  const result = planDaySchedule([
+    position("Target", 4, { default_person: "", split_allowed: true }),
+    position("Light", 3, { default_person: "" }),
+  ], ["A", "B", "C", "D"].map(member), [], {
+    year: 2026,
+    month: 8,
+    day: 3,
+  });
+
+  assert.equal(result.day_data["p-Target"].status, "substitute");
+});
+
+test("automatic split applies only the best proposal of the day", () => {
+  const staff = ["A", "B", "C", "D", "E", "F"].map(member);
+  const positions = [
+    position("A", 4),
+    position("B", 11),
+    position("C", 9),
+    position("D", 3),
+    position("E", 5),
+    position("F", 10),
+    position("T1", 12, { default_person: "", split_allowed: true }),
+    position("T2", 12, { default_person: "", split_allowed: true }),
+  ];
+
+  const first = planDaySchedule(positions, staff, [], {
+    year: 2026,
+    month: 8,
+    day: 3,
+  });
+  const repeated = planDaySchedule(positions, staff, [], {
+    year: 2026,
+    month: 8,
+    day: 3,
+  });
+  const splitIds = positions
+    .filter((pos) => first.day_data[pos.id].status === "split")
+    .map((pos) => pos.id);
+
+  assert.deepEqual(splitIds, ["p-T2"]);
+  assert.equal(first.day_data["p-T2"].slots.am.person, "A");
+  assert.equal(first.day_data["p-T2"].slots.pm.person, "E");
+  assert.deepEqual(first.day_data, repeated.day_data);
+});
+
+test("consecutive planning keeps one split and rotates both split workers", () => {
+  const staff = ["A", "B", "C", "D", "E"].map((name) => ({
+    ...member(name),
+    no_substitute: name === "B",
+  }));
+  const positions = [
+    position("Target", 8, { default_person: "", split_allowed: true }),
+    position("B", 1),
+  ];
+  const day1 = {
+    "p-Target": {
+      status: "split",
+      slots: {
+        am: { status: "substitute", person: "A", workload: 4 },
+        pm: { status: "substitute", person: "C", workload: 4 },
+      },
+    },
+    "p-B": { status: "on", person: "B" },
+  };
+  const day2 = planDaySchedule(positions, staff, [], {
+    year: 2026,
+    month: 8,
+    day: 2,
+    monthSchedule: { 1: day1 },
+  });
+  const repeated = planDaySchedule(positions, staff, [], {
+    year: 2026,
+    month: 8,
+    day: 2,
+    monthSchedule: { 1: day1 },
+  });
+  const splitCells = Object.values(day2.day_data).filter((cell) => cell?.status === "split");
+  const workers = new Set(["am", "pm"].map((key) => splitCells[0].slots[key].person));
+
+  assert.equal(splitCells.length, 1);
+  assert.deepEqual(workers, new Set(["D", "E"]));
+  assert.deepEqual(day2.day_data, repeated.day_data);
 });

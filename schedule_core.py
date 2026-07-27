@@ -6,6 +6,7 @@ from typing import Iterable
 
 FAIRNESS_LOAD_TOLERANCE = 2.0
 FAIRNESS_ROTATION_LOAD_TOLERANCE = 6.0
+AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT = 4.0
 
 
 def _normalize_name(value) -> str:
@@ -261,16 +262,6 @@ def _load_std(load_map) -> float:
     return variance ** 0.5
 
 
-def _is_better_load_score(new_score, current_score, epsilon: float = 1e-9) -> bool:
-    new_spread, new_std = new_score
-    current_spread, current_std = current_score
-    if new_spread < current_spread - epsilon:
-        return True
-    if abs(new_spread - current_spread) <= epsilon and new_std < current_std - epsilon:
-        return True
-    return False
-
-
 def _month_day_data(month_schedule, day: int) -> dict:
     if not isinstance(month_schedule, dict):
         return {}
@@ -426,99 +417,124 @@ def _apply_split_positions(
     if used_names:
         split_names.update(_normalize_name(name) for name in used_names if _normalize_name(name))
 
-    while True:
-        current_score = (_load_spread(loads), _load_std(loads))
-        current_spread = current_score[0]
-        if current_spread <= 0:
-            break
+    current_score = (_load_spread(loads), _load_std(loads))
+    current_spread = current_score[0]
+    if current_spread <= 0:
+        return
 
-        split_candidates = [
-            pos for pos in position_list
-            if bool(pos.get("split_allowed"))
-            and (scatter_groups or _normalize_name((pos or {}).get("default_person", "")) not in group_names)
-        ]
-        split_candidates.sort(key=lambda pos: float((pos or {}).get("workload", 0) or 0), reverse=True)
+    split_candidates = [
+        (index, pos)
+        for index, pos in enumerate(position_list)
+        if bool(pos.get("split_allowed"))
+        and (scatter_groups or _normalize_name((pos or {}).get("default_person", "")) not in group_names)
+    ]
+    split_candidates.sort(
+        key=lambda item: (
+            -float((item[1] or {}).get("workload", 0) or 0),
+            item[0],
+        )
+    )
+    proposals = []
 
-        applied = False
-        for pos in split_candidates:
-            pos_id = pos.get("id")
-            if not pos_id:
-                continue
-            cell = day_data.get(pos_id, {})
-            default_person = _normalize_name((pos or {}).get("default_person", ""))
-            if _is_split_cell(cell):
-                continue
-            current_name = _normalize_name((cell or {}).get("person"))
-            current_status = (cell or {}).get("status", "")
-            if not current_name or current_status not in ("on", "substitute"):
-                continue
-            if current_name in split_names:
-                continue
-            if default_person and current_name == default_person:
-                continue
+    for position_rank, (_, pos) in enumerate(split_candidates):
+        pos_id = pos.get("id")
+        if not pos_id:
+            continue
+        cell = day_data.get(pos_id, {})
+        default_person = _normalize_name((pos or {}).get("default_person", ""))
+        if _is_split_cell(cell):
+            continue
+        current_name = _normalize_name((cell or {}).get("person"))
+        current_status = (cell or {}).get("status", "")
+        if not current_name or current_status not in ("on", "substitute"):
+            continue
+        if current_name in split_names:
+            continue
+        if default_person and current_name == default_person:
+            continue
 
-            half = float((pos or {}).get("workload", 0) or 0) / 2.0
-            if half <= 0:
-                continue
+        half = float((pos or {}).get("workload", 0) or 0) / 2.0
+        if half <= 0:
+            continue
 
-            candidates = [
-                member for member in staff or []
-                if can_cover_member(
-                    member,
-                    pos,
-                    day_data,
-                    position_list,
-                    staff,
-                    groups,
-                    day=day_date,
-                    exclude_name=current_name,
-                    used_names=split_names,
-                )
-            ]
-            if not candidates:
-                continue
-
-            preferred_names = []
-            if scatter_groups and default_person in group_names:
-                preferred_names = group_member_names(default_person, staff, groups)
-            ranked_candidates = rank_fair_candidates(
-                candidates,
+        candidates = [
+            member for member in staff or []
+            if can_cover_member(
+                member,
+                pos,
                 day_data,
                 position_list,
                 staff,
                 groups,
-                preferred_names=preferred_names,
-                fairness_context=fairness_context,
+                day=day_date,
+                exclude_name=current_name,
+                used_names=split_names,
             )
+        ]
+        if not candidates:
+            continue
 
-            for member in ranked_candidates:
-                partner = _normalize_name(member.get("name"))
-                new_loads = dict(loads)
-                new_loads[current_name] = max(0.0, new_loads.get(current_name, 0.0) - half)
-                new_loads[partner] = new_loads.get(partner, 0.0) + half
+        preferred_names = []
+        if scatter_groups and default_person in group_names:
+            preferred_names = group_member_names(default_person, staff, groups)
+        ranked_candidates = rank_fair_candidates(
+            candidates,
+            day_data,
+            position_list,
+            staff,
+            groups,
+            preferred_names=preferred_names,
+            fairness_context=fairness_context,
+        )
 
-                if not _is_better_load_score((_load_spread(new_loads), _load_std(new_loads)), current_score):
-                    continue
-
-                day_data[pos_id] = {
-                    "status": "split",
-                    "person": current_name,
-                    "slots": {
-                        "am": {"status": current_status, "person": current_name, "workload": half},
-                        "pm": {"status": "substitute", "person": partner, "workload": half},
-                    },
-                }
-                split_names.add(current_name)
-                split_names.add(partner)
-                loads = new_loads
-                applied = True
-                break
-
-            if applied:
-                break
-
-        if not applied:
+        for candidate_rank, member in enumerate(ranked_candidates):
+            partner = _normalize_name(member.get("name"))
+            new_loads = dict(loads)
+            new_loads[current_name] = max(0.0, new_loads.get(current_name, 0.0) - half)
+            new_loads[partner] = new_loads.get(partner, 0.0) + half
+            next_score = (_load_spread(new_loads), _load_std(new_loads))
+            improvement = current_spread - next_score[0]
+            if improvement + 1e-9 < AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT:
+                continue
+            proposals.append({
+                "pos": pos,
+                "cell": cell,
+                "current_name": current_name,
+                "partner": partner,
+                "half": half,
+                "next_score": next_score,
+                "improvement": improvement,
+                "position_rank": position_rank,
+                "candidate_rank": candidate_rank,
+            })
             break
+
+    if not proposals:
+        return
+    proposals.sort(key=lambda item: (
+        -item["improvement"],
+        item["next_score"][1],
+        item["position_rank"],
+        item["candidate_rank"],
+        item["partner"],
+    ))
+    best = proposals[0]
+    day_data[best["pos"]["id"]] = {
+        "status": "split",
+        "person": best["current_name"],
+        "slots": {
+            "am": {
+                "status": best["cell"].get("status", ""),
+                "person": best["current_name"],
+                "workload": best["half"],
+            },
+            "pm": {
+                "status": "substitute",
+                "person": best["partner"],
+                "workload": best["half"],
+            },
+        },
+    }
 
 
 def plan_day_schedule(

@@ -38,6 +38,7 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("兼顾本月截至前一天的替班工作量", block)
         self.assertIn("正常容差 2 点", block)
         self.assertIn("按需扩展至 6 点", block)
+        self.assertIn("每天最多自动拆分1岗，负荷差至少改善4点才拆", block)
 
     def test_schedule_import_ui_and_local_parser_exist(self):
         self.assertIn("导入排休", self.text)
@@ -54,6 +55,7 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("兼顾本月截至前一天的替班工作量", block)
         self.assertIn("正常容差 2 点", block)
         self.assertIn("按需扩展至 6 点", block)
+        self.assertIn("每天最多自动拆分1岗，负荷差至少改善4点才拆", block)
         self.assertIn('id="schedule-import-force"', block)
         self.assertIn("强制重排", block)
         self.assertIn("明天至月底", block)
@@ -97,6 +99,7 @@ class FrontendSmokeTests(unittest.TestCase):
     def test_position_modal_supports_split_toggle(self):
         self.assertIn("pos-split", self.text)
         self.assertIn("split_allowed", self.text)
+        self.assertIn("每天最多自动拆分1岗，且负荷差至少改善4点才拆", self.text)
         self.assertIn("\u53cc\u69fd\u4f4d", self.text)
 
     def test_day_plan_off_list_treats_active_members_as_available(self):

@@ -9,6 +9,7 @@ const cellFor = (data, pos) => data?.[pos.id] || defaultCell(pos);
 
 export const FAIRNESS_LOAD_TOLERANCE = 2;
 export const FAIRNESS_ROTATION_LOAD_TOLERANCE = 6;
+export const AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT = 4;
 
 export function groupMemberNames(name, staff, groups) {
   const group = (groups || []).find((item) => norm(item.name) === norm(name));
@@ -140,43 +141,59 @@ export function buildFutureResetSchedule(positions, { year, month, today, curren
   return { schedule, reset_dates: resetDates };
 }
 function score(loads) { const positive = [...loads.values()].filter((value) => value > 0); if (positive.length <= 1) return [0, 0]; const avg = positive.reduce((a, b) => a + b, 0) / positive.length; return [Math.max(...positive) - Math.min(...positive), Math.sqrt(positive.reduce((sum, v) => sum + (v - avg) ** 2, 0) / positive.length)]; }
-function better(next, current) { return next[0] < current[0] - 1e-9 || (Math.abs(next[0] - current[0]) <= 1e-9 && next[1] < current[1] - 1e-9); }
 function applySplits(data, positions, staff, groups, day, fairnessContext) {
   const all = posList(positions); const groupSet = groupNames(groups); const used = new Set();
   for (const cell of Object.values(data || {})) if (isSplit(cell)) for (const key of ["am", "pm"]) if (slot(cell, key).person) used.add(slot(cell, key).person);
-  let loads = new Map((staff || []).map((m) => [norm(m.name), personDayWorkload(m.name, data, all, staff, groups)]));
-  while (true) {
-    const current = score(loads); if (current[0] <= 0) break; let applied = false;
-    const candidates = all.filter((p) => p.split_allowed && (data?._scatter_groups || !groupSet.has(norm(p.default_person)))).sort((a, b) => Number(b.workload || 0) - Number(a.workload || 0));
-    for (const pos of candidates) {
-      const cell = data[pos.id]; const currentName = norm(cell?.person); if (isSplit(cell) || !["on", "substitute"].includes(cell?.status) || !currentName || used.has(currentName) || currentName === norm(pos.default_person)) continue;
-      const preferred = data?._scatter_groups && groupSet.has(norm(pos.default_person)) ? new Set(groupMemberNames(pos.default_person, staff, groups)) : new Set();
-      const choices = rankFairCandidates(
-        (staff || []).filter((m) => canCoverMember(m, pos, data, all, staff, groups, { day, excludeName: currentName, usedNames: used })),
-        pos,
-        data,
-        all,
-        staff,
-        groups,
-        { preferredNames: preferred, fairnessContext },
-      );
-      if (!choices.length) continue;
-      const half = Number(pos.workload || 0) / 2; if (half <= 0) continue;
-      let partner = ""; let next = null;
-      for (const choice of choices) {
-        const candidate = norm(choice.name);
-        const candidateLoads = new Map(loads);
-        candidateLoads.set(currentName, Math.max(0, (candidateLoads.get(currentName) || 0) - half));
-        candidateLoads.set(candidate, (candidateLoads.get(candidate) || 0) + half);
-        if (!better(score(candidateLoads), current)) continue;
-        partner = candidate; next = candidateLoads; break;
-      }
-      if (!partner || !next) continue;
-      data[pos.id] = { status: "split", person: currentName, slots: { am: { status: cell.status, person: currentName, workload: half }, pm: { status: "substitute", person: partner, workload: half } } };
-      used.add(currentName); used.add(partner); loads = next; applied = true; break;
+  const loads = new Map((staff || []).map((m) => [norm(m.name), personDayWorkload(m.name, data, all, staff, groups)]));
+  const current = score(loads); if (current[0] <= 0) return;
+  const candidates = all
+    .map((pos, index) => ({ pos, index }))
+    .filter(({ pos }) => pos.split_allowed && (data?._scatter_groups || !groupSet.has(norm(pos.default_person))))
+    .sort((a, b) => Number(b.pos.workload || 0) - Number(a.pos.workload || 0) || a.index - b.index);
+  const proposals = [];
+  for (let positionRank = 0; positionRank < candidates.length; positionRank += 1) {
+    const pos = candidates[positionRank].pos;
+    const cell = data[pos.id]; const currentName = norm(cell?.person);
+    if (isSplit(cell) || !["on", "substitute"].includes(cell?.status) || !currentName || used.has(currentName) || currentName === norm(pos.default_person)) continue;
+    const preferred = data?._scatter_groups && groupSet.has(norm(pos.default_person)) ? new Set(groupMemberNames(pos.default_person, staff, groups)) : new Set();
+    const choices = rankFairCandidates(
+      (staff || []).filter((m) => canCoverMember(m, pos, data, all, staff, groups, { day, excludeName: currentName, usedNames: used })),
+      pos,
+      data,
+      all,
+      staff,
+      groups,
+      { preferredNames: preferred, fairnessContext },
+    );
+    const half = Number(pos.workload || 0) / 2; if (half <= 0) continue;
+    for (let candidateRank = 0; candidateRank < choices.length; candidateRank += 1) {
+      const partner = norm(choices[candidateRank].name);
+      const nextLoads = new Map(loads);
+      nextLoads.set(currentName, Math.max(0, (nextLoads.get(currentName) || 0) - half));
+      nextLoads.set(partner, (nextLoads.get(partner) || 0) + half);
+      const nextScore = score(nextLoads);
+      const improvement = current[0] - nextScore[0];
+      if (improvement + FLOAT_EPSILON < AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT) continue;
+      proposals.push({ pos, cell, currentName, partner, half, nextScore, improvement, positionRank, candidateRank });
+      break;
     }
-    if (!applied) break;
   }
+  proposals.sort((a, b) => (
+    b.improvement - a.improvement
+    || a.nextScore[1] - b.nextScore[1]
+    || a.positionRank - b.positionRank
+    || a.candidateRank - b.candidateRank
+    || (a.partner < b.partner ? -1 : a.partner > b.partner ? 1 : 0)
+  ));
+  const best = proposals[0]; if (!best) return;
+  data[best.pos.id] = {
+    status: "split",
+    person: best.currentName,
+    slots: {
+      am: { status: best.cell.status, person: best.currentName, workload: best.half },
+      pm: { status: "substitute", person: best.partner, workload: best.half },
+    },
+  };
 }
 export function planDaySchedule(positions, staff, groups, { year, month, day, offPersons = [], scatterGroups = false, monthSchedule = {} }) {
   const all = posList(positions); const groupsSet = groupNames(groups); const data = buildDayBase(all, offPersons); if (scatterGroups) data._scatter_groups = true;

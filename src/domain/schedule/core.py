@@ -1,6 +1,7 @@
 """Compatibility export while the legacy Flask runtime remains active."""
 
 from schedule_core import (
+    AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT,
     FAIRNESS_LOAD_TOLERANCE,
     FAIRNESS_ROTATION_LOAD_TOLERANCE,
     build_day_base,
@@ -16,6 +17,7 @@ from schedule_core import (
 )
 
 __all__ = [
+    "AUTO_SPLIT_MIN_SPREAD_IMPROVEMENT",
     "FAIRNESS_LOAD_TOLERANCE", "FAIRNESS_ROTATION_LOAD_TOLERANCE",
     "build_day_base", "build_fairness_context",
     "can_cover_member", "find_global_name_collisions",
