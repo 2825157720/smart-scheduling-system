@@ -14,7 +14,7 @@
 - [x] `git diff --check`
 - [x] Preview `wrangler deploy --dry-run`
 - [x] Preview 已部署（version `a4c9493a-ca60-4933-aa2b-4c48ca3c3a20`），匿名请求会进入 Cloudflare Access 登录页
-- [ ] 已登录 Access 的浏览器视觉确认
+- [x] 已登录 Access 的浏览器视觉确认，用户确认 Preview 视觉验收通过
 
 Playwright 固定截图：
 
@@ -35,7 +35,7 @@ Playwright 固定截图：
 
 - [x] `1366×768`：自动化确认主表和侧栏并列、同步状态可见、工具条无溢出。
 - [x] `320px`：自动化确认页面无横向溢出、工具条可滚动、侧栏位于主表下方。
-- [x] 200% 等效 CSS 可视区：自动化确认主要操作和主表仍可达；正式浏览器 200% 观感待 Preview 视觉确认。
+- [x] 200% 等效 CSS 可视区：自动化确认主要操作和主表仍可达；Preview 视觉确认通过。
 - [x] 字体加载失败：拦截全部本地字体后，系统字体回退仍保持主表和备忘录可见。
 - [x] 粘性表头与横向滚动：桌面/平板滚动容器定位保持正确。
 - [x] 侧栏标签、管理标签与键盘焦点状态完整。
@@ -45,9 +45,21 @@ Playwright 固定截图：
 
 ## Production 门禁
 
-- [ ] 用户已确认 Preview 视觉。
-- [ ] `dev` 所有提交已推送到 `origin/dev`。
-- [ ] 已记录发布前 production version ID。
-- [ ] production dry-run 通过。
-- [ ] 正式环境仅做读取验收：首页、字体和缓存头、当前月份、人员、岗位、备忘录、同步状态、健康接口与 `www` 跳转。
-- [ ] 已将版本、测试、发布和回滚证据只追加到根目录 `HANDOFF.md` 与 `MEMORY.md`。
+- [x] 用户已确认 Preview 视觉。
+- [x] 主题发布提交 `f3f08ef`、`106ca46`、`6449122` 已在 production 发布前推送到 `origin/dev`。
+- [x] 已记录发布前 production version：`249f699b-e621-4f22-9b66-b903d2c8392c`。
+- [x] production dry-run 通过，共识别 268 个静态资源。
+- [x] 正式环境仅做读取验收：首页、字体和缓存头、当前月份、人员、岗位、备忘录、同步状态、健康接口与 `www` 跳转。
+- [x] 已将版本、测试、发布和回滚证据只追加到根目录 `HANDOFF.md` 与 `MEMORY.md`。
+
+## 2026-07-28 Production 证据
+
+- Production deployment：`17258c6a-9fb9-4bd7-89b2-fb119080a663`
+- Production version：`532f24ae-8c3f-41e7-ac60-80483bb16237`，控制面确认 100% 流量
+- Worker 回滚目标：`249f699b-e621-4f22-9b66-b903d2c8392c`
+- 正式接口：`/api/live`、`/api/storage-info`、人员、岗位、当月排班和备忘录均通过只读验收
+- 正式数据快照：14 名人员、20 个岗位、2026 年 7 月 31 天排班，备忘录更新时间未变化
+- 正式页面：手绘主题生效，页面级横向溢出为 0，浏览器控制台无 `error`/`warn`，同步状态为“✓ 已同步”
+- 静态资源：三组本地字体均返回 200；版本化 WOFF2 使用一年 `immutable`，HTML 与主题 CSS 使用重新验证缓存
+- 域名：`www` 对带路径和查询参数的请求返回 301 到根域名
+- 数据边界：未执行 D1 migration、restore 或数据写入
