@@ -1,455 +1,75 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>智能排班系统</title>
-<style>
-/* 鈹€鈹€鈹€ 鍏ㄥ眬 鈹€鈹€鈹€ */
-*{box-sizing:border-box;margin:0;padding:0}
-body{
-  font-family:'Microsoft YaHei',Arial,sans-serif;
-  font-size:12px;
-  background:
-    linear-gradient(180deg,#f6fdff 0%,#eefbf8 42%,#eaf6ff 100%),
-    repeating-linear-gradient(135deg, rgba(255,255,255,.26) 0 12px, rgba(255,255,255,0) 12px 24px);
-  background-attachment:fixed;
-  color:#17324d;
-  overflow-x:auto;
-}
-:root{
-  --green:#2ecc71;--red:#e74c3c;--orange:#f39c12;--blue:#3498db;
-  --yellow:#f1c40f;--purple:#9b59b6;--gray:#95a5a6;
-  --dark:#2c3e50;--light:#ecf0f1;
-}
-
-/* 鈹€鈹€鈹€ 椤舵爮 鈹€鈹€鈹€ */
-#topbar{
-  background:linear-gradient(135deg,#1a7fd8 0%,#18b6c6 48%,#7ad3a6 100%);
-  color:#fff;
-  padding:8px 14px;
-  display:flex;
-  align-items:center;
-  gap:10px;
-  position:sticky;
-  top:0;
-  z-index:100;
-  box-shadow:0 2px 14px rgba(31,98,132,.22);
-  flex-wrap:wrap;
-  min-height:48px;
-  border-bottom:3px solid rgba(255,255,255,.18);
-}
-#topbar .logo{
-  font-size:15px;
-  font-weight:bold;
-  white-space:nowrap;
-  display:flex;
-  align-items:center;
-  gap:6px;
-  line-height:1;
-}
-#topbar .logo svg{width:20px;height:20px;flex-shrink:0}
-.ctrl-group{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.ctrl-group label{font-size:12px;opacity:.9;line-height:1}
-.ctrl-group select{
-  padding:4px 10px;
-  height:28px;
-  border-radius:4px;
-  border:none;
-  font-size:12px;
-  background:#fff;
-  color:#333;
-}
-.btn{
-  padding:5px 12px;
-  min-height:28px;
-  border:none;
-  border-radius:4px;
-  cursor:pointer;
-  font-size:12px;
-  font-weight:500;
-  line-height:1;
-  transition:.15s;
-}
-.btn-orange{background:#ff7043;color:#fff}.btn-orange:hover{background:#e64a19}
-.btn-green{background:#43a047;color:#fff}.btn-green:hover{background:#2e7d32}
-.btn-blue{background:#1976d2;color:#fff}.btn-blue:hover{background:#0d47a1}
-.btn-red{background:#e53935;color:#fff}.btn-red:hover{background:#b71c1c}
-.btn-gray{background:#607d8b;color:#fff}.btn-gray:hover{background:#455a64}
-.btn-teal{background:#00897b;color:#fff}.btn-teal:hover{background:#00695c}
-.btn:disabled{opacity:.5;cursor:not-allowed;filter:grayscale(.25)}
-.ip-hint{font-size:11px;opacity:.7;white-space:nowrap;line-height:1;display:inline-flex;align-items:center}
-
-/* 鈹€鈹€鈹€ 璁块棶鍦板潃妯箙 鈹€鈹€鈹€ */
-#access-banner{
-  display:none;background:#fff3cd;border:1px solid #ffc107;
-  color:#856404;padding:8px 16px;text-align:center;font-size:13px;
-}
-#access-banner a{color:#1976d2;font-weight:bold;text-decoration:none}
-#access-banner a:hover{text-decoration:underline}
-
-/* 杞鍚屾鎸囩ず鍣?*/
-#poll-indicator{
-  font-size:11px;opacity:.5;white-space:nowrap;
-  transition:opacity .3s, color .3s;
-  cursor:default;
-}
-#poll-indicator.flash{
-  opacity:1;color:#a5f3a5;
-  animation:poll-flash .6s ease;
-}
-@keyframes poll-flash{
-  0%{opacity:.5} 30%{opacity:1;color:#a5f3a5} 100%{opacity:.5;color:inherit}
-}
-
-/* 鈹€鈹€鈹€ 涓讳綋甯冨眬 鈹€鈹€鈹€ */
-#main-wrap{
-  display:flex;
-  gap:10px;
-  height:calc(100vh - 48px);
-  overflow:hidden;
-  align-items:stretch;
-  padding:8px 8px 0;
-  background:transparent;
-}
-#schedule-area{
-  position:relative;
-  flex:1;
-  overflow:auto;
-  min-width:0;
-  background:rgba(255,255,255,.84);
-  border:1px solid rgba(157,198,224,.72);
-  border-right:none;
-  box-shadow:0 8px 24px rgba(37,88,120,.08);
-  padding-bottom:220px;
-}
-#side-panel{
-  width:276px;
-  min-width:276px;
-  background:rgba(255,255,255,.78);
-  border:1px solid rgba(157,198,224,.72);
-  overflow-y:auto;
-  flex-shrink:0;
-  box-shadow:0 8px 24px rgba(37,88,120,.08);
-}
-
-/* 鈹€鈹€鈹€ 鎺掔彮琛?鈹€鈹€鈹€ */
-#schedule-wrap{padding:8px 10px 0}
-#schedule-table{border-collapse:collapse;white-space:nowrap;min-width:100%;table-layout:fixed}
-#schedule-table th,#schedule-table td{
-  border:1px solid #d0d0d0;padding:0 2px;height:27px;text-align:center;vertical-align:middle;
-}
-/* 琛ㄥご */
-#schedule-table thead tr:first-child th{
-  background:#1a6fb5;color:#fff;font-size:12px;position:sticky;top:0;z-index:10;height:28px;
-}
-#schedule-table thead tr:nth-child(2) th{
-  background:#e3f2fd;font-size:11px;position:sticky;top:28px;z-index:9;height:24px;
-}
-.col-pos{width:108px;min-width:108px;text-align:left;padding-left:8px}
-.col-def{width:72px;min-width:72px}
-.col-wl{width:48px;min-width:48px}
-.col-day{width:48px;min-width:48px;font-weight:bold}
-#schedule-table tbody tr:nth-child(even) td{background:#f8fbff}
-#schedule-table tbody tr:hover td{background:#eef6ff}
-
-/* 鏄熸湡琛岄鑹?*/
-.week-sat{background:#fff9c4 !important;color:#5d4037 !important}
-.week-sun{background:#fce4ec !important;color:#5d4037 !important}
-.week-fri{background:#e8f5e9 !important;color:#1b5e20 !important}
-
-/* 鈹€鈹€鈹€ 鏍煎瓙鐘舵€?鈹€鈹€鈹€ */
-.cell{
-  width:34px;height:26px;display:inline-flex;align-items:center;justify-content:center;
-  border-radius:3px;cursor:pointer;font-size:11px;font-weight:500;
-  transition:all .1s;user-select:none;position:relative;
-}
-.cell:hover{opacity:.8;transform:scale(1.1)}
-.cell-on{background:#a5d6a7;color:#1b5e20}          /* 鍦ㄧ彮-缁垮嬀 */
-.cell-group-on{background:#bbdefb;color:#0d47a1;width:auto;min-width:30px;padding:0 1px;font-size:9px;letter-spacing:-0.3px} /* 灏忕粍鍦ㄧ彮-娴呰摑 */
-.cell-off{background:#ef9a9a;color:#b71c1c}          /* 浼戝亣-绾㈠弶 */
-.cell-sub{background:#ffcc80;color:#e65100}          /* 鏇跨彮-鍚嶅瓧 */
-.cell-pending{background:#ce93d8;color:#7b1fa2}      /* 寰呭畾 */
-.cell-past{opacity:.5;cursor:default}                /* 鍘嗗彶鏃ユ湡 */
-.cell-split{
-  width:100%;height:26px;display:flex;flex-direction:row;overflow:hidden;
-  border-radius:3px;cursor:context-menu;font-size:11px;font-weight:500;
-  transition:opacity .1s;user-select:none;position:relative;
-}
-.cell-split:hover{opacity:.92;transform:none}
-.split-slot{
-  flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
-  height:100%;padding:0 1px;font-size:9px;line-height:1;white-space:nowrap;overflow:hidden;
-}
-.split-slot:first-child{border-right:1px solid rgba(255,255,255,.4)}
-.split-slot .slot-label{font-size:8px;font-weight:700;flex-shrink:0;line-height:1}
-.split-slot .slot-person{
-  max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  display:block;flex-shrink:0;line-height:1
-}
-.split-slot.status-on{background:#a5d6a7;color:#1b5e20}
-.split-slot.status-off{background:#ef9a9a;color:#b71c1c}
-.split-slot.status-substitute{background:#ffcc80;color:#e65100}
-.split-slot.status-pending{background:#ce93d8;color:#7b1fa2}
-.cell-weekend-week{background:#fff9c4}               /* 鍛ㄥ叚楂樹寒 */
-.cell-sun-col{background:#fce4ec}
-
-.check-icon{font-size:14px;color:#43a047}
-.cross-icon{font-size:14px;color:#e53935}
-
-/* 鍛ㄨ捣濮嬫棩锛堝懆浜旓級鍒嗛殧绾?*/
-.week-start-col td, .week-start-col th{border-left:2px solid #1a6fb5 !important}
-
-/* 鈹€鈹€鈹€ 鍙充晶缁熻闈㈡澘 鈹€鈹€鈹€ */
-#side-panel{padding:10px 12px 12px}
-.side-tabs{display:flex;gap:4px;margin-bottom:10px}
-.side-tab{padding:4px 8px;min-height:28px;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:11px;background:#f5f5f5;line-height:1}
-.side-tab.active{background:#1a6fb5;color:#fff;border-color:#1a6fb5}
-.side-content{display:none}
-.side-content.active{display:block}
-
-.stat-title{font-size:13px;font-weight:bold;color:#333;margin:8px 0 6px}
-.stat-date-sel{margin-bottom:8px}
-.stat-date-sel select{padding:3px 8px;height:28px;border:1px solid #ccc;border-radius:4px;font-size:12px}
-.stat-list{list-style:none}
-.stat-item{display:flex;align-items:center;gap:6px;padding:3px 0;border-bottom:1px solid #f0f0f0}
-.stat-item:last-child{border:none}
-.stat-name{width:48px;font-size:12px;color:#333;flex-shrink:0}
-.stat-bar-wrap{flex:1;background:#eee;border-radius:10px;height:14px;overflow:hidden}
-.stat-bar{height:14px;border-radius:10px;transition:.3s}
-.stat-val{width:28px;text-align:right;font-size:11px;color:#555}
-
-/* 鈹€鈹€鈹€ 鍥句緥 鈹€鈹€鈹€ */
-#legend{
-  background:rgba(255,255,255,.82);border-top:1px solid rgba(157,198,224,.72);padding:8px 12px 8px;
-  display:flex;gap:12px;flex-wrap:wrap;align-items:center;font-size:11px;
-  backdrop-filter:blur(6px);
-}
-.legend-item{display:flex;align-items:center;gap:4px}
-.legend-dot{width:14px;height:14px;border-radius:2px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px}
+<link rel="stylesheet" href="/sketch-theme.css">
+</head>
+<body>
 
-#memo-panel{
-  position:absolute;
-  left:10px;
-  right:10px;
-  bottom:12px;
-  height:188px;
-  background:linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(240,252,250,.96) 100%);
-  border:1px solid rgba(157,198,224,.78);
-  border-radius:10px;
-  box-shadow:0 8px 24px rgba(37,88,120,.08);
-  padding:12px;
-  display:flex;
-  flex-direction:column;
-  gap:10px;
-}
-#memo-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-#memo-title{font-size:14px;font-weight:700;color:#1a6fb5;line-height:1}
-#memo-subtitle{margin-top:4px;font-size:11px;color:#607d8b;line-height:1.2}
-#memo-actions{display:flex;gap:8px;flex-wrap:wrap}
-#memo-text{
-  width:100%;
-  flex:1;
-  min-height:118px;
-  resize:vertical;
-  border:1px solid #b8d7ea;
-  border-radius:8px;
-  padding:10px 12px;
-  font-size:12px;
-  line-height:1.6;
-  color:#17324d;
-  background:rgba(255,255,255,.92);
-  outline:none;
-}
-#memo-text:focus{border-color:#4fc3f7;box-shadow:0 0 0 3px rgba(79,195,247,.14)}
-#memo-text[readonly]{background:rgba(248,251,255,.95);cursor:default}
-#memo-meta{font-size:11px;color:#78909c;line-height:1}
-#day-plan-note{font-size:11px;color:#607d8b;line-height:1.4}
-#day-plan-off-list{
-   display:grid;
-   grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
-   gap:6px 8px;
-   max-height:260px;
-   overflow:auto;
-   padding:8px;
-   border:1px solid #d7e7f1;
-   border-radius:8px;
-   background:rgba(248,252,255,.96);
- }
-.day-plan-person{
-   display:flex;
-   align-items:center;
-   gap:6px;
-   min-height:30px;
-   padding:4px 8px;
-   border:1px solid #edf3f7;
-   border-radius:6px;
-   background:#fff;
-   cursor:pointer;
-   line-height:1.2;
- }
-.day-plan-person:hover{background:#f5fbff;border-color:#d2e4ef}
-.day-plan-person input{margin:0}
-.day-plan-person-name{font-size:12px;color:#17324d;flex:1;min-width:0}
-.day-plan-person-tag{
-   font-size:10px;
-   color:#1b5e20;
-   background:#e8f5e9;
-   border:1px solid #a5d6a7;
-   border-radius:10px;
-   padding:1px 6px;
-   line-height:1;
-   flex-shrink:0;
- }
-#day-plan-meta{font-size:11px;color:#78909c;line-height:1.4;margin-top:2px}
-#schedule-import-note{font-size:12px;color:#455a64;line-height:1.6;background:#f4fbff;border:1px solid #d7eaf5;border-radius:8px;padding:10px 12px}
-.schedule-import-file{display:block;width:100%;padding:10px;border:1px dashed #90bdd8;border-radius:8px;background:#f8fcff;color:#17324d;cursor:pointer}
-.schedule-import-summary{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px;margin:12px 0}
-.schedule-import-stat{border:1px solid #d7e7f1;border-radius:8px;padding:9px;background:#fff}
-.schedule-import-stat strong{display:block;font-size:18px;color:#1a6fb5;line-height:1.1;margin-bottom:4px}
-.schedule-import-stat span{font-size:11px;color:#607d8b}
-.schedule-import-detail{border:1px solid #e2ebf0;border-radius:8px;padding:9px 10px;margin-top:8px;background:#fbfdff;color:#455a64;line-height:1.55}
-.schedule-import-detail strong{color:#17324d}
-.schedule-import-warning{border-color:#ffe082;background:#fff8e1;color:#7a5a00}
-#schedule-import-error{display:none;margin-top:10px;border:1px solid #ef9a9a;background:#ffebee;color:#b71c1c;border-radius:8px;padding:9px 10px;line-height:1.45}
-#schedule-import-password{flex:1;padding:7px 9px;border:1px solid #b8cbd7;border-radius:4px;font-size:12px;min-width:180px}
-@media(max-width:700px){.schedule-import-summary{grid-template-columns:repeat(2,minmax(100px,1fr))}}
-
-/* 鈹€鈹€鈹€ 寮圭獥 鈹€鈹€鈹€ */
-.modal-overlay{
-  position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1000;
-  display:flex;align-items:center;justify-content:center;
-}
-.modal{background:#fff;border-radius:10px;padding:20px;min-width:340px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 40px rgba(0,0,0,.3)}
-.modal h2{font-size:16px;color:#1a6fb5;margin-bottom:14px;border-bottom:2px solid #e3f2fd;padding-bottom:8px}
-.modal-close{float:right;cursor:pointer;font-size:18px;color:#999;margin-top:-4px}
-.modal-close:hover{color:#333}
-.form-row{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
-.form-row label{width:80px;font-size:12px;color:#555;flex-shrink:0}
-.form-row input[type=text],.form-row input[type=number],.form-row select{
-  flex:1;padding:5px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;min-width:100px;
-}
-.form-row input[type=checkbox]{width:16px;height:16px;cursor:pointer}
-.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
-.tag{display:inline-block;padding:2px 8px;border-radius:12px;font-size:11px;margin:2px}
-.tag-cpin{background:#f3e5f5;color:#7b1fa2;border:1px solid #ce93d8}
-.tag-jd{background:#e8f5e9;color:#1b5e20;border:1px solid #a5d6a7}
-.tag-sat{background:#fff9c4;color:#f57f17;border:1px solid #fff176}
-.tag-split{background:#e0f7fa;color:#006064;border:1px solid #80deea}
-
-/* 鈹€鈹€鈹€ 浜哄憳/宀椾綅绠＄悊 鈹€鈹€鈹€ */
-.mgr-tabs{display:flex;gap:4px;margin-bottom:10px}
-.mgr-tab{padding:5px 14px;border:1px solid #ddd;border-radius:4px;cursor:pointer;font-size:12px;background:#f5f5f5}
-.mgr-tab.active{background:#1a6fb5;color:#fff;border-color:#1a6fb5}
-table.data-table{width:100%;border-collapse:collapse;font-size:12px}
-table.data-table th{background:#e3f2fd;padding:6px 8px;text-align:left;border-bottom:2px solid #90caf9}
-table.data-table td{padding:5px 8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
-table.data-table tr:hover td{background:#f9f9f9}
-.action-btn{padding:3px 8px;border:none;border-radius:3px;cursor:pointer;font-size:11px}
-.action-btn.edit{background:#e3f2fd;color:#1565c0}.action-btn.edit:hover{background:#90caf9}
-.action-btn.del{background:#ffebee;color:#c62828}.action-btn.del:hover{background:#ef9a9a}
-
-/* 鈹€鈹€鈹€ 鍒楄缃?鈹€鈹€鈹€ */
-.col-settings-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-top:10px}
-.col-settings-item{display:flex;align-items:center;gap:4px;padding:5px 6px;border:1px solid #e0e0e0;border-radius:4px;cursor:pointer;transition:.15s;font-size:12px;white-space:nowrap}
-.col-settings-item:hover{background:#f5f5f5}
-.col-settings-item.hidden-col{background:#ffebee;border-color:#ef9a9a;color:#c62828}
-.col-settings-item input[type=checkbox]{margin:0;cursor:pointer}
-.col-settings-label{display:flex;flex-direction:column;line-height:1.2}
-.col-settings-label .day-num{font-weight:bold;font-size:13px}
-.col-settings-label .day-wd{font-size:10px;color:#888}
-.col-settings-actions{display:flex;gap:8px;justify-content:space-between;margin-top:14px;border-top:1px solid #eee;padding-top:10px}
-
-/* 鈹€鈹€鈹€ 琛屾嫋鎷芥帓搴?鈹€鈹€鈹€ */
-.drag-handle{cursor:grab;color:#90a4ae;font-size:14px;margin-right:4px;user-select:none;display:inline-block;width:14px;text-align:center}
-.drag-handle:active{cursor:grabbing;color:#1976d2}
-tbody tr{cursor:grab}
-tbody tr.dragging{opacity:.5;background:#e3f2fd !important}
-tbody tr.drag-over-top{border-top:3px solid #1976d2}
-tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
-
-/* 鈹€鈹€鈹€ 鍙抽敭鑿滃崟 鈹€鈹€鈹€ */
-#ctx-menu{
-  position:fixed;z-index:2000;background:#fff;border:1px solid #ddd;
-  border-radius:6px;box-shadow:0 4px 16px rgba(0,0,0,.18);padding:4px 0;min-width:140px;
-}
-#ctx-menu .ctx-item{padding:7px 16px;cursor:pointer;font-size:12px;display:flex;align-items:center;gap:8px}
-#ctx-menu .ctx-item:hover{background:#e3f2fd}
-#ctx-menu .ctx-sep{height:1px;background:#eee;margin:3px 0}
-#ctx-menu .ctx-staff-item{padding:6px 16px;cursor:pointer;font-size:12px}
-#ctx-menu .ctx-staff-item:hover{background:#e8f5e9}
-
-/* 鈹€鈹€鈹€ Toast 鈹€鈹€鈹€ */
-#toast{
-  position:fixed;bottom:30px;left:50%;transform:translateX(-50%);
-  background:rgba(0,0,0,.75);color:#fff;padding:8px 20px;border-radius:20px;
-  font-size:13px;z-index:9999;opacity:0;pointer-events:none;transition:.3s;
-}
-#toast.show{opacity:1}
-
-/* 鈹€鈹€鈹€ 鍔犺浇 鈹€鈹€鈹€ */
-#loading{
-  position:fixed;inset:0;background:rgba(255,255,255,.7);z-index:5000;
-  display:flex;align-items:center;justify-content:center;font-size:16px;color:#1a6fb5;
-}
-</style>
-</head>
-<body>
-
-<!-- 灞€鍩熺綉璁块棶鍦板潃妯箙 -->
+<!-- 灞€鍩熺綉璁块棶鍦板潃妯箙 -->
 <div id="access-banner">
   📱 手机/其他电脑访问：<a id="server-url" href="#">加载中...</a>
 </div>
-
-<!-- 椤舵爮 -->
-<div id="topbar">
-  <div class="logo">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-      <line x1="16" y1="2" x2="16" y2="6"></line>
-      <line x1="8" y1="2" x2="8" y2="6"></line>
-      <line x1="3" y1="10" x2="21" y2="10"></line>
-    </svg>
-    智能排班系统
-  </div>
-  <div class="ctrl-group">
-    <label>年份</label>
-    <select id="sel-year"></select>
-    <label>月份</label>
-    <select id="sel-month"></select>
-  </div>
-  <button class="btn btn-orange" onclick="openMgr()">👥 人员/岗位管理</button>
-  <button class="btn btn-red" onclick="resetSchedule()">🔄 重置休假</button>
-  <button class="btn btn-green" onclick="openDayPlanModal()">🗓 当天排班</button>
 
-  <button class="btn btn-blue" onclick="openScheduleImportModal()">📥 导入排休</button>
+<!-- 椤舵爮 -->
+<header id="topbar">
+  <div class="topbar-brand-group">
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" focusable="false">
+      <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+      <line x1="16" y1="2" x2="16" y2="6"></line>
+      <line x1="8" y1="2" x2="8" y2="6"></line>
+      <line x1="3" y1="10" x2="21" y2="10"></line>
+    </svg>
+    智能排班系统
+  </div>
+  <div class="ctrl-group" aria-label="排班年月">
+    <label for="sel-year">年份</label>
+    <select id="sel-year" aria-label="年份"></select>
+    <label for="sel-month">月份</label>
+    <select id="sel-month" aria-label="月份"></select>
+  </div>
+  </div>
 
-  <button class="btn btn-teal" onclick="openColSettings()">📅 列设置</button>
-  <button class="btn btn-blue" onclick="backupSchedule()">💾 备份休假</button>
-  <button class="btn btn-orange" onclick="restoreBackup()">♻️ 恢复备份</button>
-  <span class="ip-hint" id="ip-hint">● 单格微调，顶部可按日期整天排班</span>
-  <span id="poll-indicator" title="每10秒自动同步">✓ 已同步</span>
-</div>
-
-<!-- 涓讳綋 -->
-<div id="main-wrap">
-  <!-- 鎺掔彮鍖?-->
-  <div id="schedule-area">
-    <div id="schedule-wrap">
-      <table id="schedule-table">
-        <thead id="tbl-head"></thead>
-        <tbody id="tbl-body"></tbody>
-      </table>
-    </div>
-    <!-- 鍥句緥 -->
+  <div class="topbar-primary-actions" role="group" aria-label="主要排班操作">
+  <button type="button" class="btn btn-green" onclick="openDayPlanModal()">🗓 当天排班</button>
+
+  <button type="button" class="btn btn-blue" onclick="openScheduleImportModal()">📥 导入排休</button>
+
+  </div>
+
+  <div class="topbar-tool-actions" role="toolbar" aria-label="排班工具">
+  <button type="button" class="btn btn-orange" onclick="openMgr()">👥 人员/岗位管理</button>
+  <button type="button" class="btn btn-red" onclick="resetSchedule()">🔄 重置休假</button>
+  <button type="button" class="btn btn-teal" onclick="openColSettings()">📅 列设置</button>
+  <button type="button" class="btn btn-blue" onclick="backupSchedule()">💾 备份休假</button>
+  <button type="button" class="btn btn-orange" onclick="restoreBackup()">♻️ 恢复备份</button>
+  <span class="ip-hint" id="ip-hint">● 单格微调，顶部可按日期整天排班</span>
+  <span id="poll-indicator" title="每10秒自动同步" aria-live="polite">✓ 已同步</span>
+  </div>
+</header>
+
+<!-- 涓讳綋 -->
+<div id="main-wrap">
+  <!-- 鎺掔彮鍖?-->
+  <div id="schedule-area">
+    <div id="schedule-wrap">
+      <table id="schedule-table">
+        <thead id="tbl-head"></thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+    <!-- 鍥句緥 -->
     <div id="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;border:1px solid #a5d6a7">✓</div><span>本人上班（右键自定义替班）</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background:#fff3e0;color:#e65100;font-size:9px">替</div><span>替班/分配（右键自定义）</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background:#fff9c4;border:1px solid #f9a825"></div><span>仅周六替班</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f3e5f5;border:1px solid #ce93d8">?</div><span>每日需替班（无默认人员）</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background:#f3e5f5;color:#7b1fa2;font-size:9px">次</div><span>次品</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background:#e8f5e9;color:#1b5e20;font-size:9px">京</div><span>京东</span></div>
-      <div class="legend-item"><div class="legend-dot" style="background:#ddd;opacity:.6">×</div><span>历史日期已锁定</span></div>
+      <div class="legend-item"><div class="legend-dot legend-on">✓</div><span>本人上班（右键自定义替班）</span></div>
+      <div class="legend-item"><div class="legend-dot legend-sub">替</div><span>替班/分配（右键自定义）</span></div>
+      <div class="legend-item"><div class="legend-dot legend-sat"></div><span>仅周六替班</span></div>
+      <div class="legend-item"><div class="legend-dot legend-pending">?</div><span>每日需替班（无默认人员）</span></div>
+      <div class="legend-item"><div class="legend-dot legend-cpin">次</div><span>次品</span></div>
+      <div class="legend-item"><div class="legend-dot legend-jd">京</div><span>京东</span></div>
+      <div class="legend-item"><div class="legend-dot legend-past">×</div><span>历史日期已锁定</span></div>
     </div>
 
     <div id="memo-panel">
@@ -468,49 +88,49 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
       <div id="memo-meta">尚未加载</div>
     </div>
   </div>
-
-  <!-- 鍙充晶缁熻 -->
-  <div id="side-panel">
+
+  <!-- 鍙充晶缁熻 -->
+  <div id="side-panel">
     <div class="side-tabs">
-      <div class="side-tab active" onclick="switchSideTab('day',this)">单日</div>
-      <div class="side-tab" onclick="switchSideTab('week',this)">周汇总</div>
-      <div class="side-tab" onclick="switchSideTab('month',this)">月汇总</div>
-      <div class="side-tab" onclick="switchSideTab('prev',this)">节假日</div>
+      <button type="button" class="side-tab active" onclick="switchSideTab('day',this)">单日</button>
+      <button type="button" class="side-tab" onclick="switchSideTab('week',this)">周汇总</button>
+      <button type="button" class="side-tab" onclick="switchSideTab('month',this)">月汇总</button>
+      <button type="button" class="side-tab" onclick="switchSideTab('prev',this)">节假日</button>
     </div>
-    <div id="tab-day" class="side-content active">
+    <div id="tab-day" class="side-content active">
       <div class="stat-title">单日工作量统计</div>
-      <div class="stat-date-sel">
-        <select id="day-sel-day" onchange="renderDayStat()"></select>
-      </div>
-      <ul class="stat-list" id="day-stat-list"></ul>
-    </div>
-    <div id="tab-week" class="side-content">
+      <div class="stat-date-sel">
+        <select id="day-sel-day" onchange="renderDayStat()"></select>
+      </div>
+      <ul class="stat-list" id="day-stat-list"></ul>
+    </div>
+    <div id="tab-week" class="side-content">
       <div class="stat-title">本周工作量统计</div>
-      <div class="stat-date-sel">
-        <select id="week-sel" onchange="renderWeekStat()"></select>
-      </div>
-      <ul class="stat-list" id="week-stat-list"></ul>
-    </div>
-    <div id="tab-month" class="side-content">
+      <div class="stat-date-sel">
+        <select id="week-sel" onchange="renderWeekStat()"></select>
+      </div>
+      <ul class="stat-list" id="week-stat-list"></ul>
+    </div>
+    <div id="tab-month" class="side-content">
       <div class="stat-title">本月工作量统计</div>
-      <ul class="stat-list" id="month-stat-list"></ul>
-    </div>
-    <div id="tab-prev" class="side-content">
+      <ul class="stat-list" id="month-stat-list"></ul>
+    </div>
+    <div id="tab-prev" class="side-content">
       <div class="stat-title">节假日设置（开发中）</div>
       <p style="font-size:12px;color:#999;margin-top:10px">后续版本支持导入节假日</p>
-    </div>
-  </div>
-</div>
-
-<!-- 鍒楄缃脊绐?-->
+    </div>
+  </div>
+</div>
+
+<!-- 鍒楄缃脊绐?-->
 <!-- 当天排班 -->
 
-<div id="day-plan-modal" class="modal-overlay" style="display:none">
+<div id="day-plan-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="day-plan-title">
 
-  <div class="modal" style="min-width:560px;max-width:92vw">
+  <div class="modal">
 
-    <span class="modal-close" onclick="closeDayPlanModal()">×</span>
-    <h2>当天排班</h2>
+    <button type="button" class="modal-close" onclick="closeDayPlanModal()" aria-label="关闭当天排班弹窗">×</button>
+    <h2 id="day-plan-title">当天排班</h2>
     <div id="day-plan-note">先选日期，再勾选当天需要休息的人员，提交后会按当天工作量重新排班，并兼顾本月截至前一天的替班工作量。正常容差 2 点；为避免连续替班，可按需扩展至 6 点。整岗优先；每天最多自动拆分1岗，负荷差至少改善4点才拆。周五/周六/周日默认开启散排，可手动修改。</div>
 
     <div class="form-row" style="margin-top:12px">
@@ -543,8 +163,8 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
 
 <!-- 导入排休 -->
 <div id="schedule-import-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="schedule-import-title">
-  <div class="modal" style="width:720px;max-width:94vw">
-    <span class="modal-close" onclick="closeScheduleImportModal()" aria-label="关闭">×</span>
+  <div class="modal">
+    <button type="button" class="modal-close" onclick="closeScheduleImportModal()" aria-label="关闭导入排休弹窗">×</button>
     <h2 id="schedule-import-title">导入排休</h2>
     <div id="schedule-import-note">
       导入目标为 <strong id="schedule-import-target"></strong>。Excel 仅在当前浏览器中读取，原文件不会上传。<br>
@@ -588,133 +208,133 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
 </div>
 
 
-<div id="col-settings-modal" class="modal-overlay" style="display:none">
-  <div class="modal" style="min-width:520px;max-width:90vw">
-    <span class="modal-close" onclick="closeColSettings()">×</span>
-    <h2>列设置</h2>
+<div id="col-settings-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="col-settings-title">
+  <div class="modal">
+    <button type="button" class="modal-close" onclick="closeColSettings()" aria-label="关闭列设置弹窗">×</button>
+    <h2 id="col-settings-title">列设置</h2>
     <p style="color:#555;font-size:12px;margin:6px 0 10px">勾选要显示的日期列，取消勾选则隐藏</p>
-    <div class="col-settings-grid" id="col-settings-grid"></div>
-    <div class="col-settings-actions">
-      <div>
+    <div class="col-settings-grid" id="col-settings-grid"></div>
+    <div class="col-settings-actions">
+      <div>
         <button class="btn btn-blue" onclick="selectAllCols(true)" style="padding:4px 10px;font-size:11px">全选</button>
         <button class="btn btn-gray" onclick="selectAllCols(false)" style="padding:4px 10px;font-size:11px">全不选</button>
         <button class="btn btn-gray" onclick="selectWeekdaysOnly()" style="padding:4px 10px;font-size:11px">仅工作日</button>
-      </div>
-      <div>
+      </div>
+      <div>
         <button class="btn btn-gray" onclick="closeColSettings()" style="padding:4px 10px;font-size:11px">取消</button>
         <button class="btn btn-green" onclick="applyColSettings()" style="padding:4px 10px;font-size:11px">应用</button>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- 浜哄憳/宀椾綅绠＄悊寮圭獥 -->
-<div id="mgr-modal" class="modal-overlay" style="display:none">
-  <div class="modal" style="min-width:680px">
-    <span class="modal-close" onclick="closeMgr()">×</span>
-    <h2>人员 / 岗位管理</h2>
-    <div class="mgr-tabs">
-      <div class="mgr-tab active" onclick="switchMgrTab('staff',this)">人员管理</div>
-      <div class="mgr-tab" onclick="switchMgrTab('pos',this)">岗位管理</div>
-      <div class="mgr-tab" onclick="switchMgrTab('group',this)">小组管理</div>
-    </div>
-    <!-- 浜哄憳绠＄悊 -->
-    <div id="mgr-staff">
-      <div style="margin-bottom:10px">
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 浜哄憳/宀椾綅绠＄悊寮圭獥 -->
+<div id="mgr-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="mgr-title">
+  <div class="modal">
+    <button type="button" class="modal-close" onclick="closeMgr()" aria-label="关闭人员岗位管理弹窗">×</button>
+    <h2 id="mgr-title">人员 / 岗位管理</h2>
+    <div class="mgr-tabs">
+      <button type="button" class="mgr-tab active" onclick="switchMgrTab('staff',this)">人员管理</button>
+      <button type="button" class="mgr-tab" onclick="switchMgrTab('pos',this)">岗位管理</button>
+      <button type="button" class="mgr-tab" onclick="switchMgrTab('group',this)">小组管理</button>
+    </div>
+    <!-- 浜哄憳绠＄悊 -->
+    <div id="mgr-staff">
+      <div style="margin-bottom:10px">
         <button class="btn btn-blue" onclick="showAddStaff()">＋ 新增人员</button>
-      </div>
-      <table class="data-table" id="staff-table">
-        <thead><tr>
+      </div>
+      <table class="data-table" id="staff-table">
+        <thead><tr>
           <th>姓名</th><th>次品替班</th><th>京东替班</th><th>仅周六替班</th><th>不替班</th><th>操作</th>
-        </tr></thead>
-        <tbody id="staff-tbody"></tbody>
-      </table>
-    </div>
-    <!-- 宀椾綅绠＄悊 -->
-    <div id="mgr-pos" style="display:none">
-      <div style="margin-bottom:10px">
+        </tr></thead>
+        <tbody id="staff-tbody"></tbody>
+      </table>
+    </div>
+    <!-- 宀椾綅绠＄悊 -->
+    <div id="mgr-pos" style="display:none">
+      <div style="margin-bottom:10px">
         <button class="btn btn-blue" onclick="showAddPos()">＋ 新增岗位</button>
-      </div>
-      <table class="data-table" id="pos-table">
-        <thead><tr>
+      </div>
+      <table class="data-table" id="pos-table">
+        <thead><tr>
           <th>岗位名称</th><th>工作量</th><th>默认人员</th><th>类别</th><th>操作</th>
-        </tr></thead>
-        <tbody id="pos-tbody"></tbody>
-      </table>
-    </div>
-    <!-- 灏忕粍绠＄悊 -->
-    <div id="mgr-group" style="display:none">
-      <div style="margin-bottom:10px">
+        </tr></thead>
+        <tbody id="pos-tbody"></tbody>
+      </table>
+    </div>
+    <!-- 灏忕粍绠＄悊 -->
+    <div id="mgr-group" style="display:none">
+      <div style="margin-bottom:10px">
         <button class="btn btn-blue" onclick="showAddGroup()">＋ 新增小组</button>
-      </div>
-      <table class="data-table" id="group-table">
-        <thead><tr>
+      </div>
+      <table class="data-table" id="group-table">
+        <thead><tr>
           <th>小组名称</th><th>成员</th><th>操作</th>
-        </tr></thead>
-        <tbody id="group-tbody"></tbody>
-      </table>
-    </div>
-  </div>
-</div>
-
-<!-- 鏂板/缂栬緫灏忕粍寮圭獥 -->
-<div id="group-modal" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <span class="modal-close" onclick="closeGroupModal()">×</span>
+        </tr></thead>
+        <tbody id="group-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- 鏂板/缂栬緫灏忕粍寮圭獥 -->
+<div id="group-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="group-modal-title">
+  <div class="modal">
+    <button type="button" class="modal-close" onclick="closeGroupModal()" aria-label="关闭小组编辑弹窗">×</button>
     <h2 id="group-modal-title">新增小组</h2>
     <div class="form-row"><label>小组名称</label><input type="text" id="group-name" placeholder="例如 A组"></div>
-    <div class="form-row" style="align-items:flex-start">
+    <div class="form-row" style="align-items:flex-start">
       <label style="margin-top:6px">成员</label>
-      <div id="group-members-wrap" style="flex:1;max-height:260px;overflow-y:auto;border:1px solid #eee;padding:6px;border-radius:4px"></div>
-    </div>
-    <div class="form-actions">
+      <div id="group-members-wrap" style="flex:1;max-height:260px;overflow-y:auto;border:1px solid #eee;padding:6px;border-radius:4px"></div>
+    </div>
+    <div class="form-actions">
       <button class="btn btn-gray" onclick="closeGroupModal()">取消</button>
       <button class="btn btn-blue" onclick="saveGroup()">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- 鏂板/缂栬緫浜哄憳寮圭獥 -->
-<div id="staff-modal" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <span class="modal-close" onclick="closeStaffModal()">×</span>
+    </div>
+  </div>
+</div>
+
+<!-- 鏂板/缂栬緫浜哄憳寮圭獥 -->
+<div id="staff-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="staff-modal-title">
+  <div class="modal">
+    <button type="button" class="modal-close" onclick="closeStaffModal()" aria-label="关闭人员编辑弹窗">×</button>
     <h2 id="staff-modal-title">新增人员</h2>
     <div class="form-row"><label>姓名</label><input type="text" id="staff-name" placeholder="请输入姓名"></div>
-    <div class="form-row">
+    <div class="form-row">
       <label>次品替班</label>
       <input type="checkbox" id="staff-cpin" title="勾选后可替次品岗位">
       <span style="font-size:11px;color:#7b1fa2">可替次品岗位</span>
-    </div>
-    <div class="form-row">
+    </div>
+    <div class="form-row">
       <label>京东替班</label>
       <input type="checkbox" id="staff-jd" title="勾选后可替京东岗位">
       <span style="font-size:11px;color:#1b5e20">可替京东岗位</span>
-    </div>
-    <div class="form-row">
+    </div>
+    <div class="form-row">
       <label>仅周六替班</label>
       <input type="checkbox" id="staff-sat" title="仅在周六参与替班">
       <span style="font-size:11px;color:#f57f17">只在周六参与替班</span>
-    </div>
-    <div class="form-row">
+    </div>
+    <div class="form-row">
       <label>不替班</label>
       <input type="checkbox" id="staff-no-sub" title="勾选后不参与替班">
       <span style="font-size:11px;color:#e53935">不会被安排替班</span>
-    </div>
-    <div class="form-actions">
+    </div>
+    <div class="form-actions">
       <button class="btn btn-gray" onclick="closeStaffModal()">取消</button>
       <button class="btn btn-blue" onclick="saveStaff()">保存</button>
-    </div>
-  </div>
-</div>
-
-<!-- 鏂板/缂栬緫宀椾綅寮圭獥 -->
-<div id="pos-modal" class="modal-overlay" style="display:none">
-  <div class="modal">
-    <span class="modal-close" onclick="closePosModal()">×</span>
+    </div>
+  </div>
+</div>
+
+<!-- 鏂板/缂栬緫宀椾綅寮圭獥 -->
+<div id="pos-modal" class="modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="pos-modal-title">
+  <div class="modal">
+    <button type="button" class="modal-close" onclick="closePosModal()" aria-label="关闭岗位编辑弹窗">×</button>
     <h2 id="pos-modal-title">新增岗位</h2>
     <div class="form-row"><label>岗位名称</label><input type="text" id="pos-name" placeholder="例如 专员2"></div>
     <div class="form-row"><label>工作量</label><input type="number" id="pos-wl" placeholder="例如 10" min="0"></div>
-    <div class="form-row">
+    <div class="form-row">
       <label>默认人员</label>
       <select id="pos-default">
         <option value="">-- 无默认人员 --</option>
@@ -739,16 +359,16 @@ tbody tr.drag-over-bottom{border-bottom:3px solid #1976d2}
     </div>
   </div>
 </div>
-
-<!-- 鍙抽敭鑿滃崟 -->
-<div id="ctx-menu" style="display:none"></div>
-
-<!-- Toast -->
-<div id="toast"></div>
-
-<!-- Loading -->
+
+<!-- 鍙抽敭鑿滃崟 -->
+<div id="ctx-menu" style="display:none"></div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Loading -->
 <div id="loading" style="display:none">⏳ 加载中...</div>
-
+
 <script src="/vendor/xlsx.full.min.js"></script>
 <script type="module" src="/schedule-import.js"></script>
 <script>
@@ -788,7 +408,7 @@ function toast(msg, dur=2000){
 }
 function loading(show){ $('loading').style.display = show ? 'flex' : 'none'; }
 async function api(url, method='GET', body=null){
-  const API_BASE = location.protocol === 'file:' ? 'http://127.0.0.1:3000' : '';
+  const API_BASE = location.protocol === 'file:' ? 'http://127.0.0.1:3001' : '';
   const targetUrl = url.startsWith('http://') || url.startsWith('https://') ? url : API_BASE + url;
   const opts = { method, headers:{'Content-Type':'application/json'} };
   if(body) opts.body = JSON.stringify(body);
@@ -1366,7 +986,7 @@ async function loadAll(){
     renderWeekStat();
     renderMonthStat();
   }catch(e){
-    toast('鍔犺浇澶辫触: '+e.message, 3000);
+    toast('加载失败：'+e.message, 3000);
   }finally{
     loading(false);
   }
@@ -1398,9 +1018,9 @@ function renderTable(){
     if(isSun) cls+=' week-sun';
     if(isFri) cls+=' week-fri';
     if(isWeekStart(G.year,G.month,d)) cls+=' week-start-col';
-    const style=isToday?'style="background:#bbdefb !important;font-weight:bold"':'';
-    hRow1 += `<th class="${cls}" ${style}>${d}</th>`;
-    hRow2 += `<th class="${cls}" ${style}>周${wdShort[wd]}</th>`;
+    if(isToday) cls+=' is-today';
+    hRow1 += `<th class="${cls}">${d}</th>`;
+    hRow2 += `<th class="${cls}">周${wdShort[wd]}</th>`;
   }
   hRow1 += '</tr>'; hRow2 += '</tr>';
   $('tbl-head').innerHTML = hRow1 + hRow2;
@@ -1507,9 +1127,9 @@ function initRowDragSort(){
       try{
         await api('/api/positions/reorder', 'POST', G.positions.map(p => p.id));
         renderTable();
-        toast('???????');
+        toast('岗位顺序已保存');
       }catch(err){
-        toast('淇濆瓨椤哄簭澶辫触: ' + err.message);
+        toast('保存顺序失败：' + err.message);
         await fetchAll(); // 鍥炴粴
       }
     });
@@ -2248,7 +1868,7 @@ async function cascadeUpdateIfNeeded(day){
   }
 
   if(cascadeCount > 0){
-    toast(`绾ц仈鏇存柊锛氬凡鑷姩鏇挎崲${cascadeCount}涓彈褰卞搷宀椾綅`, 2500);
+    toast(`级联更新：已自动替换 ${cascadeCount} 个受影响岗位`, 2500);
   }
 }
 
@@ -2672,7 +2292,7 @@ function renderDayStat(){
     if(!(m.name in wl)) entries.push([m.name,0]);
   }
   entries.sort((a,b)=>b[1]-a[1]);
-  const colors=['#e53935','#f57c00','#fbc02d','#43a047','#1976d2','#7b1fa2'];
+  const colors=['#C7363E','#2358A5','#A95D11','#245C34','#5A3B73','#595750'];
   $('day-stat-list').innerHTML = entries.map(([name,val],i)=>`
     <li class="stat-item">
       <span class="stat-name">${name}</span>
@@ -2706,7 +2326,7 @@ function renderWeekStat(){
   }
   const entries=Object.entries(avgWorkload).sort((a,b)=>b[1]-a[1]);
   const maxWl=Math.max(...entries.map(e=>e[1]),1);
-  const colors=['#e53935','#f57c00','#fbc02d','#43a047','#1976d2','#7b1fa2'];
+  const colors=['#C7363E','#2358A5','#A95D11','#245C34','#5A3B73','#595750'];
   $('week-stat-list').innerHTML=entries.map(([name,val],i)=>`
     <li class="stat-item">
       <span class="stat-name">${name}</span>
@@ -2738,7 +2358,7 @@ function renderMonthStat(){
   }
   const entries=Object.entries(avgWorkload).sort((a,b)=>b[1]-a[1]);
   const maxWl=Math.max(...entries.map(e=>e[1]),1);
-  const colors=['#e53935','#f57c00','#fbc02d','#43a047','#1976d2','#7b1fa2'];
+  const colors=['#C7363E','#2358A5','#A95D11','#245C34','#5A3B73','#595750'];
   $('month-stat-list').innerHTML=entries.map(([name,val],i)=>`
     <li class="stat-item">
       <span class="stat-name">${name}</span>
@@ -3186,7 +2806,7 @@ function startPolling(){
 }
 
 init();
-</script>
-</body>
-</html>
-
+</script>
+</body>
+</html>
+

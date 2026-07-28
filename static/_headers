@@ -3,3 +3,27 @@
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: camera=(), microphone=(), geolocation=()
+
+/
+  Cache-Control: public, max-age=0, must-revalidate
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/sketch-theme.css
+  Cache-Control: public, max-age=0, must-revalidate
+
+/schedule-import.js
+  Cache-Control: public, max-age=0, must-revalidate
+
+/vendor/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+/fonts/kalam/5.3.0/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/patrick-hand/5.3.0/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/lxgw-wenkai-screen/1.522.0/*
+  Cache-Control: public, max-age=31536000, immutable

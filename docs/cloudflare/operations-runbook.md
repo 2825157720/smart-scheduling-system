@@ -4,12 +4,14 @@
 
 | 环境 | Worker | D1 | 访问方式 |
 | --- | --- | --- | --- |
-| 正式 | `paiban` | `smart-scheduling-production` | 公开，无需登录 |
+| 正式 | `paiban`（`ief666.top`） | `smart-scheduling-production` | 公开，无需登录 |
 | 预览 | `smart-scheduling-system-preview` | `smart-scheduling-preview` | Cloudflare Access 限制 |
 | 旧地址跳转 | `smart-scheduling-system-production` | 无 | 公开，仅返回到正式地址的 308 跳转 |
 | 基础配置 | `smart-scheduling-system-base` | 无 | `workers.dev` 和 preview URL 均关闭 |
 
 不得把 preview 的 D1 ID 改成 production D1 ID。不得直接在 Cloudflare Dashboard 编辑正式代码。
+
+正式业务入口为 `https://ief666.top/`，`www.ief666.top` 必须跳转到根域名。`paiban.2825157720.workers.dev` 仅保留为诊断备用入口，不作为日常分享地址。
 
 ## 日常开发和发布
 
@@ -17,28 +19,43 @@
 cd 'C:\Codex\智能排班系统\.worktrees\dev'
 git status --short --branch
 uv sync --frozen
+npm ci
 uv run pytest -q
+node --test tests/worker/*.test.mjs
 node --check src/index.js
-npx wrangler deploy --env preview --dry-run
-npx wrangler deploy --env preview
+node --check src/schedule-core.js
+node --check src/import-off-days.js
+npm run test:frontend
+git diff --check
+npx --no-install wrangler deploy --env preview --dry-run
+npx --no-install wrangler deploy --env preview
 ```
 
-预览环境验收后：
+本地前端入口固定为 `http://127.0.0.1:3001/`，使用 `npm run dev` 启动 Worker。不得再用历史 Flask 入口或 `file://` 页面作为前端验收路径。
+
+Preview 必须完成 Access 浏览器验收和视觉确认。发布 production 前，还必须满足：
+
+1. `dev` 当前全部提交（包括此前未推送提交）均已推送到 `origin/dev`。
+2. 重新读取并保存 production 当前 version ID，作为本次回滚目标。
+3. 用户已明确确认 Preview 视觉。
+
+满足门禁后：
 
 ```powershell
-npx wrangler deploy --env production --dry-run
-npx wrangler deploy --env production
-$base = 'https://paiban.2825157720.workers.dev'
+npx --no-install wrangler versions list --env production
+npx --no-install wrangler deploy --env production --dry-run
+npx --no-install wrangler deploy --env production
+$base = 'https://ief666.top'
 Invoke-RestMethod "$base/api/live"
 Invoke-RestMethod "$base/api/storage-info"
 ```
 
-发布后必须打开正式首页，确认当前月份、人员、岗位、备忘录和“✓ 已同步”。
+正式验收只做读取：打开首页并确认当前月份、人员、岗位、备忘录、同步状态和健康接口，不执行导入、保存、重置、恢复或任何 D1 写入。同时检查字体响应与缓存头，以及 `www.ief666.top` 到根域名的跳转。
 
 匿名暴露面也是发布门禁：正式环境必须返回 200，预览环境必须跳转到 Access 登录页或拒绝访问。
 
 ```powershell
-curl.exe -sS -o NUL -w "%{http_code}`n" 'https://paiban.2825157720.workers.dev/api/live'
+curl.exe -sS -o NUL -w "%{http_code}`n" 'https://ief666.top/api/live'
 curl.exe -sS -o NUL -w "%{http_code} %{redirect_url}`n" --max-redirs 0 'https://smart-scheduling-system-preview.2825157720.workers.dev/api/live'
 ```
 
@@ -53,7 +70,7 @@ npx wrangler deploy --config wrangler.legacy-redirect.jsonc --dry-run
 npx wrangler deploy --config wrangler.legacy-redirect.jsonc
 ```
 
-发布后分别检查旧根路径和旧 `/api/live?probe=1`，最终地址必须位于 `paiban.2825157720.workers.dev`，且路径及查询参数保持不变。普通业务发布无需重复部署跳转 Worker。
+发布后分别检查旧根路径和旧 `/api/live?probe=1`，最终地址必须位于正式业务域名，且路径及查询参数保持不变。普通业务发布不得重复部署跳转 Worker。
 
 ## D1 migration
 
@@ -61,7 +78,7 @@ npx wrangler deploy --config wrangler.legacy-redirect.jsonc
 
 ```powershell
 npx wrangler d1 migrations apply smart-scheduling-preview --remote
-npx wrangler deploy --env preview
+npx --no-install wrangler deploy --env preview
 ```
 
 预览通过后再应用正式库：
@@ -69,7 +86,7 @@ npx wrangler deploy --env preview
 ```powershell
 npx wrangler d1 export smart-scheduling-production --remote --output '.migration\before-migration.sql'
 npx wrangler d1 migrations apply smart-scheduling-production --remote
-npx wrangler deploy --env production
+npx --no-install wrangler deploy --env production
 ```
 
 ## 备份
@@ -106,12 +123,12 @@ npx wrangler d1 time-travel restore smart-scheduling-production --bookmark '<已
 ## 代码回滚
 
 ```powershell
-npx wrangler deployments status --env production
-npx wrangler versions list --env production
-npx wrangler rollback --env production
+npx --no-install wrangler deployments status --env production
+npx --no-install wrangler versions list --env production
+npx --no-install wrangler rollback --env production
 ```
 
-回滚后重新检查 `/api/live`、`/api/storage-info` 和浏览器首页。代码回滚不会自动还原 D1 数据。
+回滚目标必须是发布前记录的 production version。回滚后重新检查 `/api/live`、`/api/storage-info` 和浏览器首页。Worker 回滚恢复代码和静态资源，不改变 D1 binding，也不会自动还原 D1 数据。
 
 旧地址跳转器需要独立查看或回滚：
 

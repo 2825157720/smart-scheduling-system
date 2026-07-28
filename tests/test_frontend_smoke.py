@@ -6,11 +6,17 @@ class FrontendSmokeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.text = Path("static/index.html").read_text(encoding="utf-8")
+        cls.styles = Path("static/sketch-theme.css").read_text(encoding="utf-8")
 
     def _block(self, start_marker, end_marker):
         start = self.text.index(start_marker)
         end = self.text.index(end_marker, start)
         return self.text[start:end]
+
+    def _style_block(self, start_marker, end_marker):
+        start = self.styles.index(start_marker)
+        end = self.styles.index(end_marker, start)
+        return self.styles[start:end]
 
     def test_group_table_uses_member_names(self):
         block = self._block("async function renderGroupTable(){", "function showAddGroup(){")
@@ -113,10 +119,10 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("slot-am", self.text)
         self.assertIn("slot-pm", self.text)
         self.assertIn("toggleCellSplit", self.text)
-        style_block = self._block(".cell-split{", ".cell-weekend-week{")
-        self.assertIn("flex-direction:row", style_block)
-        self.assertIn("border-right:1px solid rgba(255,255,255,.4)", style_block)
-        self.assertNotIn("border-bottom:1px solid rgba(255,255,255,.4)", style_block)
+        style_block = self._style_block(".cell-split {", ".cell-weekend-week {")
+        self.assertIn("flex-direction: row", style_block)
+        self.assertIn("border-right: 1px solid var(--ink)", style_block)
+        self.assertNotIn("border-bottom:", style_block)
 
     def test_schedule_cells_use_right_click_only(self):
         block = self._block("function bindScheduleCellEvents(root){", "function getPersonGroup(name)")

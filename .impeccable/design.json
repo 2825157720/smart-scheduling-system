@@ -1,0 +1,186 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-28T19:20:00+08:00",
+  "title": "Design System: 智能排班系统",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "米白纸张",
+        "canonical": "#F6F0E4",
+        "tonalRamp": ["#2B281F", "#4B4639", "#6D6655", "#918977", "#B6AD9C", "#D6CEBF", "#EAE3D7", "#F6F0E4"]
+      },
+      "paper-card": {
+        "role": "neutral",
+        "displayName": "卡纸白",
+        "canonical": "#FFFDF7",
+        "tonalRamp": ["#2C2A25", "#4D4941", "#706A60", "#958E82", "#BBB4A9", "#DDD7CD", "#F0ECE4", "#FFFDF7"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "墨黑",
+        "canonical": "#252522",
+        "tonalRamp": ["#252522", "#41413C", "#5F5E57", "#7E7C74", "#A09D94", "#C1BEB5", "#DFDCD4", "#F4F1E9"]
+      },
+      "marker-red": {
+        "role": "primary",
+        "displayName": "标记笔红",
+        "canonical": "#C7363E",
+        "tonalRamp": ["#3A0D13", "#5A161D", "#7C2028", "#9F2A32", "#C7363E", "#DB6970", "#EDA3A7", "#F9DCDD"]
+      },
+      "pen-blue": {
+        "role": "secondary",
+        "displayName": "钢笔蓝",
+        "canonical": "#2358A5",
+        "tonalRamp": ["#0B1B34", "#102C50", "#173E6D", "#1D4F8D", "#2358A5", "#5B82BF", "#98B1D8", "#D8E4F4"]
+      },
+      "sticky-yellow": {
+        "role": "tertiary",
+        "displayName": "便利贴黄",
+        "canonical": "#FFF1A8",
+        "tonalRamp": ["#3B3210", "#5E5018", "#806E24", "#A58F34", "#CCB54D", "#E8D779", "#F6E99A", "#FFF1A8"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "手写展示标题",
+        "purpose": "品牌标题和页面最高层级，中文由霞鹜文楷承接。"
+      },
+      "title": {
+        "displayName": "纸卡标题",
+        "purpose": "纸卡、侧栏和弹窗标题。"
+      },
+      "note": {
+        "displayName": "手写便签",
+        "purpose": "静态短说明和备忘录。"
+      },
+      "body": {
+        "displayName": "业务正文",
+        "purpose": "普通说明和连续阅读内容。"
+      },
+      "label": {
+        "displayName": "高密度标签",
+        "purpose": "按钮、姓名、日期、数字、表格和表单。"
+      }
+    },
+    "shadows": [
+      {
+        "name": "paper-card",
+        "value": "4px 4px 0 #252522",
+        "purpose": "大纸卡和侧栏的结构化抬升。"
+      },
+      {
+        "name": "control",
+        "value": "2px 2px 0 #252522",
+        "purpose": "按钮和小型浮层的轻触感。"
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-change",
+        "value": "120ms ease-out",
+        "purpose": "仅用于颜色和轻微阴影状态变化；减少动效偏好下禁用位移、缩放和闪烁。"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "640px"
+      },
+      {
+        "name": "stacked",
+        "value": "900px"
+      },
+      {
+        "name": "compact-sidebar",
+        "value": "1200px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "当天排班等高优先级动作使用在班状态色的绿色墨线按钮。",
+      "html": "<button class=\"ds-btn-primary\">当天排班</button>",
+      "css": ".ds-btn-primary{min-height:32px;padding:7px 12px;color:#245C34;background:#DDEEDC;border:2px solid #252522;border-radius:8px;box-shadow:2px 2px 0 #252522;font:600 13px/1.35 system-ui,sans-serif;cursor:pointer}.ds-btn-primary:hover{box-shadow:3px 3px 0 #252522}.ds-btn-primary:focus-visible{outline:3px solid #2358A5;outline-offset:3px}.ds-btn-primary:active{box-shadow:1px 1px 0 #252522}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "工具栏和次要操作使用的卡纸白按钮。",
+      "html": "<button class=\"ds-btn-secondary\">导出排班</button>",
+      "css": ".ds-btn-secondary{min-height:32px;padding:7px 12px;color:#252522;background:#FFFDF7;border:2px solid #252522;border-radius:8px;box-shadow:2px 2px 0 #252522;font:600 13px/1.35 system-ui,sans-serif;cursor:pointer}.ds-btn-secondary:hover{background:#FFF1A8}.ds-btn-secondary:focus-visible{outline:3px solid #2358A5;outline-offset:3px}.ds-btn-secondary:active{box-shadow:1px 1px 0 #252522}"
+    },
+    {
+      "name": "Paper Card",
+      "kind": "card",
+      "refersTo": "paper-card",
+      "description": "统计、备忘录和侧栏使用的有机纸卡。",
+      "html": "<section class=\"ds-paper-card\"><h3>今日概览</h3><p>14 人 · 31 天排班</p></section>",
+      "css": ".ds-paper-card{padding:16px;color:#252522;background:#FFFDF7;border:3px solid #252522;border-radius:12px 8px 14px 7px/8px 13px 7px 12px;box-shadow:4px 4px 0 #252522}.ds-paper-card h3{margin:0 0 8px;font:400 18px/1.25 Kalam,'LXGW WenKai Screen',cursive;text-decoration:underline wavy #C7363E;text-underline-offset:5px}.ds-paper-card p{margin:0;color:#595750;font:400 14px/1.5 system-ui,sans-serif}.ds-paper-card:focus-within{outline:3px solid #2358A5;outline-offset:3px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "表单和搜索使用的规则墨线字段。",
+      "html": "<label class=\"ds-field-label\">备忘录<input class=\"ds-field\" value=\"交接事项\"></label>",
+      "css": ".ds-field-label{display:grid;gap:5px;color:#252522;font:600 13px/1.35 system-ui,sans-serif}.ds-field{min-height:32px;padding:7px 9px;color:#252522;background:#FFFDF7;border:2px solid #252522;border-radius:8px;font:400 14px/1.5 system-ui,sans-serif}.ds-field:hover{border-color:#595750}.ds-field:focus-visible{outline:3px solid #2358A5;outline-offset:2px}"
+    },
+    {
+      "name": "Schedule Status",
+      "kind": "chip",
+      "refersTo": "status-on-bg",
+      "description": "排班状态以浅底、深色文字和状态名称共同表达。",
+      "html": "<span class=\"ds-status-on\">在班 · 早班</span>",
+      "css": ".ds-status-on{display:inline-flex;align-items:center;min-height:28px;padding:4px 8px;color:#245C34;background:#DDEEDC;border:1px solid #245C34;border-radius:6px;font:600 13px/1.35 system-ui,sans-serif;font-variant-numeric:tabular-nums}.ds-status-on:hover{box-shadow:inset 0 -2px 0 #245C34}.ds-status-on:focus-visible{outline:3px solid #2358A5;outline-offset:2px}"
+    },
+    {
+      "name": "Side Navigation",
+      "kind": "nav",
+      "refersTo": "button-secondary",
+      "description": "统计与备忘录之间切换的语义化标签按钮。",
+      "html": "<nav class=\"ds-tabs\" aria-label=\"侧栏\"><button class=\"ds-tab is-active\">统计</button><button class=\"ds-tab\">备忘录</button></nav>",
+      "css": ".ds-tabs{display:flex;gap:8px}.ds-tab{min-height:32px;padding:6px 10px;color:#252522;background:#FFFDF7;border:2px solid #252522;border-radius:8px;box-shadow:1px 1px 0 #252522;font:600 13px/1.35 system-ui,sans-serif}.ds-tab.is-active{background:#FFF1A8}.ds-tab:hover{background:#F1E6D3}.ds-tab:focus-visible{outline:3px solid #2358A5;outline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "值班室里的手写排班册",
+    "overview": "界面像一本长期放在值班室桌面的排班册：米白纸、墨线、标记笔和便利贴带来真实手作感，高密度排班数据仍保持规整、清晰和可快速扫描。表达力集中在页面外壳、标题、备忘录、统计卡与弹窗；排班网格、姓名、日期、数字和表单控件服从操作效率。\n\n装饰是信息层级的标点，不是独立内容。胶带、图钉、圆点纸和轻微倾斜只出现在静态纸卡；排班表、工具栏、弹窗、表单与右键菜单始终端正。",
+    "keyCharacteristics": [
+      "手绘纸张外壳包裹稳定功能核心。",
+      "墨线和硬阴影提供触感，鲜色只标动作、状态与重点。",
+      "所有状态同时使用颜色与文字或符号，不只依赖颜色。"
+    ],
+    "rules": [
+      {
+        "name": "The Ink First Rule",
+        "body": "大面积背景保持纸张中性色；鲜色只用于动作、状态和少量标记，不把高密度界面染成彩色面板。",
+        "section": "colors"
+      },
+      {
+        "name": "The Dense Data Rule",
+        "body": "手写字体不得进入动态姓名、日期数字、输入值、按钮标签和排班表单元格；数据数字启用等宽数字。",
+        "section": "typography"
+      },
+      {
+        "name": "The Hard Shadow Rule",
+        "body": "阴影只做纯偏移且无模糊；排班单元格、表头和表单字段不得使用纸卡硬阴影。",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do 让纸张、墨线和文具色服务于可读层级。",
+      "Do 为键盘焦点、粗指针和减少动效偏好提供完整状态。",
+      "Do 保持排班表、粘性表头和拆分格精确对齐。"
+    ],
+    "donts": [
+      "Don't 使用噪点图、手绘 SVG、滤镜、backdrop-filter 或逐单元格硬阴影。",
+      "Don't 让胶带、图钉或旋转遮挡交互区域。",
+      "Don't 通过主题改动 /api/*、排班算法或既有 DOM ID/handler 契约。"
+    ]
+  }
+}

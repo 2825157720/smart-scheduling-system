@@ -7,6 +7,10 @@ __pycache__/
 .migration/
 .dev.vars
 .wrangler/
+node_modules/
+test-results/
+playwright-report/
+.tmp-font-packages/
 
 *.log
 server.out.log
