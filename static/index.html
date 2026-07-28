@@ -1000,6 +1000,7 @@ function renderTable(){
   const today = new Date();
   const todayY=today.getFullYear(), todayM=today.getMonth()+1, todayD=today.getDate();
   const hidden = G.hiddenDays || new Set();
+  syncScheduleDayWidth(days, hidden);
 
   // 鈹€鈹€ 琛ㄥご 鈹€鈹€
   const wdShort=['日','一','二','三','四','五','六'];
@@ -1262,17 +1263,13 @@ function getSplitSlotCell(cell, slot){
   };
 }
 
-function getSplitSlotLabel(slot){
-  return slot === 'pm' ? '下' : '上';
-}
-
 function getSplitSlotDisplay(slot, slotCell){
   const status = slotCell?.status || 'pending';
   const person = String(slotCell?.person || '').trim();
   if(status === 'off') return '休';
-  if(person) return shortPersonName(person);
+  if(person) return person;
   if(status === 'pending') return '待';
-  return getSplitSlotLabel(slot);
+  return status === 'on' ? '在' : '待';
 }
 
 function getSplitSlotTitle(slotLabel, slotCell){
@@ -1284,11 +1281,59 @@ function getSplitSlotTitle(slotLabel, slotCell){
   return `${slotLabel}：待定`;
 }
 
-function shortPersonName(person){
-  const text = String(person || '').trim();
-  if(!text) return '';
-  if(text.length <= 2) return text;
-  return text.slice(0, 2);
+function escapeHtml(value){
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function measureScheduleText(text, fontSize, fontWeight, letterSpacing=0){
+  const value = String(text || '').trim();
+  if(!value) return 0;
+  const canvas = measureScheduleText.canvas || (measureScheduleText.canvas = document.createElement('canvas'));
+  const context = canvas.getContext('2d');
+  const characters = Array.from(value);
+  if(!context) return characters.length * fontSize;
+  const fontFamily = getComputedStyle(document.documentElement).getPropertyValue('--font-ui').trim() || 'sans-serif';
+  context.font = `${fontWeight} ${fontSize}px ${fontFamily}`;
+  return context.measureText(value).width + Math.max(0, characters.length - 1) * letterSpacing;
+}
+
+function syncScheduleDayWidth(days, hidden){
+  const groupNames = new Set((G.groups || []).map(group => String(group.name || '').trim()).filter(Boolean));
+  let regularNameWidth = 0;
+  let splitNameWidth = 0;
+
+  for(let day=1; day<=days; day++){
+    if(hidden.has(day)) continue;
+    const dayData = G.schedule?.[day] || {};
+    for(const pos of G.positions || []){
+      const cell = dayData[pos.id] || null;
+      if(isSplitCell(cell)){
+        for(const slot of ['am', 'pm']){
+          const display = getSplitSlotDisplay(slot, getSplitSlotCell(cell, slot));
+          splitNameWidth = Math.max(splitNameWidth, measureScheduleText(display, 10, 650));
+        }
+        continue;
+      }
+
+      const status = cell ? cell.status : (pos.default_person ? 'on' : 'pending');
+      const person = String(cell ? cell.person : (pos.default_person || '')).trim();
+      if(status === 'substitute' && person){
+        regularNameWidth = Math.max(regularNameWidth, measureScheduleText(person, 10, 650));
+      }else if(status === 'on' && groupNames.has(person)){
+        regularNameWidth = Math.max(regularNameWidth, measureScheduleText(person, 9, 650, -0.3));
+      }
+    }
+  }
+
+  const regularColumnWidth = Math.ceil(regularNameWidth + 12);
+  const splitColumnWidth = Math.ceil(splitNameWidth) * 2 + 16;
+  const dayWidth = Math.ceil(Math.max(56, regularColumnWidth, splitColumnWidth) / 2) * 2;
+  document.documentElement.style.setProperty('--schedule-day-width', `${dayWidth}px`);
 }
 
 function renderSplitSlot(pid, day, slot, slotCell, isPast){
@@ -1300,9 +1345,12 @@ function renderSplitSlot(pid, day, slot, slotCell, isPast){
   const pastCls = isPast ? ' cell-past' : '';
   const display = getSplitSlotDisplay(slot, slotCell);
   const title = getSplitSlotTitle(slotLabel, slotCell);
-  return `<div class="split-slot slot-${slot} ${slotClass} ${statusCls}${pastCls}" data-pid="${pid}" data-day="${day}" data-slot="${slot}" data-status="${status}" data-person="${person}" title="${title}">
-    <span class="slot-label">${getSplitSlotLabel(slot)}</span>
-    <span class="slot-person">${display}</span>
+  const safePerson = escapeHtml(person);
+  const safeTitle = escapeHtml(title);
+  const safeDisplay = escapeHtml(display);
+  return `<div class="split-slot slot-${slot} ${slotClass} ${statusCls}${pastCls}" data-pid="${pid}" data-day="${day}" data-slot="${slot}" data-status="${status}" data-person="${safePerson}" title="${safeTitle}">
+    <span class="sr-only">${safeTitle}</span>
+    <span class="slot-person" aria-hidden="true">${safeDisplay}</span>
   </div>`;
 }
 
@@ -1316,7 +1364,8 @@ function renderCell(pos, day, cell, isPast, isSat, isSun){
     const am = getSplitSlotCell(cell, 'am');
     const pm = getSplitSlotCell(cell, 'pm');
     const title = `${getSplitSlotTitle('上午', am)} / ${getSplitSlotTitle('下午', pm)}`;
-    return `<div class="cell cell-split${pastCls}" data-pid="${pid}" data-day="${day}" data-status="split" data-person="${cell.person || am.person || pm.person || ''}" title="${title}">
+    const splitPerson = escapeHtml(cell.person || am.person || pm.person || '');
+    return `<div class="cell cell-split${pastCls}" data-pid="${pid}" data-day="${day}" data-status="split" data-person="${splitPerson}" title="${escapeHtml(title)}">
       ${renderSplitSlot(pid, day, 'am', am, isPast)}
       ${renderSplitSlot(pid, day, 'pm', pm, isPast)}
     </div>`;
@@ -1324,22 +1373,22 @@ function renderCell(pos, day, cell, isPast, isSat, isSun){
 
   // 鍒ゆ柇榛樿浜烘槸鍚︽槸灏忕粍锛堣€岄潪涓汉锛?
   const isGroupDefault = !!G.groups.find(g => g.name === person);
+  const safePerson = escapeHtml(person);
 
   if(status==='on'){
     if(isGroupDefault){
       // 灏忕粍榛樿浜?鈫?鏄剧ず灏忕粍鍚嶏紙娴呰摑锛屽畬鏁存樉绀猴級
-      return `<div class="cell cell-group-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${person}" title="${person} 在班">${person}</div>`;
+      return `<div class="cell cell-group-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${safePerson}" title="${safePerson} 在班">${safePerson}</div>`;
     }
-    return `<div class="cell cell-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${person}" title="${person} 在班">
+    return `<div class="cell cell-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${safePerson}" title="${safePerson} 在班">
       <span class="check-icon">✓</span></div>`;
   }
   if(status==='off'){
-    return `<div class="cell cell-off${pastCls}" data-pid="${pid}" data-day="${day}" data-status="off" data-person="${person}" title="${person} 休假">
+    return `<div class="cell cell-off${pastCls}" data-pid="${pid}" data-day="${day}" data-status="off" data-person="${safePerson}" title="${safePerson} 休假">
       <span class="cross-icon">✕</span></div>`;
   }
   if(status==='substitute'){
-    return `<div class="cell cell-sub${pastCls}" data-pid="${pid}" data-day="${day}" data-status="substitute" data-person="${person}" title="替班: ${person}">
-      ${person||'--'}</div>`;
+    return `<div class="cell cell-sub${pastCls}" data-pid="${pid}" data-day="${day}" data-status="substitute" data-person="${safePerson}" title="替班: ${safePerson}">${safePerson||'--'}</div>`;
   }
   // pending
   return `<div class="cell cell-pending${pastCls}" data-pid="${pid}" data-day="${day}" data-status="pending" data-person="" title="待定（需设置替班人）">待</div>`;
@@ -2058,6 +2107,7 @@ async function saveCellState(pos_id, day, status, person, options={}){
   } else {
     G.schedule[day][pos_id]={status, person};
   }
+  syncScheduleDayWidth(daysInMonth(G.year, G.month), G.hiddenDays || new Set());
   // 閲嶇粯璇ユ牸瀛?
   const cell = document.querySelector(`.cell[data-pid="${pos_id}"][data-day="${day}"]`);
   if(cell){
@@ -2809,4 +2859,3 @@ init();
 </script>
 </body>
 </html>
-

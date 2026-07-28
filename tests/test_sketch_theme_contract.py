@@ -151,7 +151,7 @@ class SketchThemeContractTests(unittest.TestCase):
             "--schedule-position-width": "108px",
             "--schedule-default-width": "72px",
             "--schedule-workload-width": "48px",
-            "--schedule-day-width": "48px",
+            "--schedule-day-width": "56px",
         }
         for token, value in expected_widths.items():
             with self.subTest(token=token):
@@ -174,6 +174,28 @@ class SketchThemeContractTests(unittest.TestCase):
             self.theme,
             r"\.split-slot\s*\{[^}]*flex:\s*0 0 50%;[^}]*width:\s*50%;",
         )
+
+    def test_schedule_names_are_complete_and_split_slots_keep_semantics(self) -> None:
+        split_display = re.search(
+            r"function getSplitSlotDisplay\(.*?\n\}",
+            self.index,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(split_display)
+        self.assertNotIn("shortPersonName", split_display.group(0))
+        self.assertNotRegex(split_display.group(0), r"\.slice\(\s*0\s*,\s*2\s*\)")
+        self.assertNotIn("function shortPersonName", self.index)
+        self.assertNotIn('<span class="slot-label">', self.index)
+        self.assertIn('<span class="sr-only">${safeTitle}</span>', self.index)
+        self.assertIn('class="slot-person" aria-hidden="true"', self.index)
+        self.assertIn("syncScheduleDayWidth(days, hidden);", self.index)
+        self.assertRegex(self.theme, r"\.split-slot\s*\{[^}]*font-size:\s*10px;")
+
+        for selector in (r"\.cell\s*", r"\.split-slot \.slot-person\s*"):
+            with self.subTest(selector=selector):
+                block = re.search(selector + r"\{(?P<body>[^}]*)\}", self.theme)
+                self.assertIsNotNone(block)
+                self.assertNotIn("text-overflow: ellipsis", block.group("body"))
 
     def test_text_and_status_color_pairs_meet_wcag_aa_contrast(self) -> None:
         color_pairs = {

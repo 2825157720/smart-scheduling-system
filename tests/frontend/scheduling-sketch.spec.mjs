@@ -22,7 +22,7 @@ async function installStableClock(page) {
   }, FIXED_NOW);
 }
 
-async function installApiFixture(page) {
+async function installApiFixture(page, apiFixture = fixture) {
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
@@ -31,19 +31,19 @@ async function installApiFixture(page) {
     if (path === "/api/server-info") {
       body = { ip: "127.0.0.1", url: "http://127.0.0.1:3001" };
     } else if (path === "/api/positions") {
-      body = fixture.positions;
+      body = apiFixture.positions;
     } else if (path === "/api/staff") {
-      body = fixture.staff;
+      body = apiFixture.staff;
     } else if (path === "/api/groups") {
-      body = fixture.groups;
+      body = apiFixture.groups;
     } else if (/^\/api\/schedule\/\d{4}\/\d{1,2}$/.test(path)) {
-      body = fixture.schedule;
+      body = apiFixture.schedule;
     } else if (/^\/api\/hidden-days\/\d{4}\/\d{1,2}$/.test(path)) {
       body = [];
     } else if (path === "/api/memo" && request.method() === "GET") {
-      body = fixture.memo;
+      body = apiFixture.memo;
     } else {
-      body = { success: true, memo: fixture.memo };
+      body = { success: true, memo: apiFixture.memo };
     }
 
     await route.fulfill({
@@ -196,8 +196,7 @@ test("只显示 5 天时列宽稳定且普通格与拆分格统一", async ({ pa
   expect(spread(geometry.headerWidths)).toBeLessThanOrEqual(0.5);
   expect(spread(geometry.bodyWidths)).toBeLessThanOrEqual(0.5);
   for (const width of geometry.headerWidths) {
-    expect(width).toBeGreaterThanOrEqual(47.5);
-    expect(width).toBeLessThanOrEqual(48.5);
+    expect(width).toBeGreaterThanOrEqual(55.5);
   }
   geometry.headerWidths.forEach((width, index) => {
     expect(Math.abs(width - geometry.bodyWidths[index]))
@@ -222,6 +221,202 @@ test("只显示 5 天时列宽稳定且普通格与拆分格统一", async ({ pa
   await expect(page.locator("#toast")).not.toHaveClass(/show/, { timeout: 5_000 });
   await page.mouse.move(0, 0);
   await expect(page).toHaveScreenshot("hidden-five-days.png");
+});
+
+test("普通姓名与拆分姓名完整显示并保留上午下午语义", async ({ page }) => {
+  const nameFixture = buildFrontendFixture();
+  const regularPid = nameFixture.positions[2].id;
+  const splitPid = nameFixture.positions[4].id;
+  nameFixture.schedule["3"][regularPid] = {
+    status: "substitute",
+    person: "欧阳明月"
+  };
+  nameFixture.schedule["3"][splitPid] = {
+    status: "split",
+    person: "诸葛青云",
+    slots: {
+      am: { status: "on", person: "诸葛青云", workload: 6 },
+      pm: { status: "substitute", person: "司马南风", workload: 6 }
+    }
+  };
+
+  await installStableClock(page);
+  await installApiFixture(page, nameFixture);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#tbl-body > tr")).toHaveCount(14);
+
+  const regular = page.locator(
+    `.cell-sub[data-pid="${regularPid}"][data-day="3"]`
+  );
+  const split = page.locator(
+    `.cell-split[data-pid="${splitPid}"][data-day="3"]`
+  );
+  const am = split.locator(":scope > .split-slot.slot-am");
+  const pm = split.locator(":scope > .split-slot.slot-pm");
+  const amPerson = am.locator(":scope > .slot-person");
+  const pmPerson = pm.locator(":scope > .slot-person");
+
+  await expect(regular).toHaveText("欧阳明月");
+  await expect(regular).toHaveAttribute("data-person", "欧阳明月");
+  await expect(regular).toHaveAttribute("title", /欧阳明月/);
+  await expect(split.locator(".slot-label")).toHaveCount(0);
+  await expect(am).toHaveAttribute("data-slot", "am");
+  await expect(pm).toHaveAttribute("data-slot", "pm");
+  await expect(am).toHaveAttribute("title", /^上午：.*诸葛青云/);
+  await expect(pm).toHaveAttribute("title", /^下午：.*司马南风/);
+  await expect(am.locator(":scope > .sr-only")).toHaveText(/^上午：.*诸葛青云/);
+  await expect(pm.locator(":scope > .sr-only")).toHaveText(/^下午：.*司马南风/);
+  await expect(amPerson).toHaveText("诸葛青云");
+  await expect(pmPerson).toHaveText("司马南风");
+
+  const metrics = await page.evaluate(
+    ({ regularSelector, splitSelector }) => {
+      const regularElement = document.querySelector(regularSelector);
+      const splitElement = document.querySelector(splitSelector);
+      const amElement = splitElement.querySelector(":scope > .split-slot.slot-am");
+      const pmElement = splitElement.querySelector(":scope > .split-slot.slot-pm");
+
+      const measureText = (element) => {
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const box = element.getBoundingClientRect();
+        const textBox = range.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          text: element.textContent.trim(),
+          textOverflow: style.textOverflow,
+          clientWidth: element.clientWidth,
+          scrollWidth: element.scrollWidth,
+          clientHeight: element.clientHeight,
+          scrollHeight: element.scrollHeight,
+          boxLeft: box.left,
+          boxRight: box.right,
+          textLeft: textBox.left,
+          textRight: textBox.right
+        };
+      };
+
+      return {
+        regular: measureText(regularElement),
+        amPerson: measureText(amElement.querySelector(":scope > .slot-person")),
+        pmPerson: measureText(pmElement.querySelector(":scope > .slot-person")),
+        amLeft: amElement.getBoundingClientRect().left,
+        amRight: amElement.getBoundingClientRect().right,
+        pmLeft: pmElement.getBoundingClientRect().left,
+        dayWidths: [...document.querySelectorAll("#tbl-head tr:first-child .col-day")]
+          .map((element) => element.getBoundingClientRect().width),
+        documentOverflow:
+          document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        bodyOverflow: document.body.scrollWidth - document.body.clientWidth
+      };
+    },
+    {
+      regularSelector: `.cell-sub[data-pid="${regularPid}"][data-day="3"]`,
+      splitSelector: `.cell-split[data-pid="${splitPid}"][data-day="3"]`
+    }
+  );
+
+  for (const [metric, fullName] of [
+    [metrics.regular, "欧阳明月"],
+    [metrics.amPerson, "诸葛青云"],
+    [metrics.pmPerson, "司马南风"]
+  ]) {
+    expect(metric.text).toBe(fullName);
+    expect(metric.text).not.toMatch(/\.{3}|…/);
+    expect(metric.textOverflow).not.toBe("ellipsis");
+    expect(metric.scrollWidth).toBeLessThanOrEqual(metric.clientWidth + 1);
+    expect(metric.scrollHeight).toBeLessThanOrEqual(metric.clientHeight + 1);
+    expect(metric.textLeft).toBeGreaterThanOrEqual(metric.boxLeft - 1);
+    expect(metric.textRight).toBeLessThanOrEqual(metric.boxRight + 1);
+  }
+
+  const spread = (values) => Math.max(...values) - Math.min(...values);
+  expect(metrics.dayWidths[0]).toBeGreaterThan(56);
+  expect(spread(metrics.dayWidths)).toBeLessThanOrEqual(0.5);
+  expect(metrics.amLeft).toBeLessThan(metrics.pmLeft);
+  expect(metrics.amRight).toBeLessThanOrEqual(metrics.pmLeft + 1);
+  expect(metrics.documentOverflow).toBeLessThanOrEqual(1);
+  expect(metrics.bodyOverflow).toBeLessThanOrEqual(1);
+
+  const initialDayWidth = metrics.dayWidths[0];
+  const savedName = "欧阳\"><b data-name-injected>明</b>&'";
+  await page.evaluate(
+    async ({ pid, person }) => {
+      await window.saveCellState(
+        pid,
+        4,
+        "substitute",
+        person,
+        { skipAutoHooks: true }
+      );
+    },
+    { pid: regularPid, person: savedName }
+  );
+
+  const savedCell = page.locator(
+    `.cell-sub[data-pid="${regularPid}"][data-day="4"]`
+  );
+  await expect(savedCell).toHaveText(savedName);
+  await expect(savedCell).toHaveAttribute("data-person", savedName);
+  await expect(savedCell).toHaveAttribute("title", `替班: ${savedName}`);
+  await expect(page.locator("[data-name-injected]")).toHaveCount(0);
+
+  const savedWidths = await page
+    .locator("#tbl-head tr:first-child .col-day")
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().width)
+    );
+  expect(savedWidths[0]).toBeGreaterThan(initialDayWidth);
+  expect(spread(savedWidths)).toBeLessThanOrEqual(0.5);
+
+  await page.evaluate(
+    async ({ pid, person }) => {
+      await window.saveCellState(
+        pid,
+        4,
+        "on",
+        person,
+        { skipAutoHooks: true }
+      );
+    },
+    { pid: regularPid, person: nameFixture.positions[2].default_person }
+  );
+  const restoredWidths = await page
+    .locator("#tbl-head tr:first-child .col-day")
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().width)
+    );
+  expect(spread(restoredWidths)).toBeLessThanOrEqual(0.5);
+  expect(restoredWidths[0]).toBeCloseTo(initialDayWidth, 0);
+
+  await page.getByRole("button", { name: "列设置" }).click();
+  const columnDialog = page.getByRole("dialog", { name: "列设置" });
+  await columnDialog.locator('input[data-day="3"]').uncheck();
+  await columnDialog.getByRole("button", { name: "应用", exact: true }).click();
+  await expect(columnDialog).toBeHidden();
+
+  const hiddenLongNameWidths = await page
+    .locator("#tbl-head tr:first-child .col-day")
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().width)
+    );
+  expect(hiddenLongNameWidths).toHaveLength(30);
+  expect(spread(hiddenLongNameWidths)).toBeLessThanOrEqual(0.5);
+  expect(hiddenLongNameWidths[0]).toBeCloseTo(56, 0);
+
+  await page.getByRole("button", { name: "列设置" }).click();
+  await columnDialog.locator('input[data-day="3"]').check();
+  await columnDialog.getByRole("button", { name: "应用", exact: true }).click();
+  await expect(columnDialog).toBeHidden();
+
+  const shownLongNameWidths = await page
+    .locator("#tbl-head tr:first-child .col-day")
+    .evaluateAll((elements) =>
+      elements.map((element) => element.getBoundingClientRect().width)
+    );
+  expect(shownLongNameWidths).toHaveLength(31);
+  expect(spread(shownLongNameWidths)).toBeLessThanOrEqual(0.5);
+  expect(shownLongNameWidths[0]).toBeCloseTo(initialDayWidth, 0);
 });
 
 test("主要弹窗、右键菜单与响应式工具条仍可操作", async ({ page }) => {
