@@ -79,3 +79,16 @@ Playwright 固定截图：
 - [x] 正式接口、14 名人员、20 个岗位、31 天排班、备忘录、字体与缓存头及 `www` 跳转均通过只读验收。
 - [x] 未点击列设置“应用”，未执行 D1 migration、restore 或业务数据写入，D1 binding 保持 `smart-scheduling-production`。
 - [x] Worker 异常时回滚到 `532f24ae-8c3f-41e7-ac60-80483bb16237`；Worker 回滚不会改变 D1 数据。
+
+## 2026-07-29 完整姓名与拆分格 Preview
+
+- [x] 实现提交 `549009c fix(frontend): keep schedule names fully visible` 已推送并与 `origin/dev` 同步。
+- [x] 拆分格移除可见“上 / 下”，保持左上午、右下午；两侧只显示完整姓名或状态字，时段语义由完整 `title` 和读屏文本保留。
+- [x] 日期列默认统一为 56px；按当前可见排班的最长姓名统一动态扩宽，隐藏最长姓名日期后统一回落，重新显示后统一恢复。
+- [x] 普通替班与拆分姓名均不再主动截为两字，也不使用 `text-overflow: ellipsis`。
+- [x] 浏览器回归覆盖四字姓名、保存后扩宽/改回后收窄、含 `& < > " '` 的姓名转义、隐藏列组合、根级无横向溢出。
+- [x] 自动化：Python `92 passed`；Worker `26 passed`；Playwright `13 passed / 2 skipped`；三项 Worker Node 语法检查、前端测试语法检查和 `git diff --check` 通过。
+- [x] `npm ci` 完成且报告 0 个漏洞；Preview dry-run 识别 268 个静态资源。
+- [x] Preview version：`f0b2902f-c7de-4bf6-9d86-29b8bbb4af35`；deployment `1e8fe155-fc6f-4957-8f70-5056fc2e71fd`，控制面确认承载 100% 流量。
+- [ ] 等待用户在已登录 Cloudflare Access 的浏览器中确认 56px 密度和左右时段辨识；确认前不发布 production。
+- [x] 本次未修改 `/api/*`、D1 schema 或排班算法，未执行 D1 migration、restore 或 production 部署。
