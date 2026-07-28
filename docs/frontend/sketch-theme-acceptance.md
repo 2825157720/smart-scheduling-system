@@ -63,3 +63,19 @@ Playwright 固定截图：
 - 静态资源：三组本地字体均返回 200；版本化 WOFF2 使用一年 `immutable`，HTML 与主题 CSS 使用重新验证缓存
 - 域名：`www` 对带路径和查询参数的请求返回 301 到根域名
 - 数据边界：未执行 D1 migration、restore 或数据写入
+
+## 2026-07-29 少量日期列回归与正式发布
+
+- [x] 修复提交 `9b49be9 fix(frontend): keep visible schedule columns uniform` 已推送并与 `origin/dev` 同步。
+- [x] 只显示 5 天时，岗位、默认人、工作量和日期列保持约定宽度，不再填满容器空余空间。
+- [x] 普通格与同日拆分格同宽，上午、下午槽各占 50%。
+- [x] 桌面、平板、手机均无页面级横向溢出，三个视口均保留 `hidden-five-days.png` 截图基线。
+- [x] 自动化：Python `91 passed`；Worker `26 passed`；Playwright `10 passed / 2 skipped`；三项 Node 语法检查及 `git diff --check` 通过。
+- [x] Preview version：`f2d7fc92-df41-4924-b749-706856aed2df`。
+- [x] 发布前 Production version / 回滚目标：`532f24ae-8c3f-41e7-ac60-80483bb16237`。
+- [x] 发布后 Production deployment：`f25bc534-37dd-46c9-b804-47352a10eb65`。
+- [x] 发布后 Production version：`a023333b-8f46-4238-88af-5ed848367e4a`，控制面确认承载 100% 流量。
+- [x] 正式页面当前显示 2026 年 7 月 27–31 日五列；同步状态为“✓ 已同步”，字体加载完成，页面根级横向溢出为 0，控制台无 `error`/`warn`。
+- [x] 正式接口、14 名人员、20 个岗位、31 天排班、备忘录、字体与缓存头及 `www` 跳转均通过只读验收。
+- [x] 未点击列设置“应用”，未执行 D1 migration、restore 或业务数据写入，D1 binding 保持 `smart-scheduling-production`。
+- [x] Worker 异常时回滚到 `532f24ae-8c3f-41e7-ac60-80483bb16237`；Worker 回滚不会改变 D1 数据。
