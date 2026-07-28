@@ -1338,7 +1338,7 @@ function renderCell(pos, day, cell, isPast, isSat, isSun){
       <span class="cross-icon">✕</span></div>`;
   }
   if(status==='substitute'){
-    return `<div class="cell cell-sub${pastCls}" data-pid="${pid}" data-day="${day}" data-status="substitute" data-person="${person}" title="替班: ${person}" style="font-size:10px;max-width:36px;overflow:hidden;text-overflow:ellipsis">
+    return `<div class="cell cell-sub${pastCls}" data-pid="${pid}" data-day="${day}" data-status="substitute" data-person="${person}" title="替班: ${person}">
       ${person||'--'}</div>`;
   }
   // pending

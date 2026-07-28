@@ -133,6 +133,97 @@ test("手绘纸张主题在固定排班数据下稳定呈现", async ({ page }) 
   expect(externalRequests).toEqual([]);
 });
 
+test("只显示 5 天时列宽稳定且普通格与拆分格统一", async ({ page }) => {
+  await installStableClock(page);
+  await installApiFixture(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await expect(page.locator("#tbl-body > tr")).toHaveCount(14);
+
+  await page.getByRole("button", { name: "列设置" }).click();
+  const dialog = page.getByRole("dialog", { name: "列设置" });
+  await dialog.getByRole("button", { name: "全不选", exact: true }).click();
+  for (const day of [1, 2, 3, 4, 5]) {
+    await dialog.locator(`input[data-day="${day}"]`).check();
+  }
+  await dialog.getByRole("button", { name: "应用", exact: true }).click();
+
+  await expect(dialog).toBeHidden();
+  await expect(page.locator("#tbl-head tr:first-child .col-day")).toHaveCount(5);
+  await expect(page.locator('.cell-split[data-day="3"]')).toHaveCount(1);
+
+  const geometry = await page.evaluate(() => {
+    const headerCells = [...document.querySelectorAll("#tbl-head tr:first-child th")];
+    const dayHeaders = headerCells.slice(3);
+    const firstBodyRow = document.querySelector("#tbl-body > tr");
+    const bodyDayCells = [...firstBodyRow.cells].slice(3);
+    const split = document.querySelector('.cell-split[data-day="3"]');
+    const slots = [...split.querySelectorAll(".split-slot")];
+    const regular = document.querySelector('.cell:not(.cell-split)[data-day="3"]');
+    const table = document.querySelector("#schedule-table");
+    const wrap = document.querySelector("#schedule-wrap");
+
+    return {
+      fixedHeaderWidths: headerCells.slice(0, 3).map(
+        (element) => element.getBoundingClientRect().width
+      ),
+      headerWidths: dayHeaders.map(
+        (element) => element.getBoundingClientRect().width
+      ),
+      bodyWidths: bodyDayCells.map(
+        (element) => element.getBoundingClientRect().width
+      ),
+      regularWidth: regular.getBoundingClientRect().width,
+      splitWidth: split.getBoundingClientRect().width,
+      slotWidths: slots.map(
+        (element) => element.getBoundingClientRect().width
+      ),
+      tableWidth: table.getBoundingClientRect().width,
+      wrapWidth: wrap.clientWidth,
+      tableCanScroll: wrap.scrollWidth > wrap.clientWidth,
+      documentOverflow:
+        document.documentElement.scrollWidth
+        - document.documentElement.clientWidth,
+      bodyOverflow:
+        document.body.scrollWidth - document.body.clientWidth
+    };
+  });
+
+  const spread = (values) => Math.max(...values) - Math.min(...values);
+
+  expect(geometry.fixedHeaderWidths[0]).toBeCloseTo(108, 0);
+  expect(geometry.fixedHeaderWidths[1]).toBeCloseTo(72, 0);
+  expect(geometry.fixedHeaderWidths[2]).toBeCloseTo(48, 0);
+  expect(spread(geometry.headerWidths)).toBeLessThanOrEqual(0.5);
+  expect(spread(geometry.bodyWidths)).toBeLessThanOrEqual(0.5);
+  for (const width of geometry.headerWidths) {
+    expect(width).toBeGreaterThanOrEqual(47.5);
+    expect(width).toBeLessThanOrEqual(48.5);
+  }
+  geometry.headerWidths.forEach((width, index) => {
+    expect(Math.abs(width - geometry.bodyWidths[index]))
+      .toBeLessThanOrEqual(0.5);
+  });
+
+  expect(Math.abs(geometry.regularWidth - geometry.splitWidth))
+    .toBeLessThanOrEqual(0.5);
+  expect(geometry.slotWidths).toHaveLength(2);
+  expect(Math.abs(geometry.slotWidths[0] - geometry.slotWidths[1]))
+    .toBeLessThanOrEqual(0.5);
+  expect(geometry.slotWidths[0] / (geometry.slotWidths[0] + geometry.slotWidths[1]))
+    .toBeCloseTo(0.5, 2);
+  if (geometry.wrapWidth >= geometry.tableWidth + 80) {
+    expect(geometry.wrapWidth - geometry.tableWidth).toBeGreaterThanOrEqual(80);
+  } else {
+    expect(geometry.tableCanScroll).toBe(true);
+  }
+  expect(geometry.documentOverflow).toBeLessThanOrEqual(1);
+  expect(geometry.bodyOverflow).toBeLessThanOrEqual(1);
+
+  await expect(page.locator("#toast")).not.toHaveClass(/show/, { timeout: 5_000 });
+  await page.mouse.move(0, 0);
+  await expect(page).toHaveScreenshot("hidden-five-days.png");
+});
+
 test("主要弹窗、右键菜单与响应式工具条仍可操作", async ({ page }) => {
   await installStableClock(page);
   await installApiFixture(page);

@@ -146,6 +146,35 @@ class SketchThemeContractTests(unittest.TestCase):
         self.assertIn("min-width: 44px", self.theme)
         self.assertIn("min-height: 44px", self.theme)
 
+    def test_schedule_grid_uses_fixed_columns_and_equal_cell_slots(self) -> None:
+        expected_widths = {
+            "--schedule-position-width": "108px",
+            "--schedule-default-width": "72px",
+            "--schedule-workload-width": "48px",
+            "--schedule-day-width": "48px",
+        }
+        for token, value in expected_widths.items():
+            with self.subTest(token=token):
+                self.assertIn(f"{token}: {value};", self.theme)
+
+        table_block = re.search(r"#schedule-table\s*\{(?P<body>[^}]*)\}", self.theme)
+        self.assertIsNotNone(table_block)
+        self.assertIn("width: max-content;", table_block.group("body"))
+        self.assertIn("min-width: 0;", table_block.group("body"))
+        self.assertNotIn("min-width: 100%;", table_block.group("body"))
+
+        self.assertRegex(
+            self.theme,
+            r"\.col-day\s*\{[^}]*width:\s*var\(--schedule-day-width\);"
+            r"[^}]*min-width:\s*var\(--schedule-day-width\);"
+            r"[^}]*max-width:\s*var\(--schedule-day-width\);",
+        )
+        self.assertRegex(self.theme, r"\.cell\s*\{[^}]*width:\s*100%;")
+        self.assertRegex(
+            self.theme,
+            r"\.split-slot\s*\{[^}]*flex:\s*0 0 50%;[^}]*width:\s*50%;",
+        )
+
     def test_text_and_status_color_pairs_meet_wcag_aa_contrast(self) -> None:
         color_pairs = {
             "body": ("#F6F0E4", "#252522"),
