@@ -90,5 +90,18 @@ Playwright 固定截图：
 - [x] 自动化：Python `92 passed`；Worker `26 passed`；Playwright `13 passed / 2 skipped`；三项 Worker Node 语法检查、前端测试语法检查和 `git diff --check` 通过。
 - [x] `npm ci` 完成且报告 0 个漏洞；Preview dry-run 识别 268 个静态资源。
 - [x] Preview version：`f0b2902f-c7de-4bf6-9d86-29b8bbb4af35`；deployment `1e8fe155-fc6f-4957-8f70-5056fc2e71fd`，控制面确认承载 100% 流量。
-- [ ] 等待用户在已登录 Cloudflare Access 的浏览器中确认 56px 密度和左右时段辨识；确认前不发布 production。
-- [x] 本次未修改 `/api/*`、D1 schema 或排班算法，未执行 D1 migration、restore 或 production 部署。
+- [x] 用户已确认 Preview 的 56px 密度和左右时段辨识，允许发布 production。
+- [x] 本次未修改 `/api/*`、D1 schema 或排班算法，未执行 D1 migration、restore 或业务数据写入。
+
+## 2026-07-29 完整姓名与拆分格 Production
+
+- [x] 发布前 Production version / Worker 回滚目标：`a023333b-8f46-4238-88af-5ed848367e4a`。
+- [x] 发布后 Production deployment：`7bd47119-91cf-469e-946f-fb1b15620a04`。
+- [x] 发布后 Production version：`e5e6cda7-21a7-4003-a785-5fc8c192ebcb`，控制面确认承载 100% 流量。
+- [x] Production dry-run 识别 268 个静态资源，D1 binding 保持 `smart-scheduling-production`。
+- [x] 正式接口返回 `ok=true`、`mode=d1`、`database_available=true`；人员 14 名、岗位 20 个、2026 年 7 月排班 31 天。
+- [x] 正式页面当前显示 7 月 27–31 日五列，日期列均为 56px；拆分格完整显示“玉兰 / 爱萍”，无可见“上 / 下”、无省略号或裁切。
+- [x] 正式浏览器字体状态为 `loaded`，根节点和 `body` 横向溢出均为 0，同步状态为“✓ 已同步”，控制台无 `error`/`warn`。
+- [x] 首页、主题 CSS 和字体均返回 200；字体使用一年 `immutable`，主题 CSS 使用 `must-revalidate`。
+- [x] `www` 对带路径和查询参数的请求返回 301，并完整跳转到正式根域名。
+- [x] 回滚命令：`npx --no-install wrangler rollback a023333b-8f46-4238-88af-5ed848367e4a --config .\wrangler.jsonc --env production`；Worker 回滚不会改变 D1 数据。
