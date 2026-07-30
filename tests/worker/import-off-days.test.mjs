@@ -171,6 +171,40 @@ test("Friday, Saturday and Sunday use the existing scatter-groups default", () =
   assert.equal(Boolean(preview.schedule[27]._scatter_groups), false); // Monday
 });
 
+test("force replan applies weekend-only eligibility and adjacent-day rotation from Friday through Monday", () => {
+  const restrictedStaff = [
+    { id: "s-weekend", name: "A周末", group_id: "", weekend_only: true },
+    { id: "s-regular", name: "B普通", group_id: "", weekend_only: false },
+  ];
+  const emptyPosition = [{
+    id: "p-empty",
+    name: "空岗",
+    workload: 8,
+    default_person: "",
+    split_allowed: false,
+  }];
+  const imported = normalizeImportPayload({
+    staff_off_days: restrictedStaff.map((member) => ({ staff_id: member.id, off_days: [] })),
+  }, restrictedStaff, 31);
+  const preview = buildImportPreview({
+    year: 2026,
+    month: 8,
+    today: "2026-08-06",
+    staff: restrictedStaff,
+    positions: emptyPosition,
+    groups: [],
+    current: {},
+    imported,
+    forceReplan: true,
+  });
+
+  assert.deepEqual(preview.changed_dates.slice(0, 4), [7, 8, 9, 10]);
+  assert.deepEqual(
+    [7, 8, 9, 10].map((day) => preview.schedule[String(day)]["p-empty"].person),
+    ["A周末", "B普通", "A周末", "B普通"],
+  );
+});
+
 test("consecutive import planning rotates substitutes and keeps at most one split per day", () => {
   const fairStaff = [
     ...["A", "B", "C", "D", "E", "F", "G", "X", "Y"].map((name) => ({

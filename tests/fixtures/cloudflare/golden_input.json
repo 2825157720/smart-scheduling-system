@@ -9,9 +9,9 @@
     {"id": "g1", "name": "早班组"}
   ],
   "staff": [
-    {"id": "s1", "name": "Alice", "group_id": "g1", "can_cpin": true, "can_jd": true, "saturday_only": false, "no_substitute": false},
-    {"id": "s2", "name": "Bob", "group_id": "g1", "can_cpin": true, "can_jd": true, "saturday_only": false, "no_substitute": false},
-    {"id": "s3", "name": "Carol", "group_id": "", "can_cpin": true, "can_jd": true, "saturday_only": false, "no_substitute": false}
+    {"id": "s1", "name": "Alice", "group_id": "g1", "can_cpin": true, "can_jd": true, "saturday_only": false, "weekend_only": false, "no_substitute": false},
+    {"id": "s2", "name": "Bob", "group_id": "g1", "can_cpin": true, "can_jd": true, "saturday_only": false, "weekend_only": false, "no_substitute": false},
+    {"id": "s3", "name": "Carol", "group_id": "", "can_cpin": true, "can_jd": true, "saturday_only": false, "weekend_only": false, "no_substitute": false}
   ],
   "positions": [
     {"id": "p1", "name": "分班岗位", "workload": 8, "default_person": "", "category": "", "split_allowed": true},

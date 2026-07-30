@@ -136,6 +136,16 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("isPersonOffOnDay", right_click_block)
         self.assertIn("isPersonOffOnDay", restore_block)
 
+    def test_weekend_only_staff_controls_and_manual_candidate_filter_exist(self):
+        self.assertIn('id="staff-weekend"', self.text)
+        self.assertIn("仅周末替班", self.text)
+        self.assertIn("周五、周六、周日", self.text)
+        self.assertIn("handleStaffSubstituteRestrictionChange", self.text)
+        self.assertIn("weekend_only:$('staff-weekend').checked", self.text)
+        right_click_block = self._block("function onCellRightClick(e){", "function onSplitSlotClick")
+        self.assertIn("member.weekend_only", right_click_block)
+        self.assertIn("wd===5 || wd===6 || wd===0", right_click_block)
+
 
 if __name__ == "__main__":
     unittest.main()

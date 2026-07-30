@@ -6,6 +6,33 @@ const rows = async (statement) => (await statement.all()).results;
 const now = () => new Date().toISOString();
 const failure = (msg, status = 400) => json({ success: false, msg }, { status });
 
+export function normalizeSubstituteRestrictions(body = {}, existing = {}) {
+  const hasSaturday = Object.prototype.hasOwnProperty.call(body, "saturday_only");
+  const hasWeekend = Object.prototype.hasOwnProperty.call(body, "weekend_only");
+  const hasNoSubstitute = Object.prototype.hasOwnProperty.call(body, "no_substitute");
+  let saturdayOnly = hasSaturday ? Boolean(body.saturday_only) : Boolean(existing.saturday_only);
+  let weekendOnly = hasWeekend ? Boolean(body.weekend_only) : Boolean(existing.weekend_only);
+  let noSubstitute = hasNoSubstitute ? Boolean(body.no_substitute) : Boolean(existing.no_substitute);
+
+  if (hasNoSubstitute && noSubstitute) {
+    saturdayOnly = false;
+    weekendOnly = false;
+  } else if (hasWeekend && weekendOnly) {
+    saturdayOnly = false;
+    noSubstitute = false;
+  } else if (hasSaturday && saturdayOnly) {
+    weekendOnly = false;
+    noSubstitute = false;
+  } else if (noSubstitute) {
+    saturdayOnly = false;
+    weekendOnly = false;
+  } else if (weekendOnly) {
+    saturdayOnly = false;
+  }
+
+  return { saturdayOnly, weekendOnly, noSubstitute };
+}
+
 async function getGroups(db) {
   return rows(db.prepare(`
     SELECT g.id, g.name, COALESCE(json_group_array(s.name) FILTER (WHERE s.id IS NOT NULL), json('[]')) AS member_names
@@ -17,14 +44,20 @@ async function getGroups(db) {
 async function getStaff(db) {
   return rows(db.prepare(`
     SELECT s.id, s.name, s.group_id, COALESCE(g.name, '') AS group_name,
-           s.can_cpin, s.can_jd, s.saturday_only, s.no_substitute
+           s.can_cpin, s.can_jd, s.saturday_only, s.weekend_only, s.no_substitute
     FROM staff s LEFT JOIN groups g ON g.id = s.group_id ORDER BY s.id
-  `)).then((items) => items.map((item) => ({
-    ...item,
-    group_id: item.group_id || "",
-    can_cpin: Boolean(item.can_cpin), can_jd: Boolean(item.can_jd),
-    saturday_only: Boolean(item.saturday_only), no_substitute: Boolean(item.no_substitute),
-  })));
+  `)).then((items) => items.map((item) => {
+    const restrictions = normalizeSubstituteRestrictions({}, item);
+    return {
+      ...item,
+      group_id: item.group_id || "",
+      can_cpin: Boolean(item.can_cpin),
+      can_jd: Boolean(item.can_jd),
+      saturday_only: restrictions.saturdayOnly,
+      weekend_only: restrictions.weekendOnly,
+      no_substitute: restrictions.noSubstitute,
+    };
+  }));
 }
 
 async function getPositions(db) {
@@ -231,17 +264,25 @@ export default {
       if (!name) return failure("姓名不能为空");
       if (await nameExists(env.DB, name)) return failure("名称已存在");
       const staffId = crypto.randomUUID(); const groupId = body.group_id || null;
-      await env.DB.prepare("INSERT INTO staff (id, name, group_id, can_cpin, can_jd, saturday_only, no_substitute) VALUES (?, ?, ?, ?, ?, ?, ?)")
-        .bind(staffId, name, groupId, body.can_cpin ? 1 : 0, body.can_jd ? 1 : 0, body.saturday_only ? 1 : 0, body.no_substitute ? 1 : 0).run();
+      const restrictions = normalizeSubstituteRestrictions(body);
+      await env.DB.prepare("INSERT INTO staff (id, name, group_id, can_cpin, can_jd, saturday_only, weekend_only, no_substitute) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(staffId, name, groupId, body.can_cpin ? 1 : 0, body.can_jd ? 1 : 0, restrictions.saturdayOnly ? 1 : 0, restrictions.weekendOnly ? 1 : 0, restrictions.noSubstitute ? 1 : 0).run();
       return json({ success: true, staff_id: staffId });
     }
     const staff = url.pathname.match(/^\/api\/staff\/([^/]+)$/);
     if (staff && request.method === "PUT") {
-      const body = await request.json(); const name = String(body.name || "").trim();
+      const body = await request.json();
+      const existing = await env.DB.prepare("SELECT name, group_id, can_cpin, can_jd, saturday_only, weekend_only, no_substitute FROM staff WHERE id = ?").bind(staff[1]).first();
+      if (!existing) return failure("人员不存在", 404);
+      const name = String(Object.prototype.hasOwnProperty.call(body, "name") ? body.name : existing.name).trim();
       if (!name) return failure("姓名不能为空");
       if (await nameExists(env.DB, name, { staffId: staff[1] })) return failure("名称已存在");
-      const result = await env.DB.prepare("UPDATE staff SET name=?, group_id=?, can_cpin=?, can_jd=?, saturday_only=?, no_substitute=? WHERE id=?")
-        .bind(name, body.group_id || null, body.can_cpin ? 1 : 0, body.can_jd ? 1 : 0, body.saturday_only ? 1 : 0, body.no_substitute ? 1 : 0, staff[1]).run();
+      const restrictions = normalizeSubstituteRestrictions(body, existing);
+      const groupId = Object.prototype.hasOwnProperty.call(body, "group_id") ? body.group_id || null : existing.group_id || null;
+      const canCpin = Object.prototype.hasOwnProperty.call(body, "can_cpin") ? Boolean(body.can_cpin) : Boolean(existing.can_cpin);
+      const canJd = Object.prototype.hasOwnProperty.call(body, "can_jd") ? Boolean(body.can_jd) : Boolean(existing.can_jd);
+      const result = await env.DB.prepare("UPDATE staff SET name=?, group_id=?, can_cpin=?, can_jd=?, saturday_only=?, weekend_only=?, no_substitute=? WHERE id=?")
+        .bind(name, groupId, canCpin ? 1 : 0, canJd ? 1 : 0, restrictions.saturdayOnly ? 1 : 0, restrictions.weekendOnly ? 1 : 0, restrictions.noSubstitute ? 1 : 0, staff[1]).run();
       return result.meta.changes ? json({ success: true }) : failure("人员不存在", 404);
     }
     if (staff && request.method === "DELETE") {

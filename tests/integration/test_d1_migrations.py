@@ -27,6 +27,21 @@ class D1MigrationTests(unittest.TestCase):
         self.assertIsNone(connection.execute("SELECT group_id FROM staff WHERE id = 's1'").fetchone()[0])
         self.assertIn("group_id", {row[1] for row in connection.execute("PRAGMA table_info(schedule_cells)")})
         self.assertIn("sort_order", {row[1] for row in connection.execute("PRAGMA table_info(positions)")})
+        staff_columns = {row[1] for row in connection.execute("PRAGMA table_info(staff)")}
+        self.assertIn("weekend_only", staff_columns)
+        self.assertEqual(
+            connection.execute("SELECT weekend_only FROM staff WHERE id = 's1'").fetchone()[0],
+            0,
+        )
+        with self.assertRaises(sqlite3.IntegrityError):
+            connection.execute("UPDATE staff SET weekend_only = 2 WHERE id = 's1'")
+        connection.execute("UPDATE staff SET saturday_only = 1, no_substitute = 1 WHERE id = 's1'")
+        self.assertEqual(
+            connection.execute(
+                "SELECT saturday_only, weekend_only, no_substitute FROM staff WHERE id = 's1'"
+            ).fetchone(),
+            (1, 0, 1),
+        )
         indexes = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='index'")}
         self.assertIn("idx_schedule_cells_day_position", indexes)
 

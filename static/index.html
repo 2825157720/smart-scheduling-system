@@ -66,6 +66,7 @@
       <div class="legend-item"><div class="legend-dot legend-on">✓</div><span>本人上班（右键自定义替班）</span></div>
       <div class="legend-item"><div class="legend-dot legend-sub">替</div><span>替班/分配（右键自定义）</span></div>
       <div class="legend-item"><div class="legend-dot legend-sat"></div><span>仅周六替班</span></div>
+      <div class="legend-item"><div class="legend-dot legend-weekend"></div><span>仅周末替班（周五、周六、周日）</span></div>
       <div class="legend-item"><div class="legend-dot legend-pending">?</div><span>每日需替班（无默认人员）</span></div>
       <div class="legend-item"><div class="legend-dot legend-cpin">次</div><span>次品</span></div>
       <div class="legend-item"><div class="legend-dot legend-jd">京</div><span>京东</span></div>
@@ -245,7 +246,7 @@
       </div>
       <table class="data-table" id="staff-table">
         <thead><tr>
-          <th>姓名</th><th>次品替班</th><th>京东替班</th><th>仅周六替班</th><th>不替班</th><th>操作</th>
+          <th>姓名</th><th>次品替班</th><th>京东替班</th><th>仅周六替班</th><th>仅周末替班</th><th>不替班</th><th>操作</th>
         </tr></thead>
         <tbody id="staff-tbody"></tbody>
       </table>
@@ -311,13 +312,18 @@
       <span style="font-size:11px;color:#1b5e20">可替京东岗位</span>
     </div>
     <div class="form-row">
-      <label>仅周六替班</label>
-      <input type="checkbox" id="staff-sat" title="仅在周六参与替班">
+      <label for="staff-sat">仅周六替班</label>
+      <input type="checkbox" id="staff-sat" title="仅在周六参与替班" onchange="handleStaffSubstituteRestrictionChange('staff-sat')">
       <span style="font-size:11px;color:#f57f17">只在周六参与替班</span>
     </div>
     <div class="form-row">
-      <label>不替班</label>
-      <input type="checkbox" id="staff-no-sub" title="勾选后不参与替班">
+      <label for="staff-weekend">仅周末替班</label>
+      <input type="checkbox" id="staff-weekend" title="仅在周五、周六、周日参与替班" onchange="handleStaffSubstituteRestrictionChange('staff-weekend')">
+      <span style="font-size:11px;color:#2358a5">只在周五、周六、周日参与替班</span>
+    </div>
+    <div class="form-row">
+      <label for="staff-no-sub">不替班</label>
+      <input type="checkbox" id="staff-no-sub" title="勾选后不参与替班" onchange="handleStaffSubstituteRestrictionChange('staff-no-sub')">
       <span style="font-size:11px;color:#e53935">不会被安排替班</span>
     </div>
     <div class="form-actions">
@@ -1937,6 +1943,7 @@ function onCellRightClick(e){
   // 鍒ゆ柇褰撳ぉ鏄熸湡
   const wd = getWeekday(G.year, G.month, day); // 0=鍛ㄦ棩,6=鍛ㄥ叚
   const isSat = wd===6;
+  const isWeekendSubstituteDay = wd===5 || wd===6 || wd===0;
 
   // 鑾峰彇鍙敤鏇跨彮浜?
   const busyToday = new Set();
@@ -1960,8 +1967,9 @@ function onCellRightClick(e){
 
   function canSub(member){
     if(isPersonOffOnDay(member.name, day)) return false;
-    if(member.saturday_only && !isSat) return false;
     if(member.no_substitute) return false;  // 涓嶆浛鐝汉鍛樹笉鑳芥浛鍒汉
+    if(member.weekend_only && !isWeekendSubstituteDay) return false;
+    if(!member.weekend_only && member.saturday_only && !isSat) return false;
     if(pos.category==='娆″搧' && !member.can_cpin) return false;
     if(pos.category==='京东' && !member.can_jd) return false;
     return true;
@@ -2462,6 +2470,7 @@ function renderStaffTable(){
       <td style="text-align:center">${m.can_cpin?'<span class="tag tag-cpin">次品</span>':'—'}</td>
       <td style="text-align:center">${m.can_jd?'<span class="tag tag-jd">京东</span>':'—'}</td>
       <td style="text-align:center">${m.saturday_only?'<span class="tag tag-sat">仅周六</span>':'—'}</td>
+      <td style="text-align:center">${m.weekend_only?'<span class="tag tag-weekend">仅周末</span>':'—'}</td>
       <td style="text-align:center">${m.no_substitute?'<span class="tag" style="background:#ef9a9a;color:#b71c1c;border:1px solid #e57373">不替班</span>':'—'}</td>
       <td>
         <button class="action-btn edit" onclick="editStaff('${m.id}')">编辑</button>
@@ -2497,6 +2506,7 @@ function showAddStaff(){
   $('staff-cpin').checked=false;
   $('staff-jd').checked=false;
   $('staff-sat').checked=false;
+  $('staff-weekend').checked=false;
   $('staff-no-sub').checked=false;
   $('staff-modal').style.display='flex';
 }
@@ -2508,8 +2518,16 @@ function editStaff(id){
   $('staff-cpin').checked=m.can_cpin||false;
   $('staff-jd').checked=m.can_jd||false;
   $('staff-sat').checked=m.saturday_only||false;
+  $('staff-weekend').checked=m.weekend_only||false;
   $('staff-no-sub').checked=m.no_substitute||false;
   $('staff-modal').style.display='flex';
+}
+function handleStaffSubstituteRestrictionChange(selectedId){
+  const selected=$(selectedId);
+  if(!selected || !selected.checked) return;
+  for(const id of ['staff-sat','staff-weekend','staff-no-sub']){
+    if(id!==selectedId) $(id).checked=false;
+  }
 }
 function closeStaffModal(){ $('staff-modal').style.display='none'; }
 async function saveStaff(){
@@ -2520,6 +2538,7 @@ async function saveStaff(){
     can_cpin:$('staff-cpin').checked,
     can_jd:$('staff-jd').checked,
     saturday_only:$('staff-sat').checked,
+    weekend_only:$('staff-weekend').checked,
     no_substitute:$('staff-no-sub').checked
   };
   loading(true);

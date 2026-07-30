@@ -6,6 +6,7 @@ import {
   FAIRNESS_LOAD_TOLERANCE,
   FAIRNESS_ROTATION_LOAD_TOLERANCE,
   buildFairnessContext,
+  canCoverMember,
   planDaySchedule,
   rankFairCandidates,
 } from "../../src/schedule-core.js";
@@ -17,6 +18,7 @@ const member = (name) => ({
   can_cpin: true,
   can_jd: true,
   saturday_only: false,
+  weekend_only: false,
   no_substitute: false,
 });
 
@@ -27,6 +29,59 @@ const position = (name, workload, extra = {}) => ({
   default_person: name,
   split_allowed: false,
   ...extra,
+});
+
+test("weekend-only substitutes are eligible Friday through Sunday while Saturday-only remains Saturday-only", () => {
+  const target = position("Target", 8);
+  const positions = [target];
+  const weekendMember = { ...member("Weekend"), weekend_only: true };
+  const saturdayMember = { ...member("Saturday"), saturday_only: true };
+  const canCover = (candidate, day) => canCoverMember(
+    candidate,
+    target,
+    {},
+    positions,
+    [weekendMember, saturdayMember],
+    [],
+    { day },
+  );
+
+  for (const [day, expected] of [
+    ["2026-08-06", false],
+    ["2026-08-07", true],
+    ["2026-08-08", true],
+    ["2026-08-09", true],
+    ["2026-08-10", false],
+  ]) {
+    assert.equal(canCover(weekendMember, day), expected, `weekend-only eligibility for ${day}`);
+  }
+  assert.equal(canCover(saturdayMember, "2026-08-07"), false);
+  assert.equal(canCover(saturdayMember, "2026-08-08"), true);
+  assert.equal(canCover(saturdayMember, "2026-08-09"), false);
+  assert.equal(canCover({ ...weekendMember, saturday_only: true }, "2026-08-07"), true);
+});
+
+test("weekend-only eligibility stays synchronized with adjacent-day fairness rotation", () => {
+  const staff = [
+    { ...member("A周末"), weekend_only: true },
+    member("B普通"),
+  ];
+  const positions = [position("空岗", 8, { default_person: "" })];
+  const monthSchedule = {};
+  const assigned = [];
+
+  for (const day of [7, 8, 9, 10]) {
+    const result = planDaySchedule(positions, staff, [], {
+      year: 2026,
+      month: 8,
+      day,
+      monthSchedule,
+    });
+    monthSchedule[String(day)] = result.day_data;
+    assigned.push(result.day_data["p-空岗"].person);
+  }
+
+  assert.deepEqual(assigned, ["A周末", "B普通", "A周末", "B普通"]);
 });
 
 test("base fair candidate pool includes +2 but excludes +2.01 when a fresh base candidate exists", () => {

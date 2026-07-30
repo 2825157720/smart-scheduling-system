@@ -220,11 +220,43 @@ def _staff_group_name_map():
     return {g["id"]: g["name"] for g in groups if g.get("id")}
 
 
+def _normalize_substitute_restrictions(payload, existing=None):
+    existing = existing or {}
+    has_saturday = "saturday_only" in payload
+    has_weekend = "weekend_only" in payload
+    has_no_substitute = "no_substitute" in payload
+    saturday_only = bool(payload.get("saturday_only")) if has_saturday else bool(existing.get("saturday_only"))
+    weekend_only = bool(payload.get("weekend_only")) if has_weekend else bool(existing.get("weekend_only"))
+    no_substitute = bool(payload.get("no_substitute")) if has_no_substitute else bool(existing.get("no_substitute"))
+
+    if has_no_substitute and no_substitute:
+        saturday_only = False
+        weekend_only = False
+    elif has_weekend and weekend_only:
+        saturday_only = False
+        no_substitute = False
+    elif has_saturday and saturday_only:
+        weekend_only = False
+        no_substitute = False
+    elif no_substitute:
+        saturday_only = False
+        weekend_only = False
+    elif weekend_only:
+        saturday_only = False
+
+    return {
+        "saturday_only": saturday_only,
+        "weekend_only": weekend_only,
+        "no_substitute": no_substitute,
+    }
+
+
 def _enrich_staff(staff):
     group_names = _staff_group_name_map()
     out = []
     for m in staff:
         item = dict(m)
+        item.update(_normalize_substitute_restrictions({}, item))
         item["group_name"] = group_names.get(item.get("group_id"), "")
         out.append(item)
     return out
@@ -605,13 +637,13 @@ def add_staff():
     next_id = f"s{len(staff) + 1}"
     while any(m.get("id") == next_id for m in staff):
         next_id = f"s{int(next_id[1:]) + 1}"
+    restrictions = _normalize_substitute_restrictions(payload)
     item = {
         "id": next_id,
         "name": str(payload.get("name", "")).strip(),
         "can_cpin": bool(payload.get("can_cpin", False)),
         "can_jd": bool(payload.get("can_jd", False)),
-        "saturday_only": bool(payload.get("saturday_only", False)),
-        "no_substitute": bool(payload.get("no_substitute", False)),
+        **restrictions,
         "group_id": str(payload.get("group_id", "") or ""),
     }
     if not item["name"]:
@@ -628,12 +660,12 @@ def update_staff(sid):
     found = False
     for member in staff:
         if member.get("id") == sid:
+            restrictions = _normalize_substitute_restrictions(payload, member)
             member.update({
                 "name": str(payload.get("name", member.get("name", ""))).strip(),
                 "can_cpin": bool(payload.get("can_cpin", member.get("can_cpin", False))),
                 "can_jd": bool(payload.get("can_jd", member.get("can_jd", False))),
-                "saturday_only": bool(payload.get("saturday_only", member.get("saturday_only", False))),
-                "no_substitute": bool(payload.get("no_substitute", member.get("no_substitute", False))),
+                **restrictions,
                 "group_id": str(payload.get("group_id", member.get("group_id", "")) or ""),
             })
             found = True

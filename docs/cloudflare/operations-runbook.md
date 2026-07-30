@@ -130,6 +130,8 @@ npx --no-install wrangler rollback --env production
 
 回滚目标必须是发布前记录的 production version。回滚后重新检查 `/api/live`、`/api/storage-info` 和浏览器首页。Worker 回滚恢复代码和静态资源，不改变 D1 binding，也不会自动还原 D1 数据。
 
+若目标版本早于某个仍保留在 D1 中的业务字段，旧 Worker 能启动不等于旧算法理解该字段。特别是回滚到不认识 `staff.weekend_only` 的版本后，“仅周末替班”人员会被旧算法视为普通候选；在恢复支持该字段的版本前，必须暂停当天排班、强制重排、自动替班和右键替班写操作，只允许查看已保存排班及执行只读健康检查。
+
 旧地址跳转器需要独立查看或回滚：
 
 ```powershell

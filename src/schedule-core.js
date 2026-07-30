@@ -114,7 +114,11 @@ export function canCoverMember(member, pos, data, positions, staff, groups, { da
   const name = norm(member?.name); const target = norm(pos?.default_person);
   if (!name || name === norm(excludeName) || usedNames.has(name) || member?.no_substitute || name === target || off(name, data, positions)) return false;
   const date = new Date(`${day}T00:00:00`);
-  if (member?.saturday_only && date.getDay() !== 6) return false;
+  if (member?.weekend_only) {
+    if (![0, 5, 6].includes(date.getDay())) return false;
+  } else if (member?.saturday_only && date.getDay() !== 6) {
+    return false;
+  }
   if (pos?.category === "次品" && !member?.can_cpin) return false;
   if (pos?.category === "京东" && !member?.can_jd) return false;
   return norm(data?.[pos?.id]?.person) !== name;

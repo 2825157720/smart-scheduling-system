@@ -36,6 +36,13 @@ def _bool(value: object) -> int:
     return 1 if bool(value) else 0
 
 
+def _staff_restrictions(member: Mapping[str, object]) -> tuple[int, int, int]:
+    no_substitute = _bool(member.get("no_substitute"))
+    weekend_only = _bool(member.get("weekend_only")) if not no_substitute else 0
+    saturday_only = _bool(member.get("saturday_only")) if not (no_substitute or weekend_only) else 0
+    return saturday_only, weekend_only, no_substitute
+
+
 def _as_list(value: object) -> list[dict]:
     return value if isinstance(value, list) else []
 
@@ -78,10 +85,11 @@ def build_import_sql(documents: Mapping[str, object], *, imported_at: str) -> st
         lines.append(f"INSERT INTO groups (id, name) VALUES ({_q(group.get('id'))}, {_q(group.get('name'))});")
     for member in staff:
         group_id = str(member.get("group_id", "")).strip() or None
+        saturday_only, weekend_only, no_substitute = _staff_restrictions(member)
         lines.append(
-            "INSERT INTO staff (id, name, group_id, can_cpin, can_jd, saturday_only, no_substitute) VALUES "
+            "INSERT INTO staff (id, name, group_id, can_cpin, can_jd, saturday_only, weekend_only, no_substitute) VALUES "
             f"({_q(member.get('id'))}, {_q(member.get('name'))}, {_q(group_id)}, {_bool(member.get('can_cpin'))}, "
-            f"{_bool(member.get('can_jd'))}, {_bool(member.get('saturday_only'))}, {_bool(member.get('no_substitute'))});"
+            f"{_bool(member.get('can_jd'))}, {saturday_only}, {weekend_only}, {no_substitute});"
         )
     for position in positions:
         default_staff_id, default_group_id = _assignment_id(position.get("default_person"), staff_ids, group_ids)

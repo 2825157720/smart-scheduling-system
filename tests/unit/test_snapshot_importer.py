@@ -7,6 +7,7 @@ def test_build_import_sql_preserves_group_and_split_assignments():
         "staff.json": [
             {"id": "s1", "name": "甲", "group_id": "g1", "can_cpin": True, "can_jd": False},
             {"id": "s2", "name": "乙", "group_id": "", "saturday_only": True},
+            {"id": "s3", "name": "丙", "group_id": "", "weekend_only": True},
         ],
         "positions.json": [
             {"id": "p1", "name": "岗位", "workload": 8, "default_person": "甲", "split_allowed": True}
@@ -41,6 +42,8 @@ def test_build_import_sql_preserves_group_and_split_assignments():
     assert "'am'" in sql
     assert "INSERT INTO hidden_days" in sql
     assert "INSERT INTO schedule_backups" in sql
+    assert "saturday_only, weekend_only, no_substitute" in sql
+    assert "'s3', '丙', NULL, 0, 0, 0, 1, 0" in sql
 
 
 def test_build_import_sql_rejects_global_staff_group_name_collision():

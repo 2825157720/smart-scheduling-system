@@ -24,6 +24,7 @@ export function buildFrontendFixture() {
     can_cpin: index % 4 === 0,
     can_jd: index % 3 === 0,
     saturday_only: index === 12,
+    weekend_only: index === 11,
     no_substitute: index === 13
   }));
 

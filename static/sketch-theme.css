@@ -834,6 +834,10 @@ a {
   background: var(--sticky-yellow);
 }
 
+.legend-weekend {
+  background: var(--status-group-bg);
+}
+
 .legend-pending,
 .legend-cpin {
   color: var(--status-pending-fg);
@@ -1225,6 +1229,11 @@ textarea {
 .tag-sat {
   color: #705000;
   background: var(--sticky-yellow);
+}
+
+.tag-weekend {
+  color: var(--status-group-fg);
+  background: var(--status-group-bg);
 }
 
 .tag-split {

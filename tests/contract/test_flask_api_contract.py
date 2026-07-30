@@ -73,10 +73,48 @@ class FlaskApiContractTests(unittest.TestCase):
         self.assert_success("DELETE", f"/api/groups/{group_id}")
         self.assert_error("PUT", "/api/groups/missing", {"name": "不存在"}, status=404)
 
-        created_staff = self.assert_success("POST", "/api/staff", {"name": "合同人员"})
+        created_staff = self.assert_success(
+            "POST",
+            "/api/staff",
+            {"name": "合同人员", "saturday_only": True, "weekend_only": True},
+        )
         staff_id = created_staff["staff_id"]
+        _, staff_rows = self.request_json("GET", "/api/staff")
+        created_row = next(item for item in staff_rows if item["id"] == staff_id)
+        self.assertIs(created_row["weekend_only"], True)
+        self.assertIs(created_row["saturday_only"], False)
+        self.assertIs(created_row["no_substitute"], False)
         self.assert_error("POST", "/api/staff", {"name": ""})
-        self.assert_success("PUT", f"/api/staff/{staff_id}", {"name": "合同人员"})
+        self.assert_success(
+            "PUT",
+            f"/api/staff/{staff_id}",
+            {
+                "name": "合同人员",
+                "saturday_only": True,
+                "weekend_only": True,
+                "no_substitute": True,
+            },
+        )
+        _, staff_rows = self.request_json("GET", "/api/staff")
+        blocked_row = next(item for item in staff_rows if item["id"] == staff_id)
+        self.assertIs(blocked_row["saturday_only"], False)
+        self.assertIs(blocked_row["weekend_only"], False)
+        self.assertIs(blocked_row["no_substitute"], True)
+        self.assert_success(
+            "PUT",
+            f"/api/staff/{staff_id}",
+            {
+                "name": "合同人员",
+                "saturday_only": True,
+                "weekend_only": False,
+                "no_substitute": False,
+            },
+        )
+        _, staff_rows = self.request_json("GET", "/api/staff")
+        updated_row = next(item for item in staff_rows if item["id"] == staff_id)
+        self.assertIs(updated_row["saturday_only"], True)
+        self.assertIs(updated_row["weekend_only"], False)
+        self.assertIs(updated_row["no_substitute"], False)
         self.assert_success("DELETE", f"/api/staff/{staff_id}")
         self.assert_error("PUT", "/api/staff/missing", {"name": "不存在"}, status=404)
 

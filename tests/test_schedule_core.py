@@ -216,6 +216,115 @@ class ScheduleCoreTests(unittest.TestCase):
                 )
             )
 
+    def test_weekend_only_covers_friday_through_sunday_and_saturday_only_stays_unchanged(self):
+        target = {"id": "p_target", "name": "Target", "workload": 8, "default_person": "Target", "category": ""}
+        weekend_member = {
+            "id": "s_weekend",
+            "name": "Weekend",
+            "group_id": "",
+            "can_cpin": True,
+            "can_jd": True,
+            "saturday_only": False,
+            "weekend_only": True,
+            "no_substitute": False,
+        }
+        saturday_member = {
+            **weekend_member,
+            "id": "s_saturday",
+            "name": "Saturday",
+            "saturday_only": True,
+            "weekend_only": False,
+        }
+        staff = [weekend_member, saturday_member]
+
+        for day, expected in (
+            (dt.date(2026, 8, 6), False),
+            (dt.date(2026, 8, 7), True),
+            (dt.date(2026, 8, 8), True),
+            (dt.date(2026, 8, 9), True),
+            (dt.date(2026, 8, 10), False),
+        ):
+            with self.subTest(day=day, restriction="weekend"):
+                self.assertEqual(
+                    can_cover_member(weekend_member, target, {}, [target], staff, [], day=day),
+                    expected,
+                )
+
+        for day, expected in (
+            (dt.date(2026, 8, 7), False),
+            (dt.date(2026, 8, 8), True),
+            (dt.date(2026, 8, 9), False),
+        ):
+            with self.subTest(day=day, restriction="saturday"):
+                self.assertEqual(
+                    can_cover_member(saturday_member, target, {}, [target], staff, [], day=day),
+                    expected,
+                )
+
+        both_limited = {**weekend_member, "saturday_only": True}
+        self.assertTrue(
+            can_cover_member(
+                both_limited,
+                target,
+                {},
+                [target],
+                [both_limited],
+                [],
+                day=dt.date(2026, 8, 7),
+            )
+        )
+
+    def test_weekend_only_eligibility_stays_synchronized_with_adjacent_day_rotation(self):
+        staff = [
+            {
+                "id": "s_weekend",
+                "name": "A周末",
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "weekend_only": True,
+                "no_substitute": False,
+            },
+            {
+                "id": "s_regular",
+                "name": "B普通",
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "weekend_only": False,
+                "no_substitute": False,
+            },
+        ]
+        positions = [
+            {
+                "id": "p_empty",
+                "name": "空岗",
+                "workload": 8,
+                "default_person": "",
+                "category": "",
+                "split_allowed": False,
+            }
+        ]
+        month_schedule = {}
+        assigned = []
+
+        for day in (7, 8, 9, 10):
+            result = plan_day_schedule(
+                positions,
+                staff,
+                [],
+                year=2026,
+                month=8,
+                day=day,
+                month_schedule=month_schedule,
+            )
+            month_schedule[str(day)] = result["day_data"]
+            assigned.append(result["day_data"]["p_empty"]["person"])
+
+        self.assertEqual(assigned, ["A周末", "B普通", "A周末", "B普通"])
+
     def test_can_cover_member_allows_active_member_even_with_separate_off_cell(self):
         day = dt.date(2026, 6, 24)
         positions = [

@@ -676,7 +676,10 @@ def can_cover_member(member, pos, day_data, positions, staff, groups, *, day: _d
     if _is_person_off(member_name, day_data):
         return False
 
-    if (member or {}).get("saturday_only") and day.weekday() != 5:
+    if (member or {}).get("weekend_only"):
+        if day.weekday() not in (4, 5, 6):
+            return False
+    elif (member or {}).get("saturday_only") and day.weekday() != 5:
         return False
     if (pos or {}).get("category") == "次品" and not (member or {}).get("can_cpin"):
         return False

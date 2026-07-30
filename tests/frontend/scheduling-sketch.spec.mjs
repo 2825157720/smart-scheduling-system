@@ -54,6 +54,43 @@ async function installApiFixture(page, apiFixture = fixture) {
   });
 }
 
+test("人员管理的三项替班限制互斥，手工候选遵守周五至周日边界", async ({ page }) => {
+  await installStableClock(page);
+  await installApiFixture(page);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await page.getByRole("button", { name: "人员/岗位管理" }).click();
+  await expect(page.locator("#staff-tbody .tag-weekend")).toHaveText("仅周末");
+  await page.getByRole("button", { name: "＋ 新增人员" }).click();
+
+  const saturdayOnly = page.locator("#staff-sat");
+  const weekendOnly = page.locator("#staff-weekend");
+  const noSubstitute = page.locator("#staff-no-sub");
+  await saturdayOnly.check();
+  await expect(weekendOnly).not.toBeChecked();
+  await expect(noSubstitute).not.toBeChecked();
+  await weekendOnly.check();
+  await expect(saturdayOnly).not.toBeChecked();
+  await noSubstitute.check();
+  await expect(saturdayOnly).not.toBeChecked();
+  await expect(weekendOnly).not.toBeChecked();
+  await saturdayOnly.check();
+  await expect(noSubstitute).not.toBeChecked();
+  await page.getByRole("button", { name: "关闭人员编辑弹窗" }).click();
+  await page.getByRole("button", { name: "关闭人员岗位管理弹窗" }).click();
+
+  await page.locator('.cell[data-day="17"]').first().click({ button: "right" });
+  await expect(page.locator("#ctx-menu")).not.toContainText("宁秋");
+  await page.evaluate(() => {
+    document.querySelector("#ctx-menu").style.display = "none";
+  });
+
+  await page.locator('.cell[data-day="21"]').first().click({ button: "right" });
+  await expect(page.locator("#ctx-menu")).toContainText("宁秋");
+  await expect(page.locator("#ctx-menu")).not.toContainText("乔松");
+  await expect(page.locator("#ctx-menu")).not.toContainText("沈禾");
+});
+
 test("手绘纸张主题在固定排班数据下稳定呈现", async ({ page }) => {
   const pageErrors = [];
   const consoleErrors = [];
