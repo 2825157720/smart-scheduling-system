@@ -105,3 +105,19 @@ Playwright 固定截图：
 - [x] 首页、主题 CSS 和字体均返回 200；字体使用一年 `immutable`，主题 CSS 使用 `must-revalidate`。
 - [x] `www` 对带路径和查询参数的请求返回 301，并完整跳转到正式根域名。
 - [x] 回滚命令：`npx --no-install wrangler rollback a023333b-8f46-4238-88af-5ed848367e4a --config .\wrangler.jsonc --env production`；Worker 回滚不会改变 D1 数据。
+
+## 2026-07-30 “仅周末替班”Production
+
+- [x] 用户确认 Preview 验收通过并授权发布 Production；实现提交 `01a7a6f feat(scheduling): add weekend-only substitute restriction` 已推送并与 `origin/dev` 同步。
+- [x] Preview version：`25d1f8a9-8f01-464a-87f2-247c26a287e3`。
+- [x] 发布前 Production version / Worker 回滚目标：`e5e6cda7-21a7-4003-a785-5fc8c192ebcb`。
+- [x] 发布后 Production deployment：`469a8084-3bba-48bb-9066-d1370741910e`。
+- [x] 发布后 Production version：`a1f069fd-2182-47c3-a3be-4860ff10c404`，控制面确认承载 100% 流量。
+- [x] Production D1 迁移前备份：`.migration/backups/smart-scheduling-production-before-0005-20260730-170510.sql`，904,820 字节，SHA-256 `B514C950566FBD0D3DCC028397FC3083FF2D1BB76CD5AF2F22839F8539161004`。
+- [x] 迁移前 D1 Time Travel bookmark：`000000df-00000000-000050b8-e1746774104b57024b44509243a0154c`。
+- [x] `0005_staff_weekend_only.sql` 已应用；`staff.weekend_only` 为 `INTEGER NOT NULL DEFAULT 0`，14 名人员保持不变，三项限制冲突 0，无待执行 migration。
+- [x] 自动化：Python `95 passed`；Worker `35 passed`；Playwright `16 passed / 2 skipped`；四项 Node 语法检查、`npm ci`、Production dry-run 和 `git diff --check` 通过。
+- [x] 正式只读接口：`/api/live`、`/api/storage-info`、人员、岗位、分组、2026 年 7 月排班和备忘录均可读；人员 14 名、岗位 20 个、分组 5 个。
+- [x] 正式浏览器：排班表 20 行、人员管理 14 行，表头包含“仅周六替班 / 仅周末替班 / 不替班”，三项输入使用同一互斥处理器；字体状态 `loaded`，页面级横向溢出为 0，无应用脚本错误或资源 4xx。
+- [x] 缓存与域名：首页和主题 CSS 使用 `must-revalidate`；版本化 WOFF2 使用一年 `immutable`；`www` 返回 301 到正式根域名。
+- [x] 回滚边界：旧 Worker 不理解 `weekend_only`。若回滚到 `e5e6cda7-21a7-4003-a785-5fc8c192ebcb`，只允许查看已保存排班和只读健康检查；恢复新版前必须暂停当天排班、强制重排、自动替班及右键替班写操作。
