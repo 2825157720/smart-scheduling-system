@@ -25,7 +25,9 @@ class D1MigrationTests(unittest.TestCase):
         connection.execute("INSERT INTO staff (id, name, group_id) VALUES ('s1', '测试人员', 'g1')")
         connection.execute("DELETE FROM groups WHERE id = 'g1'")
         self.assertIsNone(connection.execute("SELECT group_id FROM staff WHERE id = 's1'").fetchone()[0])
-        self.assertIn("group_id", {row[1] for row in connection.execute("PRAGMA table_info(schedule_cells)")})
+        schedule_cell_columns = {row[1] for row in connection.execute("PRAGMA table_info(schedule_cells)")}
+        self.assertIn("group_id", schedule_cell_columns)
+        self.assertIn("assignment_source", schedule_cell_columns)
         self.assertIn("sort_order", {row[1] for row in connection.execute("PRAGMA table_info(positions)")})
         staff_columns = {row[1] for row in connection.execute("PRAGMA table_info(staff)")}
         self.assertIn("weekend_only", staff_columns)
@@ -44,6 +46,13 @@ class D1MigrationTests(unittest.TestCase):
         )
         indexes = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='index'")}
         self.assertIn("idx_schedule_cells_day_position", indexes)
+        self.assertIn("idx_schedule_cells_position_source", indexes)
+        connection.execute("INSERT INTO positions (id, name, workload) VALUES ('p1', '岗位', 1)")
+        connection.execute("INSERT INTO schedule_days (id, schedule_date) VALUES ('d1', '2026-08-08')")
+        connection.execute("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status) VALUES ('c1', 'd1', 'p1', 'pending')")
+        self.assertEqual(connection.execute("SELECT assignment_source FROM schedule_cells WHERE id = 'c1'").fetchone()[0], "legacy")
+        with self.assertRaises(sqlite3.IntegrityError):
+            connection.execute("UPDATE schedule_cells SET assignment_source = 'unknown' WHERE id = 'c1'")
 
 
 if __name__ == "__main__":

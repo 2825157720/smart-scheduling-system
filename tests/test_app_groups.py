@@ -135,9 +135,45 @@ class AppGroupRouteTests(unittest.TestCase):
         saved_schedule = next(args[1] for args in (call.args for call in save_json.call_args_list) if args[0] == app_module.SCHEDULE_FILE)
         self.assertEqual(saved_schedule["2026-06"]["24"]["p14"]["person"], "大分类组1")
         self.assertEqual(saved_schedule["2026-06"]["25"]["p14"]["person"], "款色组")
-        self.assertEqual(saved_schedule["2026-06"]["26"]["p14"]["person"], "款色组")
-        self.assertEqual(saved_schedule["2026-06"]["27"]["p14"]["person"], "别人")
+        self.assertEqual(saved_schedule["2026-06"]["26"]["p14"]["person"], "大分类组1")
+        self.assertEqual(saved_schedule["2026-06"]["27"]["p14"]["person"], "款色组")
         self.assertEqual(saved_schedule["2026-07"]["1"]["p14"]["person"], "款色组")
+        self.assertEqual(payload["legacy_conflict_days"], ["2026-06-26"])
+        self.assertEqual(saved_schedule["2026-06"]["25"]["p14"]["_source"], "automatic")
+
+    def test_position_sync_repairs_legacy_only_after_confirmation_and_never_overwrites_manual(self):
+        positions = [
+            {"id": "p19", "name": "京东中", "workload": 2, "default_person": "赵创", "category": "京东", "split_allowed": False},
+        ]
+        staff = [
+            {"id": "s1", "name": "赵创", "can_jd": True},
+            {"id": "s2", "name": "龙泽", "can_jd": True},
+        ]
+        schedule = {
+            "2026-08": {
+                "8": {"p19": {"status": "substitute", "person": "龙泽"}},
+                "9": {"p19": {"status": "substitute", "person": "龙泽", "_source": "manual"}},
+                "10": {"p19": {"status": "substitute", "person": "龙泽", "_source": "automatic"}},
+            },
+        }
+
+        with patch.object(app_module, "_positions", return_value=positions), \
+             patch.object(app_module, "_staff", return_value=staff), \
+             patch.object(app_module, "_groups", return_value=[]), \
+             patch.object(app_module, "_schedule", return_value=schedule), \
+             patch.object(app_module, "_today_date", return_value=dt.date(2026, 8, 6)), \
+             patch.object(app_module, "save_json") as save_json:
+            preview = app_module._sync_position_schedule_forward("p19")
+            result = app_module._sync_position_schedule_forward("p19", include_legacy=True, apply=True)
+
+        self.assertEqual(preview["legacy_conflict_days"], ["2026-08-08"])
+        self.assertEqual(preview["manual_protected_days"], ["2026-08-09"])
+        saved = save_json.call_args.args[1]
+        self.assertEqual(saved["2026-08"]["8"]["p19"], {"status": "on", "person": "赵创", "_source": "automatic"})
+        self.assertEqual(saved["2026-08"]["9"]["p19"]["person"], "龙泽")
+        self.assertEqual(saved["2026-08"]["9"]["p19"]["_source"], "manual")
+        self.assertEqual(saved["2026-08"]["10"]["p19"], {"status": "on", "person": "赵创", "_source": "automatic"})
+        self.assertEqual(result["manual_protected_days"], ["2026-08-09"])
 
     def test_get_memo_normalizes_latest_entry_to_global_main_memo(self):
         memo = {
@@ -447,7 +483,7 @@ class AppGroupRouteTests(unittest.TestCase):
         self.assertEqual(saved_schedule["5"]["_off_persons"], ["徐昊"])
         self.assertEqual(saved_schedule["5"]["p1"]["slots"]["am"], {"status": "off", "person": "徐昊"})
         self.assertEqual(saved_schedule["5"]["p1"]["slots"]["pm"], {"status": "substitute", "person": "曼诗"})
-        self.assertEqual(saved_schedule["5"]["p2"], {"status": "pending", "person": ""})
+        self.assertEqual(saved_schedule["5"]["p2"], {"status": "pending", "person": "", "_source": "automatic"})
 
 
 if __name__ == "__main__":

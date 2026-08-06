@@ -1,10 +1,20 @@
-import { buildFairnessContext, buildFutureResetSchedule, canCoverMember, groupMemberNames, planDaySchedule, rankFairCandidates } from "./schedule-core.js";
+import { buildFairnessContext, buildFutureResetSchedule, canCoverMember, groupMemberNames, planDaySchedule, planPositionAssignment, rankFairCandidates } from "./schedule-core.js";
 import { buildImportPreview, createImportToken, normalizeImportPayload, shanghaiBusinessDate, verifyAdminPassword } from "./import-off-days.js";
 
 const json = (body, init = {}) => Response.json(body, init);
 const rows = async (statement) => (await statement.all()).results;
 const now = () => new Date().toISOString();
 const failure = (msg, status = 400) => json({ success: false, msg }, { status });
+const ASSIGNMENT_SOURCES = new Set(["automatic", "manual", "legacy"]);
+const assignmentSource = (value, fallback = "legacy") => ASSIGNMENT_SOURCES.has(value) ? value : fallback;
+
+function markDayAssignments(dayData, source = "automatic") {
+  for (const [positionId, cell] of Object.entries(dayData || {})) {
+    if (!positionId.startsWith("p") || !cell || typeof cell !== "object") continue;
+    cell._source = assignmentSource(source, "automatic");
+  }
+  return dayData;
+}
 
 export function normalizeSubstituteRestrictions(body = {}, existing = {}) {
   const hasSaturday = Object.prototype.hasOwnProperty.call(body, "saturday_only");
@@ -78,7 +88,7 @@ async function getSchedule(db, year, month) {
   ).bind(`${prefix}-%`));
   if (!days.length) return {};
   const cells = await rows(db.prepare(`
-    SELECT c.id, c.schedule_day_id, c.position_id, c.status,
+    SELECT c.id, c.schedule_day_id, c.position_id, c.status, c.assignment_source,
            COALESCE(s.name, g.name, '') AS person
     FROM schedule_cells c
     JOIN schedule_days d ON d.id = c.schedule_day_id
@@ -109,7 +119,7 @@ async function getSchedule(db, year, month) {
   const cellIndex = new Map();
   for (const cell of cells) {
     const day = days.find((item) => item.id === cell.schedule_day_id);
-    const data = { person: cell.person, status: cell.status };
+    const data = { person: cell.person, status: cell.status, _source: assignmentSource(cell.assignment_source) };
     result[String(Number(day.schedule_date.slice(-2)))][cell.position_id] = data;
     cellIndex.set(cell.id, data);
   }
@@ -169,8 +179,8 @@ function insertDayStatements(db, date, data, subjects) {
     const cellId = `cell_${date}_${positionId}`;
     const subject = subjectId(String(cell.person || ""), subjects);
     const status = String(cell.status || "pending");
-    statements.push(db.prepare("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id) VALUES (?, ?, ?, ?, ?, ?)")
-      .bind(cellId, dayId, positionId, status, subject.staffId, subject.groupId));
+    statements.push(db.prepare("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id, assignment_source) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(cellId, dayId, positionId, status, subject.staffId, subject.groupId, assignmentSource(cell._source)));
     for (const slot of ["am", "pm"]) {
       const detail = cell.slots?.[slot];
       if (!detail || typeof detail !== "object") continue;
@@ -215,6 +225,61 @@ async function saveMonth(db, year, month, monthData) {
     statements.push(...insertDayStatements(db, date, data, subjects));
   }
   await db.batch(statements);
+}
+
+async function synchronizePositionFuture(db, positionId, { includeLegacy = false, apply = false } = {}) {
+  const today = shanghaiBusinessDate();
+  const candidates = await rows(db.prepare(`
+    SELECT c.id, c.status, c.assignment_source, d.schedule_date
+    FROM schedule_cells c JOIN schedule_days d ON d.id = c.schedule_day_id
+    WHERE c.position_id = ? AND d.schedule_date >= ?
+    ORDER BY d.schedule_date
+  `).bind(positionId, today));
+  const [positions, staff, groups] = await Promise.all([getPositions(db), getStaff(db), getGroups(db)]);
+  const position = positions.find((item) => item.id === positionId);
+  if (!position) throw new Error("岗位不存在");
+  const monthCache = new Map();
+  const subjects = apply ? await subjectMaps(db) : null;
+  const changes = []; const legacyConflicts = []; const manualProtected = [];
+  const statements = [];
+  for (const item of candidates) {
+    const source = assignmentSource(item.assignment_source);
+    if (source === "manual") { manualProtected.push(item.schedule_date); continue; }
+    if (source === "legacy" && !["on", "pending"].includes(item.status) && !includeLegacy) {
+      legacyConflicts.push(item.schedule_date); continue;
+    }
+    const [yearText, monthText, dayText] = item.schedule_date.split("-");
+    const monthKey = `${yearText}-${monthText}`;
+    if (!monthCache.has(monthKey)) monthCache.set(monthKey, await getSchedule(db, Number(yearText), Number(monthText)));
+    const monthSchedule = monthCache.get(monthKey);
+    const dayData = monthSchedule[String(Number(dayText))] || {};
+    const current = dayData[positionId] || { status: "pending", person: "", _source: source };
+    const proposed = planPositionAssignment(position, positions, staff, groups, {
+      year: Number(yearText), month: Number(monthText), day: Number(dayText), dayData, monthSchedule,
+    });
+    changes.push({
+      date: item.schedule_date,
+      from: { status: current.status || "pending", person: current.person || "", source },
+      to: { ...proposed, source: "automatic" },
+    });
+    dayData[positionId] = { ...proposed, _source: "automatic" };
+    if (!apply) continue;
+    const subject = subjectId(String(proposed.person || ""), subjects);
+    statements.push(
+      db.prepare("DELETE FROM schedule_slots WHERE schedule_cell_id = ?").bind(item.id),
+      db.prepare("UPDATE schedule_cells SET status = ?, staff_id = ?, group_id = ?, assignment_source = 'automatic' WHERE id = ?")
+        .bind(proposed.status, subject.staffId, subject.groupId, item.id),
+    );
+  }
+  if (apply) {
+    for (let index = 0; index < statements.length; index += 50) await db.batch(statements.slice(index, index + 50));
+  }
+  return {
+    synced_days: changes.map((item) => item.date),
+    legacy_conflict_days: legacyConflicts,
+    manual_protected_days: manualProtected,
+    changes,
+  };
 }
 
 export default {
@@ -305,28 +370,32 @@ export default {
       const body = await request.json(); const name = String(body.name || "").trim();
       if (!name) return failure("岗位名称不能为空");
       const subject = await subjectMaps(env.DB); const defaultSubject = subjectId(String(body.default_person || ""), subject);
-      const existing = await env.DB.prepare("SELECT id FROM positions WHERE id=?").bind(position[1]).first();
+      const existing = await env.DB.prepare(`
+        SELECT p.id, COALESCE(s.name, g.name, '') AS default_person
+        FROM positions p
+        LEFT JOIN staff s ON s.id = p.default_staff_id
+        LEFT JOIN groups g ON g.id = p.default_group_id
+        WHERE p.id = ?
+      `).bind(position[1]).first();
       if (!existing) return failure("岗位不存在", 404);
-      const today = shanghaiBusinessDate();
-      const synced = await rows(env.DB.prepare(`
-        SELECT DISTINCT d.schedule_date FROM schedule_days d JOIN schedule_cells c ON c.schedule_day_id=d.id
-        WHERE c.position_id=? AND d.schedule_date>? AND c.status IN ('on','pending')
-      `).bind(position[1], today));
-      const nextStatus = defaultSubject.staffId || defaultSubject.groupId ? "on" : "pending";
-      const statements = [
-        env.DB.prepare("UPDATE positions SET name=?, workload=?, default_staff_id=?, default_group_id=?, category=?, split_allowed=? WHERE id=?")
-          .bind(name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, position[1]),
-        env.DB.prepare(`UPDATE schedule_cells SET status=?, staff_id=?, group_id=? WHERE position_id=? AND status IN ('on','pending') AND schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date>?)`)
-          .bind(nextStatus, defaultSubject.staffId, defaultSubject.groupId, position[1], today),
-      ];
-      await env.DB.batch(statements);
-      return json({ success: true, synced_days: synced.map((item) => item.schedule_date) });
+      await env.DB.prepare("UPDATE positions SET name=?, workload=?, default_staff_id=?, default_group_id=?, category=?, split_allowed=? WHERE id=?")
+        .bind(name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, position[1]).run();
+      const sync = await synchronizePositionFuture(env.DB, position[1], { apply: true });
+      return json({ success: true, previous_default_person: existing.default_person, ...sync });
     }
     if (position && request.method === "DELETE") {
       const inSchedule = await env.DB.prepare("SELECT 1 FROM schedule_cells WHERE position_id = ? LIMIT 1").bind(position[1]).first();
       if (inSchedule) return failure("该岗位已被排班历史引用，不能删除", 409);
       await env.DB.prepare("DELETE FROM positions WHERE id = ?").bind(position[1]).run();
       return json({ success: true });
+    }
+    const positionSync = url.pathname.match(/^\/api\/positions\/([^/]+)\/sync-schedule$/);
+    if (positionSync && request.method === "POST") {
+      const body = await request.json();
+      const apply = body.action === "apply";
+      if (!apply && body.action !== "preview") return failure("同步操作无效");
+      const result = await synchronizePositionFuture(env.DB, positionSync[1], { includeLegacy: Boolean(body.include_legacy), apply });
+      return json({ success: true, action: body.action, ...result });
     }
     if (request.method === "POST" && url.pathname === "/api/positions/reorder") {
       const payload = await request.json(); const ids = Array.isArray(payload) ? payload.map((item) => typeof item === "object" ? item.id : item) : [];
@@ -353,14 +422,15 @@ export default {
       if (!Number.isInteger(day) || day < 1 || !body.pos_id) return json({ success: false, msg: "日期或岗位无效" }, { status: 400 });
       const monthData = await getSchedule(env.DB, scheduleDay[1], scheduleDay[2]);
       const dayData = monthData[String(day)] ||= {};
+      const source = assignmentSource(body.assignment_source, "manual");
       if (body.split && typeof body.split === "object") {
         const slots = Object.fromEntries(["am", "pm"].map((slot) => [slot, { status: body.split[slot]?.status || "pending", person: body.split[slot]?.person || "", workload: body.split[slot]?.workload || 0 }]));
-        dayData[body.pos_id] = { status: "split", person: slots.am.person || slots.pm.person, slots };
+        dayData[body.pos_id] = { status: "split", person: slots.am.person || slots.pm.person, slots, _source: source };
       } else if (["am", "pm"].includes(String(body.slot || "").toLowerCase())) {
         const slots = dayData[body.pos_id]?.slots || { am: { status: "pending", person: "" }, pm: { status: "pending", person: "" } };
         const slot = String(body.slot).toLowerCase(); slots[slot] = { status: body.status || "pending", person: body.person || "", workload: body.workload || 0 };
-        dayData[body.pos_id] = { status: "split", person: slots.am.person || slots.pm.person, slots };
-      } else dayData[body.pos_id] = { status: body.status || "pending", person: body.person || "" };
+        dayData[body.pos_id] = { status: "split", person: slots.am.person || slots.pm.person, slots, _source: source };
+      } else dayData[body.pos_id] = { status: body.status || "pending", person: body.person || "", _source: source };
       if (body.status === "off" && body.person) dayData._off_persons = [...new Set([...(dayData._off_persons || []), body.person])];
       if (body.status === "on" && body.person) dayData._off_persons = (dayData._off_persons || []).filter((name) => name !== body.person);
       try { await saveMonth(env.DB, scheduleDay[1], scheduleDay[2], monthData); }
@@ -376,7 +446,7 @@ export default {
       const offIds = new Set(body.off_person_ids || []); const supplied = [...(body.off_persons || []), ...staff.filter((item) => offIds.has(item.id)).map((item) => item.name)];
       const saved = current[String(day)]?._off_persons || []; const offPersons = body.use_saved_off_persons || (!("off_person_ids" in body) && !("off_persons" in body) && saved.length) ? saved : supplied;
       const result = planDaySchedule(positions, staff, groups, { year: Number(planDay[1]), month: Number(planDay[2]), day, offPersons, scatterGroups: Boolean(body.scatter_groups), monthSchedule: current });
-      current[String(day)] = result.day_data; await saveMonth(env.DB, planDay[1], planDay[2], current);
+      markDayAssignments(result.day_data); current[String(day)] = result.day_data; await saveMonth(env.DB, planDay[1], planDay[2], current);
       return json({ success: true, ...result });
     }
     const importOffDays = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/import-off-days$/);
@@ -422,7 +492,7 @@ export default {
       const subjects = await subjectMaps(env.DB);
       const changedDays = preview.changed_dates.map((day) => ({
         date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
-        data: preview.schedule[String(day)],
+        data: markDayAssignments(preview.schedule[String(day)]),
       }));
       const statements = [
         env.DB.prepare("INSERT INTO schedule_backups (id, year, month, created_at, payload) VALUES (?, ?, ?, ?, ?)")
@@ -462,9 +532,9 @@ export default {
       const updated = [];
       for (const pos of positions) {
         const cell = dayData[pos.id]; if (!cell) continue;
-        if (cell.status === "split" && cell.slots) for (const slot of ["am", "pm"]) { const item = cell.slots[slot]; if (!item || item.person !== person) continue; if (item.status === "substitute") { cell.slots[slot] = { status: "pending", person: "" }; updated.push({ pos_id: pos.id, slot, person: "", status: "pending", pos_name: pos.name }); } else if (body.person_is_off && ["on", "pending", ""].includes(item.status)) { cell.slots[slot] = { ...item, status: "off" }; updated.push({ pos_id: pos.id, slot, person, status: "off", pos_name: pos.name }); } }
-        else if (cell.person === person && cell.status === "substitute") { dayData[pos.id] = { status: "pending", person: "" }; updated.push({ pos_id: pos.id, person: "", status: "pending", pos_name: pos.name }); }
-        else if (cell.person === person && body.person_is_off && ["on", "pending", ""].includes(cell.status)) { dayData[pos.id] = { status: "off", person }; updated.push({ pos_id: pos.id, person, status: "off", pos_name: pos.name }); }
+        if (cell.status === "split" && cell.slots) for (const slot of ["am", "pm"]) { const item = cell.slots[slot]; if (!item || item.person !== person) continue; if (item.status === "substitute") { cell.slots[slot] = { status: "pending", person: "" }; cell._source = "automatic"; updated.push({ pos_id: pos.id, slot, person: "", status: "pending", pos_name: pos.name }); } else if (body.person_is_off && ["on", "pending", ""].includes(item.status)) { cell.slots[slot] = { ...item, status: "off" }; cell._source = "automatic"; updated.push({ pos_id: pos.id, slot, person, status: "off", pos_name: pos.name }); } }
+        else if (cell.person === person && cell.status === "substitute") { dayData[pos.id] = { status: "pending", person: "", _source: "automatic" }; updated.push({ pos_id: pos.id, person: "", status: "pending", pos_name: pos.name }); }
+        else if (cell.person === person && body.person_is_off && ["on", "pending", ""].includes(cell.status)) { dayData[pos.id] = { status: "off", person, _source: "automatic" }; updated.push({ pos_id: pos.id, person, status: "off", pos_name: pos.name }); }
       }
       await saveMonth(env.DB, year, month, current); return json({ success: true, updated });
     }
@@ -473,7 +543,7 @@ export default {
       if (!(year && month && day)) return failure("参数无效");
       const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month)]);
       const result = planDaySchedule(positions, staff, groups, { year: Number(year), month: Number(month), day: Number(day), offPersons: current[String(day)]?._off_persons || [], scatterGroups: Boolean(body.scatter_groups), monthSchedule: current });
-      current[String(day)] = result.day_data; await saveMonth(env.DB, year, month, current);
+      markDayAssignments(result.day_data); current[String(day)] = result.day_data; await saveMonth(env.DB, year, month, current);
       return json({ success: true, ...result });
     }
     const hiddenDays = url.pathname.match(/^\/api\/hidden-days\/(\d{4})\/(\d{1,2})$/);
@@ -499,6 +569,7 @@ export default {
       const year = Number(reset[1]); const month = Number(reset[2]);
       const [positions, current] = await Promise.all([getPositions(env.DB), getSchedule(env.DB, year, month)]);
       const result = buildFutureResetSchedule(positions, { year, month, today: shanghaiBusinessDate(), current });
+      for (const day of result.reset_dates) markDayAssignments(result.schedule[String(day)]);
       if (result.reset_dates.length) {
         const subjects = await subjectMaps(env.DB);
         const changedDays = result.reset_dates.map((day) => ({

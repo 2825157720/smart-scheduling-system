@@ -537,6 +537,73 @@ def _apply_split_positions(
     }
 
 
+def plan_position_assignment(
+    pos,
+    positions,
+    staff,
+    groups,
+    *,
+    year: int,
+    month: int,
+    day: int,
+    day_data=None,
+    month_schedule=None,
+) -> dict:
+    position_list = _positions_iter(positions)
+    data = dict(day_data or {})
+    default_person = _normalize_name((pos or {}).get("default_person", ""))
+    off_names = {
+        _normalize_name(name)
+        for name in data.get("_off_persons", [])
+        if _normalize_name(name)
+    }
+    members = group_member_names(default_person, staff, groups)
+    is_group = default_person in _group_name_set(groups)
+    scatter_groups = bool(data.get("_scatter_groups"))
+    unavailable = (
+        not default_person
+        or default_person in off_names
+        or (is_group and bool(members) and all(name in off_names for name in members))
+    )
+    if default_person:
+        data[pos["id"]] = {
+            "status": "off" if unavailable else "on",
+            "person": default_person,
+        }
+    else:
+        data[pos["id"]] = {"status": "pending", "person": ""}
+
+    if not default_person or (not unavailable and not (is_group and scatter_groups)):
+        return data[pos["id"]]
+
+    day_date = _datetime.date(year, month, day)
+    candidates = [
+        member
+        for member in staff or []
+        if can_cover_member(
+            member,
+            pos,
+            data,
+            position_list,
+            staff,
+            groups,
+            day=day_date,
+        )
+    ]
+    candidates = rank_fair_candidates(
+        candidates,
+        data,
+        position_list,
+        staff,
+        groups,
+        preferred_names=members if is_group and scatter_groups else [],
+        fairness_context=build_fairness_context(month_schedule, position_list, day=day),
+    )
+    if not candidates:
+        return {"status": "pending", "person": ""}
+    return {"status": "substitute", "person": _normalize_name(candidates[0].get("name"))}
+
+
 def plan_day_schedule(
     positions,
     staff,

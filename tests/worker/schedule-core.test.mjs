@@ -8,6 +8,7 @@ import {
   buildFairnessContext,
   canCoverMember,
   planDaySchedule,
+  planPositionAssignment,
   rankFairCandidates,
 } from "../../src/schedule-core.js";
 
@@ -29,6 +30,21 @@ const position = (name, workload, extra = {}) => ({
   default_person: name,
   split_allowed: false,
   ...extra,
+});
+
+test("position refresh restores an available new default instead of keeping a stale substitute", () => {
+  const target = position("京东中", 2, { id: "p-jd", default_person: "赵创", category: "京东" });
+  const staff = [member("赵创"), member("龙泽")];
+  const dayData = {
+    "p-jd": { status: "substitute", person: "龙泽" },
+  };
+  assert.deepEqual(planPositionAssignment(target, [target], staff, [], {
+    year: 2026,
+    month: 8,
+    day: 8,
+    dayData,
+    monthSchedule: { "8": dayData },
+  }), { status: "on", person: "赵创" });
 });
 
 test("weekend-only substitutes are eligible Friday through Sunday while Saturday-only remains Saturday-only", () => {

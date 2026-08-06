@@ -13,12 +13,42 @@ from schedule_core import (
     group_is_fully_off,
     group_member_names,
     plan_day_schedule,
+    plan_position_assignment,
     person_day_workload,
     rank_fair_candidates,
 )
 
 
 class ScheduleCoreTests(unittest.TestCase):
+    def test_position_refresh_restores_available_new_default(self):
+        position = {
+            "id": "p-jd",
+            "name": "京东中",
+            "workload": 2,
+            "default_person": "赵创",
+            "category": "京东",
+            "split_allowed": False,
+        }
+        staff = [
+            {"id": "s1", "name": "赵创", "can_jd": True},
+            {"id": "s2", "name": "龙泽", "can_jd": True},
+        ]
+        day_data = {"p-jd": {"status": "substitute", "person": "龙泽"}}
+
+        result = plan_position_assignment(
+            position,
+            [position],
+            staff,
+            [],
+            year=2026,
+            month=8,
+            day=8,
+            day_data=day_data,
+            month_schedule={"8": day_data},
+        )
+
+        self.assertEqual(result, {"status": "on", "person": "赵创"})
+
     def setUp(self):
         self.groups = [
             {"id": "g1", "name": "Alpha", "members": ["ignored-a", "ignored-b"]},

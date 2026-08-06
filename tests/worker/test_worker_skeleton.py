@@ -77,16 +77,17 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertIn("replaceDayStatements", reset_block)
         self.assertNotIn("saveMonth", reset_block)
 
-    def test_position_default_change_repairs_only_future_default_assignments(self):
+    def test_position_updates_use_source_aware_future_synchronization(self):
         root = __import__("pathlib").Path(__file__).resolve().parents[2]
         worker_source = (root / "src" / "index.js").read_text(encoding="utf-8")
         position_block = worker_source.split('const position = url.pathname.match', 1)[1].split('if (position && request.method === "DELETE")', 1)[0]
 
-        self.assertIn("const today = shanghaiBusinessDate()", position_block)
-        self.assertIn("d.schedule_date>?", position_block)
-        self.assertIn("c.status IN ('on','pending')", position_block)
-        self.assertNotIn("previous.default_staff_id", position_block)
-        self.assertNotIn("previous.default_group_id", position_block)
+        self.assertIn("synchronizePositionFuture", position_block)
+        self.assertIn("previous_default_person", position_block)
+        self.assertIn("apply: true", position_block)
+        self.assertIn("assignment_source", worker_source)
+        self.assertIn("legacy_conflict_days", worker_source)
+        self.assertIn("manual_protected_days", worker_source)
 
     def test_automatic_worker_entries_use_month_fairness_context(self):
         root = __import__("pathlib").Path(__file__).resolve().parents[2]

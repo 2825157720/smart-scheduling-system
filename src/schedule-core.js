@@ -129,6 +129,28 @@ export function buildDayBase(positions, offPersons = []) {
   for (const pos of posList(positions)) { const person = norm(pos.default_person); result[pos.id] = person ? { status: offSet.has(person) ? "off" : "on", person } : { status: "pending", person: "" }; }
   return result;
 }
+export function planPositionAssignment(pos, positions, staff, groups, { year, month, day, dayData = {}, monthSchedule = {} }) {
+  const all = posList(positions); const data = { ...dayData }; const def = norm(pos?.default_person);
+  const offSet = new Set((data._off_persons || []).map(norm).filter(Boolean));
+  const members = groupMemberNames(def, staff, groups); const isGroup = (groups || []).some((item) => norm(item.name) === def);
+  const scatter = Boolean(data._scatter_groups);
+  const unavailable = !def || offSet.has(def) || (isGroup && members.length > 0 && members.every((name) => offSet.has(name)));
+  data[pos.id] = def ? { status: unavailable ? "off" : "on", person: def } : { status: "pending", person: "" };
+  if (def && !unavailable && !(isGroup && scatter)) return data[pos.id];
+  if (!def) return data[pos.id];
+  const iso = `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  const preferredNames = isGroup && scatter ? members : [];
+  const choices = rankFairCandidates(
+    (staff || []).filter((member) => canCoverMember(member, pos, data, all, staff, groups, { day: iso })),
+    pos,
+    data,
+    all,
+    staff,
+    groups,
+    { preferredNames, fairnessContext: buildFairnessContext(monthSchedule, Number(day), all) },
+  );
+  return choices.length ? { status: "substitute", person: norm(choices[0].name) } : { status: "pending", person: "" };
+}
 export function buildFutureResetSchedule(positions, { year, month, today, current = {} }) {
   const schedule = { ...current };
   const resetDates = [];

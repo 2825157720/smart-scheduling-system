@@ -18,6 +18,7 @@ from schedule_core import (
     group_is_fully_off as core_group_is_fully_off,
     group_member_names as core_group_member_names,
     plan_day_schedule as core_plan_day_schedule,
+    plan_position_assignment as core_plan_position_assignment,
     rank_fair_candidates as core_rank_fair_candidates,
 )
 
@@ -345,15 +346,31 @@ def _collect_day_off_persons(day_data):
     return off_names
 
 
-def _sync_position_default_person_forward(pos_id, old_default_person, new_default_person):
-    old_default_person = str(old_default_person or "").strip()
-    new_default_person = str(new_default_person or "").strip()
-    if old_default_person == new_default_person:
-        return []
+def _assignment_source(value, fallback="legacy"):
+    return value if value in ("automatic", "manual", "legacy") else fallback
 
+
+def _mark_day_assignments(day_data, source="automatic"):
+    for pos_id, cell in (day_data or {}).items():
+        if str(pos_id).startswith("p") and isinstance(cell, dict):
+            cell["_source"] = _assignment_source(source, "automatic")
+    return day_data
+
+
+def _sync_position_schedule_forward(pos_id, *, include_legacy=False, apply=False):
     today = _today_date()
     schedules = copy.deepcopy(_schedule())
-    synced_days = []
+    if not isinstance(schedules, dict):
+        schedules = {}
+    positions = _positions()
+    staff = _staff()
+    groups = _groups()
+    position = next((pos for pos in positions if pos.get("id") == pos_id), None)
+    if not position:
+        raise ValueError("岗位不存在")
+    changes = []
+    legacy_conflict_days = []
+    manual_protected_days = []
 
     for month_key, month_data in schedules.items():
         if not isinstance(month_data, dict):
@@ -379,39 +396,40 @@ def _sync_position_default_person_forward(pos_id, old_default_person, new_defaul
             if not isinstance(cell, dict):
                 continue
 
-            if cell.get("status") == "split" and isinstance(cell.get("slots"), dict):
-                slots = copy.deepcopy(cell.get("slots") or {})
-                changed = False
-                for slot_name in ("am", "pm"):
-                    slot_cell = slots.get(slot_name)
-                    if not isinstance(slot_cell, dict):
-                        continue
-                    if str(slot_cell.get("person", "") or "").strip() != old_default_person:
-                        continue
-                    updated_slot = dict(slot_cell)
-                    updated_slot["person"] = new_default_person
-                    slots[slot_name] = updated_slot
-                    changed = True
-                if changed:
-                    updated_cell = dict(cell)
-                    updated_cell["slots"] = slots
-                    updated_cell["person"] = slots.get("am", {}).get("person") or slots.get("pm", {}).get("person", "")
-                    day_data[pos_id] = updated_cell
-                    synced_days.append(f"{year}-{month:02d}-{day}")
+            source = _assignment_source(cell.get("_source"))
+            date_text = f"{year}-{month:02d}-{day:02d}"
+            if source == "manual":
+                manual_protected_days.append(date_text)
                 continue
-
-            if str(cell.get("person", "") or "").strip() != old_default_person:
+            if source == "legacy" and cell.get("status") not in ("on", "pending") and not include_legacy:
+                legacy_conflict_days.append(date_text)
                 continue
+            proposed = core_plan_position_assignment(
+                position,
+                positions,
+                staff,
+                groups,
+                year=year,
+                month=month,
+                day=day,
+                day_data=day_data,
+                month_schedule=month_data,
+            )
+            changes.append({
+                "date": date_text,
+                "from": {"status": cell.get("status", "pending"), "person": cell.get("person", ""), "source": source},
+                "to": {**proposed, "source": "automatic"},
+            })
+            day_data[pos_id] = {**proposed, "_source": "automatic"}
 
-            updated_cell = dict(cell)
-            updated_cell["person"] = new_default_person
-            day_data[pos_id] = updated_cell
-            synced_days.append(f"{year}-{month:02d}-{day}")
-
-    if synced_days:
+    if apply and changes:
         save_json(SCHEDULE_FILE, schedules)
-
-    return synced_days
+    return {
+        "synced_days": [item["date"] for item in changes],
+        "legacy_conflict_days": legacy_conflict_days,
+        "manual_protected_days": manual_protected_days,
+        "changes": changes,
+    }
 
 
 def _enrich_groups(groups, staff):
@@ -715,11 +733,10 @@ def update_position(pid):
     payload = request.json or {}
     positions = _positions()
     found = False
-    synced_days = []
+    previous_default_person = ""
     for pos in positions:
         if pos.get("id") == pid:
-            old_default_person = str(pos.get("default_person", "") or "").strip()
-            new_default_person = str(payload.get("default_person", pos.get("default_person", "")) or "").strip()
+            previous_default_person = str(pos.get("default_person", "") or "").strip()
             pos.update({
                 "name": str(payload.get("name", pos.get("name", ""))).strip(),
                 "workload": int(payload.get("workload", pos.get("workload", 0)) or 0),
@@ -727,13 +744,30 @@ def update_position(pid):
                 "category": str(payload.get("category", pos.get("category", "")) or ""),
                 "split_allowed": bool(payload.get("split_allowed", pos.get("split_allowed", False))),
             })
-            synced_days = _sync_position_default_person_forward(pid, old_default_person, new_default_person)
             found = True
             break
     if not found:
         return jsonify({"success": False, "msg": "岗位不存在"}), 404
     save_json(POSITION_FILE, positions)
-    return jsonify({"success": True, "synced_days": synced_days})
+    result = _sync_position_schedule_forward(pid, apply=True)
+    return jsonify({"success": True, "previous_default_person": previous_default_person, **result})
+
+
+@app.route("/api/positions/<pid>/sync-schedule", methods=["POST"])
+def sync_position_schedule(pid):
+    payload = request.json or {}
+    action = str(payload.get("action", ""))
+    if action not in ("preview", "apply"):
+        return jsonify({"success": False, "msg": "同步操作无效"}), 400
+    try:
+        result = _sync_position_schedule_forward(
+            pid,
+            include_legacy=bool(payload.get("include_legacy", False)),
+            apply=action == "apply",
+        )
+    except ValueError as exc:
+        return jsonify({"success": False, "msg": str(exc)}), 404
+    return jsonify({"success": True, "action": action, **result})
 
 
 @app.route("/api/positions/<pid>", methods=["DELETE"])
@@ -794,6 +828,7 @@ def save_day_schedule(year, month):
     person = str(payload.get("person", "")).strip()
     slot = str(payload.get("slot", "") or "").strip().lower()
     split_payload = payload.get("split")
+    source = _assignment_source(payload.get("assignment_source"), "manual")
     if day <= 0 or not pos_id:
         return jsonify({"success": False, "msg": "日期或岗位无效"}), 400
 
@@ -819,6 +854,7 @@ def save_day_schedule(year, month):
             "status": "split",
             "person": slots["am"].get("person") or slots["pm"].get("person", ""),
             "slots": slots,
+            "_source": source,
         }
     elif slot in ("am", "pm"):
         existing = day_data.get(pos_id, {})
@@ -836,9 +872,10 @@ def save_day_schedule(year, month):
             "status": "split",
             "person": slots["am"].get("person") or slots["pm"].get("person", ""),
             "slots": slots,
+            "_source": source,
         }
     else:
-        day_data[pos_id] = {"status": status, "person": person}
+        day_data[pos_id] = {"status": status, "person": person, "_source": source}
 
         if "_off_persons" not in day_data:
             day_data["_off_persons"] = []
@@ -896,6 +933,7 @@ def plan_day_schedule_api(year, month):
         scatter_groups=scatter_groups,
         month_schedule=month_data,
     )
+    _mark_day_assignments(result["day_data"])
 
     month_data[str(day)] = result["day_data"]
     _save_month_schedule(year, month, month_data)
@@ -916,7 +954,7 @@ def reset_month_schedule(year, month):
 
     positions = _positions()
     _, days_in_month = calendar.monthrange(year, month)
-    month_data = {str(day): _make_day_base(positions) for day in range(1, days_in_month + 1)}
+    month_data = {str(day): _mark_day_assignments(_make_day_base(positions)) for day in range(1, days_in_month + 1)}
     _save_month_schedule(year, month, month_data)
     return jsonify({"success": True, "schedule": month_data})
 
@@ -1040,15 +1078,16 @@ def cascade_off():
                     "status": "split",
                     "person": slots["am"].get("person") or slots["pm"].get("person", ""),
                     "slots": slots,
+                    "_source": "automatic",
                 }
             continue
         if str(cell.get("person", "")).strip() != person:
             continue
         if cell.get("status") == "substitute":
-            day_data[pid] = {"status": "pending", "person": ""}
+            day_data[pid] = {"status": "pending", "person": "", "_source": "automatic"}
             updated.append({"pos_id": pid, "person": "", "status": "pending", "pos_name": pos.get("name", pid)})
         elif person_is_off and (cell.get("status") in ("on", "pending", "")):
-            day_data[pid] = {"status": "off", "person": person}
+            day_data[pid] = {"status": "off", "person": person, "_source": "automatic"}
             updated.append({"pos_id": pid, "person": person, "status": "off", "pos_name": pos.get("name", pid)})
 
     month_data[str(day)] = day_data

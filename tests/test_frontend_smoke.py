@@ -82,6 +82,16 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("renderWeekStat()", block)
         self.assertIn("renderMonthStat()", block)
 
+    def test_manual_cells_are_tagged_and_legacy_position_sync_requires_confirmation(self):
+        save_block = self._block("async function saveCellState", "async function resetSchedule")
+        sync_block = self._block("async function applyLegacyPositionSync", "async function savePos")
+
+        self.assertIn("assignment_source:assignmentSource", save_block)
+        self.assertIn("opts.source === 'automatic'", save_block)
+        self.assertIn("排班格始终不会被覆盖", sync_block)
+        self.assertIn("include_legacy:true", sync_block)
+        self.assertIn("同步排班", self.text)
+
     def test_day_plan_day_selector_uses_current_month(self):
         block = self._block("function buildDayPlanDaySel(){", "function openDayPlanModal(){")
         self.assertIn("daysInMonth(G.year,G.month)", block)

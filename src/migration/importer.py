@@ -11,6 +11,7 @@ from pathlib import Path
 
 _CELL_STATUSES = {"on", "off", "pending", "substitute", "split"}
 _SLOT_STATUSES = _CELL_STATUSES - {"split"}
+_ASSIGNMENT_SOURCES = {"automatic", "manual", "legacy"}
 
 
 @dataclass
@@ -135,9 +136,12 @@ def build_import_sql(documents: Mapping[str, object], *, imported_at: str) -> st
                     raise ImportValidationError("INVALID_CELL_STATUS", "schedule contains an unsupported cell status")
                 staff_id, group_id = _assignment_id(cell.get("person"), staff_ids, group_ids)
                 cell_id = f"cell_{date}_{position_id}"
+                source = str(cell.get("_source", "legacy"))
+                if source not in _ASSIGNMENT_SOURCES:
+                    raise ImportValidationError("INVALID_ASSIGNMENT_SOURCE", "schedule contains an unsupported assignment source")
                 lines.append(
-                    "INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id) VALUES "
-                    f"({_q(cell_id)}, {_q(day_id)}, {_q(position_id)}, {_q(status)}, {_q(staff_id)}, {_q(group_id)});"
+                    "INSERT INTO schedule_cells (id, schedule_day_id, position_id, status, staff_id, group_id, assignment_source) VALUES "
+                    f"({_q(cell_id)}, {_q(day_id)}, {_q(position_id)}, {_q(status)}, {_q(staff_id)}, {_q(group_id)}, {_q(source)});"
                 )
                 slots = cell.get("slots") or {}
                 if not isinstance(slots, Mapping):

@@ -1519,7 +1519,7 @@ async function triggerAutoSubstituteForGroup(group, day) {
       });
 
       if (res.success && res.person) {
-        await saveCellState(pos.id, day, 'substitute', res.person);
+        await saveCellState(pos.id, day, 'substitute', res.person, { source: 'automatic' });
         toast(`【${pos.name}】已安排替班：${res.person}`);
       }
     } catch(e) {
@@ -1546,7 +1546,7 @@ async function triggerGroupRestore(group, day) {
       const cell = dayData[pos.id];
       if (cell && cell.status === 'substitute') {
         // 鍙栨秷鏇跨彮锛屾仮澶嶄负灏忕粍鍚?on 鐘舵€?
-        await saveCellState(pos.id, day, 'on', group.name);
+        await saveCellState(pos.id, day, 'on', group.name, { source: 'automatic' });
         restoredCount++;
       }
     }
@@ -1580,7 +1580,7 @@ async function triggerAutoSubstituteForPos(pos_id, day) {
     console.log('[triggerAutoSubstituteForPos] API杩斿洖:', pos.name, res);
     const wdNames=['日','一','二','三','四','五','六'];
     if (res.success && res.person) {
-      await saveCellState(pos_id, day, 'substitute', res.person);
+      await saveCellState(pos_id, day, 'substitute', res.person, { source: 'automatic' });
       console.log('[triggerAutoSubstituteForPos] 宸茶涓簊ubstitute:', pos.name, res.person);
     } else {
       console.warn('[triggerAutoSubstituteForPos] 无可用替班人:', pos.name, res);
@@ -1748,11 +1748,11 @@ async function autoSubstitute(pid, day, slot=''){
           
           const pDp = (p.default_person || '').trim();
           if(res.success && (res.person || '').trim() !== pDp){
-            await saveCellState(p.id, day, 'substitute', res.person);
+            await saveCellState(p.id, day, 'substitute', res.person, { source: 'automatic' });
             subCount++;
           } else {
             // 鏃犲彲鐢ㄦ浛鐝汉 鈫?pending锛?锛夛紝涓嶈兘淇濈暀 off锛堣繚鍙嶇孩绾匡級
-            await saveCellState(p.id, day, 'pending', '');
+            await saveCellState(p.id, day, 'pending', '', { source: 'automatic' });
             offCount++;
           }
         }
@@ -1768,11 +1768,11 @@ async function autoSubstitute(pid, day, slot=''){
           });
         
           if(mainRes.success && (mainRes.person || '').trim() !== dp){
-            await saveCellState(pid, day, 'substitute', mainRes.person);
+            await saveCellState(pid, day, 'substitute', mainRes.person, { source: 'automatic' });
             subCount++;
           } else {
             // 鏃犲彲鐢ㄦ浛鐝汉 鈫?pending锛屼笉鐣?off
-            await saveCellState(pid, day, 'pending', '');
+            await saveCellState(pid, day, 'pending', '', { source: 'automatic' });
             offCount++;
           }
         }
@@ -1820,14 +1820,14 @@ async function autoSubstitute(pid, day, slot=''){
           
           if(res.success && (res.person || '').trim() !== dp){
             // 鎵惧埌闈為粯璁や汉鐨勬浛鐝汉
-            await saveCellState(pid, day, 'substitute', res.person);
+            await saveCellState(pid, day, 'substitute', res.person, { source: 'automatic' });
             toast(`已安排替班 ${res.person}`);
             // 姝ラ3锛氱骇鑱旀洿鏂帮細妫€鏌ユ浛鐝汉鏄惁涔熼渶瑕佺骇鑱斿鐞?
             await cascadeUpdateIfNeeded(day);
           } else {
             // 鏃犲彲鐢ㄦ浛鐝汉 鈫?涓嶈兘淇濈暀 off锛堣繚鍙嶇孩绾匡細宀椾綅蹇呴』鏈変汉锛?
             // 鏀逛负 pending锛堝緟鍒嗛厤锛夛紝閬垮厤鏄剧ず绾㈠弶
-            await saveCellState(pid, day, 'pending', '');
+            await saveCellState(pid, day, 'pending', '', { source: 'automatic' });
             toast(`${dp} 已设为休假，暂无替班人（待手动安排）`, 3000);
           }
         }
@@ -1842,7 +1842,7 @@ async function autoSubstitute(pid, day, slot=''){
     if(res.success){
       const isDefault = (res.person || '').trim() === dp;
       const newStatus = isDefault ? 'on' : 'substitute';
-      await saveCellState(pid, day, newStatus, res.person);
+      await saveCellState(pid, day, newStatus, res.person, { source: 'automatic' });
       if(isDefault){
         toast(`${res.person} 已在班`);
       } else {
@@ -1850,14 +1850,14 @@ async function autoSubstitute(pid, day, slot=''){
       }
     } else {
       toast('无可用替班人: '+res.msg, 3000);
-      await saveCellState(pid, day, 'pending', '');
+      await saveCellState(pid, day, 'pending', '', { source: 'automatic' });
     }
   }catch(e){
     console.error('[autoSubstitute] 寮傚父:', e);
     toast('操作失败: '+e.message, 3000);
     // 閬垮厤鐣欎笅 off锛堣繚鍙嶇孩绾匡細宀椾綅蹇呴』鏈変汉锛夛紝鏀逛负 pending
     try{
-      await saveCellState(pid, day, 'pending', '');
+      await saveCellState(pid, day, 'pending', '', { source: 'automatic' });
     }catch(e2){ console.error('[autoSubstitute] 鍥炴粴pending涔熷け璐?', e2); }
   }
 }
@@ -1867,7 +1867,7 @@ async function autoSubstitute(pid, day, slot=''){
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 async function applyCascadeUpdate(day, update){
   if(!update || !update.pos_id) return;
-  const opts = update.slot ? { slot: update.slot, skipAutoHooks: true } : { skipAutoHooks: true };
+  const opts = update.slot ? { slot: update.slot, skipAutoHooks: true, source: 'automatic' } : { skipAutoHooks: true, source: 'automatic' };
   await saveCellState(update.pos_id, day, update.status || 'pending', update.person || '', opts);
 }
 
@@ -2085,6 +2085,7 @@ async function toggleCellSplit(pid, day){
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺?
 async function saveCellState(pos_id, day, status, person, options={}){
   const opts = options || {};
+  const assignmentSource = opts.source === 'automatic' ? 'automatic' : 'manual';
   const pos = G.positions.find(p=>p.id===pos_id);
   const shouldSplit = status === 'split' || !!opts.split || !!opts.slot;
   // 鏈湴鏇存柊
@@ -2111,9 +2112,9 @@ async function saveCellState(pos_id, day, status, person, options={}){
       slots = { am, pm };
       slots[opts.slot] = normalizeSlotCell({status, person}, slots[opts.slot].status, slots[opts.slot].person);
     }
-    G.schedule[day][pos_id]={status:'split', person: slots.am.person || slots.pm.person || '', slots};
+    G.schedule[day][pos_id]={status:'split', person: slots.am.person || slots.pm.person || '', slots, _source:assignmentSource};
   } else {
-    G.schedule[day][pos_id]={status, person};
+    G.schedule[day][pos_id]={status, person, _source:assignmentSource};
   }
   syncScheduleDayWidth(daysInMonth(G.year, G.month), G.hiddenDays || new Set());
   // 閲嶇粯璇ユ牸瀛?
@@ -2131,7 +2132,7 @@ async function saveCellState(pos_id, day, status, person, options={}){
   // 鍚庣鎸佷箙鍖?
   let clearedPositions = [];
   try{
-    const payload = { day, pos_id };
+    const payload = { day, pos_id, assignment_source:assignmentSource };
     if((G.schedule[day][pos_id] || {}).status === 'split'){
       const nextCell = G.schedule[day][pos_id];
       if(opts.split && typeof opts.split === 'object'){
@@ -2492,6 +2493,7 @@ function renderPosTable(){
       <td>${cat}</td>
       <td>
         <button class="action-btn edit" onclick="editPos('${p.id}')">编辑</button>
+        <button class="action-btn" onclick="syncPosSchedule('${p.id}','${p.name}')">同步排班</button>
         <button class="action-btn del" onclick="delPos('${p.id}','${p.name}')">删除</button>
       </td>
     </tr>`;
@@ -2621,6 +2623,36 @@ function buildPosDefaultSel(selected){
   }
 }
 function closePosModal(){ $('pos-modal').style.display='none'; }
+async function applyLegacyPositionSync(id, legacyDays){
+  const labels=(legacyDays||[]).map(date=>date.slice(5).replace('-','月')+'日').join('、');
+  const message=`发现 ${(legacyDays||[]).length} 个旧排班格无法自动判断是否曾人工调整：${labels}。\n\n是否按当前岗位设置重新计算这些日期？\n已标记为“人工”的排班格始终不会被覆盖。`;
+  if(!confirm(message)) return null;
+  return api('/api/positions/'+id+'/sync-schedule','POST',{action:'apply',include_legacy:true});
+}
+async function syncPosSchedule(id,name){
+  loading(true);
+  try{
+    const preview=await api('/api/positions/'+id+'/sync-schedule','POST',{action:'preview',include_legacy:false});
+    const safeCount=(preview.synced_days||[]).length;
+    const legacyDays=preview.legacy_conflict_days||[];
+    const manualCount=(preview.manual_protected_days||[]).length;
+    if(!safeCount && !legacyDays.length){
+      toast(manualCount ? `${name} 没有可同步日期，已保留 ${manualCount} 个人工排班格` : `${name} 没有需要同步的未来排班`);
+      return;
+    }
+    const result=legacyDays.length
+      ? await applyLegacyPositionSync(id,legacyDays)
+      : (confirm(`将按“${name}”当前设置重新计算 ${safeCount} 个未来自动排班格。\n人工排班格不会被覆盖。是否继续？`)
+          ? await api('/api/positions/'+id+'/sync-schedule','POST',{action:'apply',include_legacy:false})
+          : null);
+    if(!result) return;
+    G.schedule=await api(`/api/schedule/${G.year}/${G.month}`);
+    G.lastPollHash='';
+    renderTable(); renderDayStat(); renderWeekStat(); renderMonthStat();
+    toast(`已同步 ${(result.synced_days||[]).length} 个未来排班格，保留 ${(result.manual_protected_days||[]).length} 个人工排班格`,3500);
+  }catch(e){ toast('同步排班失败: '+e.message,3000); }
+  finally{ loading(false); }
+}
 async function savePos(){
   const name=$('pos-name').value.trim();
   if(!name){ toast('请输入岗位名称'); return; }
@@ -2654,7 +2686,20 @@ async function savePos(){
     renderMonthStat();
     if(updateResult){
       const count=(updateResult.synced_days||[]).length;
-      toast(count ? `岗位已更新，已同步 ${count} 个未来日期` : '岗位已更新');
+      const legacyDays=updateResult.legacy_conflict_days||[];
+      if(legacyDays.length){
+        const legacyResult=await applyLegacyPositionSync(G.editingPosId,legacyDays);
+        if(legacyResult){
+          G.schedule=await api(`/api/schedule/${G.year}/${G.month}`);
+          G.lastPollHash='';
+          renderTable(); renderDayStat(); renderWeekStat(); renderMonthStat();
+          toast(`岗位已更新，共同步 ${(legacyResult.synced_days||[]).length} 个未来日期；人工排班格未覆盖`,3500);
+        }else{
+          toast(`岗位已更新，已同步 ${count} 个自动排班格；${legacyDays.length} 个旧排班格保持不变`,3500);
+        }
+      }else{
+        toast(count ? `岗位已更新，已同步 ${count} 个未来日期` : '岗位已更新');
+      }
     } else {
       toast('岗位已新增');
     }

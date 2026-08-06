@@ -20,6 +20,7 @@ def test_build_import_sql_preserves_group_and_split_assignments():
                     "p1": {
                         "status": "split",
                         "person": "",
+                        "_source": "manual",
                         "slots": {
                             "am": {"status": "on", "person": "甲", "workload": 4},
                             "pm": {"status": "on", "person": "一组", "workload": 4},
@@ -37,6 +38,8 @@ def test_build_import_sql_preserves_group_and_split_assignments():
 
     assert "INSERT INTO groups" in sql
     assert "INSERT INTO schedule_cells" in sql
+    assert "assignment_source" in sql
+    assert "'manual'" in sql
     assert "'g1'" in sql
     assert "INSERT INTO schedule_slots" in sql
     assert "'am'" in sql
