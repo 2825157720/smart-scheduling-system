@@ -121,3 +121,19 @@ Playwright 固定截图：
 - [x] 正式浏览器：排班表 20 行、人员管理 14 行，表头包含“仅周六替班 / 仅周末替班 / 不替班”，三项输入使用同一互斥处理器；字体状态 `loaded`，页面级横向溢出为 0，无应用脚本错误或资源 4xx。
 - [x] 缓存与域名：首页和主题 CSS 使用 `must-revalidate`；版本化 WOFF2 使用一年 `immutable`；`www` 返回 301 到正式根域名。
 - [x] 回滚边界：旧 Worker 不理解 `weekend_only`。若回滚到 `e5e6cda7-21a7-4003-a785-5fc8c192ebcb`，只允许查看已保存排班和只读健康检查；恢复新版前必须暂停当天排班、强制重排、自动替班及右键替班写操作。
+
+## 2026-08-06 岗位同步来源保护与 8 月 8 日单格修复 Production
+
+- [x] 用户确认 Preview 验收通过并授权发布 Production；实现提交 `2bd369c fix(scheduling): protect manual assignments during position sync` 已推送并与 `origin/dev` 同步。
+- [x] Preview version：`17219578-61b4-4de9-9a2f-d5f24bb56eba`。
+- [x] 发布前 Production version / Worker 回滚目标：`a1f069fd-2182-47c3-a3be-4860ff10c404`。
+- [x] 发布后 Production version：`bd7d4b19-1c36-4bd8-a94e-2837d656d8d9`，控制面确认承载 100% 流量。
+- [x] Production D1 迁移前备份：`.migration/backups/smart-scheduling-production-before-0006-20260806-180532.sql`，965,269 字节，SHA-256 `DD64D0C1B5D9091E24D22E77A87EAF0C97685BE4A3EB364AC2896D24AD8905E2`。
+- [x] `0006_schedule_assignment_source.sql` 已应用；`schedule_cells.assignment_source` 与 `idx_schedule_cells_position_source` 均存在，无待执行 migration。
+- [x] 迁移只为 1,489 条既有排班补充 `legacy` 来源标记，没有重排或改写人员；新自动排班写入 `automatic`，右键人工排班写入 `manual`，岗位同步始终保护 `manual`。
+- [x] 2026-08-08 “京东中”历史错排使用精确旧值条件完成单行修复，D1 返回 `changes=1`；修复后为“赵创 / 在班 / automatic”，“专员2”仍为“赵创 / 在班”，当日休假名单不含赵创，其他 1,488 条历史单元格仍为 `legacy`。
+- [x] 自动化门禁：Python `98 passed`；Worker `36 passed`；Playwright `16 passed / 2 skipped`；三项 `node --check`、`npm ci`、Preview/Production dry-run 和 `git diff --check` 通过。
+- [x] 正式只读接口：主页、`/api/live`、`/api/storage-info`、人员、岗位、分组、2026 年 8 月排班和备忘录均可读；人员 14 名、岗位 20 个、分组 5 个。
+- [x] 正式浏览器：排班表可见，8 月 8 日 `p19` 显示“赵创 / 在班”，字体状态 `loaded`，页面级横向溢出为 0。
+- [x] 缓存与域名：首页和主题 CSS 使用 `must-revalidate`；版本化 WOFF2 使用一年 `immutable`；`www` 对带路径和查询参数的请求返回 301 并完整跳转到正式根域名。
+- [x] Worker 回滚命令：`npx --no-install wrangler rollback a1f069fd-2182-47c3-a3be-4860ff10c404 --config .\wrangler.jsonc --env production`。Worker 回滚不会移除 `assignment_source` 列，也不会撤销 8 月 8 日单格数据修复；需要恢复数据时使用本次 D1 备份并另行核验。
