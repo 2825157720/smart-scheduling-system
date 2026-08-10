@@ -74,7 +74,7 @@ class FrontendSmokeTests(unittest.TestCase):
         self.assertIn("reset_dates", block)
 
     def test_position_save_immediately_refreshes_schedule_and_statistics(self):
-        block = self._block("async function savePos(){", "async function delPos(id,name){")
+        block = self._block("async function savePos(){", "async function delPos(id){")
 
         self.assertIn("Promise.all", block)
         self.assertIn("api(`/api/schedule/${G.year}/${G.month}`)", block)
@@ -99,7 +99,7 @@ class FrontendSmokeTests(unittest.TestCase):
 
     def test_day_plan_submits_staff_ids(self):
         block = self._block("function renderDayPlanOffList(){", "async function loadAll(){")
-        self.assertIn("value=\"' + m.id + '\"", block)
+        self.assertIn("value=\"' + escapeHtml(m.id) + '\"", block)
         self.assertIn("off_person_ids", self.text)
         self.assertIn("use_saved_off_persons", self.text)
         self.assertIn("dayPlanDirty", self.text)

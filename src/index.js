@@ -4,8 +4,49 @@ import { buildImportPreview, createImportToken, normalizeImportPayload, shanghai
 const json = (body, init = {}) => Response.json(body, init);
 const rows = async (statement) => (await statement.all()).results;
 const now = () => new Date().toISOString();
-const failure = (msg, status = 400) => json({ success: false, msg }, { status });
+const failure = (msg, status = 400, init = {}) => json({ success: false, msg }, { ...init, status });
 const ASSIGNMENT_SOURCES = new Set(["automatic", "manual", "legacy"]);
+const MUTATING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+const WRITE_LOCK_RETRY_AFTER_SECONDS = "300";
+const DISALLOWED_TEXT = /[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u;
+const POSITION_CATEGORIES = new Set(["", "次品", "京东"]);
+
+function writesLocked(env) {
+  return env.WRITE_MODE !== "enabled";
+}
+
+function normalizeText(value, label, { maxLength = 80, allowEmpty = false, allowNewlines = false } = {}) {
+  if (typeof value !== "string") throw new Error(`${label}必须是文本`);
+  const normalized = value.normalize("NFC").trim();
+  if (!allowEmpty && !normalized) throw new Error(`${label}不能为空`);
+  if (Array.from(normalized).length > maxLength) throw new Error(`${label}不能超过${maxLength}个字符`);
+  const invalid = allowNewlines
+    ? /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/u
+    : DISALLOWED_TEXT;
+  if (invalid.test(normalized)) throw new Error(`${label}包含不允许的控制字符`);
+  return normalized;
+}
+
+function normalizeWorkload(value) {
+  const workload = Number(value ?? 0);
+  if (!Number.isFinite(workload) || workload < 0 || workload > 100000) throw new Error("工作量必须是 0 到 100000 之间的数字");
+  return workload;
+}
+
+async function subjectHasReferences(db, type, id) {
+  const columns = type === "staff"
+    ? [
+      ["schedule_cells", "staff_id"], ["schedule_slots", "staff_id"], ["schedule_day_off_staff", "staff_id"], ["positions", "default_staff_id"],
+    ]
+    : [
+      ["schedule_cells", "group_id"], ["schedule_slots", "group_id"], ["schedule_day_off_groups", "group_id"], ["positions", "default_group_id"], ["staff", "group_id"],
+    ];
+  for (const [table, column] of columns) {
+    const referenced = await db.prepare(`SELECT 1 FROM ${table} WHERE ${column} = ? LIMIT 1`).bind(id).first();
+    if (referenced) return true;
+  }
+  return false;
+}
 const assignmentSource = (value, fallback = "legacy") => ASSIGNMENT_SOURCES.has(value) ? value : fallback;
 
 function markDayAssignments(dayData, source = "automatic") {
@@ -289,6 +330,15 @@ export default {
     if (url.pathname === "/api/live") {
       return json({ ok: true });
     }
+    const legacyMonthWrite = url.pathname.match(/^\/api\/schedule\/\d{4}\/\d{1,2}$/);
+    if (request.method === "POST" && legacyMonthWrite) {
+      return failure("整月保存接口已停用，请使用单日排班接口", 410);
+    }
+    if (MUTATING_METHODS.has(request.method) && writesLocked(env)) {
+      return failure("系统正在维护，暂时禁止修改", 503, {
+        headers: { "Retry-After": WRITE_LOCK_RETRY_AFTER_SECONDS },
+      });
+    }
     if (url.pathname === "/api/storage-info") {
       const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM staff").first();
       return json({ mode: "d1", database_available: true, staff_count: row.count });
@@ -303,8 +353,8 @@ export default {
     if (request.method === "GET" && url.pathname === "/api/staff") return json(await getStaff(env.DB));
     if (request.method === "GET" && url.pathname === "/api/positions") return json(await getPositions(env.DB));
     if (request.method === "POST" && url.pathname === "/api/groups") {
-      const body = await request.json(); const name = String(body.name || "").trim();
-      if (!name) return failure("小组名称不能为空");
+      const body = await request.json(); let name;
+      try { name = normalizeText(body.name, "小组名称"); } catch (error) { return failure(error.message); }
       if (await nameExists(env.DB, name)) return failure("名称已存在");
       const groupId = crypto.randomUUID();
       await env.DB.prepare("INSERT INTO groups (id, name) VALUES (?, ?)").bind(groupId, name).run();
@@ -312,21 +362,20 @@ export default {
     }
     const group = url.pathname.match(/^\/api\/groups\/([^/]+)$/);
     if (group && request.method === "PUT") {
-      const body = await request.json(); const name = String(body.name || "").trim();
-      if (!name) return failure("小组名称不能为空");
+      const body = await request.json(); let name;
+      try { name = normalizeText(body.name, "小组名称"); } catch (error) { return failure(error.message); }
       if (await nameExists(env.DB, name, { groupId: group[1] })) return failure("名称已存在");
       const result = await env.DB.prepare("UPDATE groups SET name = ? WHERE id = ?").bind(name, group[1]).run();
       return result.meta.changes ? json({ success: true }) : failure("小组不存在", 404);
     }
     if (group && request.method === "DELETE") {
-      const inSchedule = await env.DB.prepare("SELECT 1 FROM schedule_cells WHERE group_id = ? LIMIT 1").bind(group[1]).first();
-      if (inSchedule) return failure("该小组已被排班历史引用，不能删除", 409);
-      await env.DB.prepare("DELETE FROM groups WHERE id = ?").bind(group[1]).run();
-      return json({ success: true });
+      if (await subjectHasReferences(env.DB, "group", group[1])) return failure("该小组仍被人员、岗位或排班记录引用，不能删除", 409);
+      const result = await env.DB.prepare("DELETE FROM groups WHERE id = ?").bind(group[1]).run();
+      return result.meta.changes ? json({ success: true }) : failure("小组不存在", 404);
     }
     if (request.method === "POST" && url.pathname === "/api/staff") {
-      const body = await request.json(); const name = String(body.name || "").trim();
-      if (!name) return failure("姓名不能为空");
+      const body = await request.json(); let name;
+      try { name = normalizeText(body.name, "姓名"); } catch (error) { return failure(error.message); }
       if (await nameExists(env.DB, name)) return failure("名称已存在");
       const staffId = crypto.randomUUID(); const groupId = body.group_id || null;
       const restrictions = normalizeSubstituteRestrictions(body);
@@ -339,8 +388,8 @@ export default {
       const body = await request.json();
       const existing = await env.DB.prepare("SELECT name, group_id, can_cpin, can_jd, saturday_only, weekend_only, no_substitute FROM staff WHERE id = ?").bind(staff[1]).first();
       if (!existing) return failure("人员不存在", 404);
-      const name = String(Object.prototype.hasOwnProperty.call(body, "name") ? body.name : existing.name).trim();
-      if (!name) return failure("姓名不能为空");
+      let name;
+      try { name = normalizeText(Object.prototype.hasOwnProperty.call(body, "name") ? body.name : existing.name, "姓名"); } catch (error) { return failure(error.message); }
       if (await nameExists(env.DB, name, { staffId: staff[1] })) return failure("名称已存在");
       const restrictions = normalizeSubstituteRestrictions(body, existing);
       const groupId = Object.prototype.hasOwnProperty.call(body, "group_id") ? body.group_id || null : existing.group_id || null;
@@ -351,24 +400,25 @@ export default {
       return result.meta.changes ? json({ success: true }) : failure("人员不存在", 404);
     }
     if (staff && request.method === "DELETE") {
-      const inSchedule = await env.DB.prepare("SELECT 1 FROM schedule_cells WHERE staff_id = ? LIMIT 1").bind(staff[1]).first();
-      if (inSchedule) return failure("该人员已被排班历史引用，不能删除", 409);
-      await env.DB.prepare("DELETE FROM staff WHERE id = ?").bind(staff[1]).run();
-      return json({ success: true });
+      if (await subjectHasReferences(env.DB, "staff", staff[1])) return failure("该人员仍被岗位或排班记录引用，不能删除", 409);
+      const result = await env.DB.prepare("DELETE FROM staff WHERE id = ?").bind(staff[1]).run();
+      return result.meta.changes ? json({ success: true }) : failure("人员不存在", 404);
     }
     if (request.method === "POST" && url.pathname === "/api/positions") {
-      const body = await request.json(); const name = String(body.name || "").trim();
-      if (!name) return failure("岗位名称不能为空");
+      const body = await request.json(); let name; let workload;
+      try { name = normalizeText(body.name, "岗位名称"); workload = normalizeWorkload(body.workload); } catch (error) { return failure(error.message); }
+      if (!POSITION_CATEGORIES.has(body.category || "")) return failure("岗位类别无效");
       const posId = crypto.randomUUID(); const subject = await subjectMaps(env.DB); const defaultSubject = subjectId(String(body.default_person || ""), subject);
       const rank = (await env.DB.prepare("SELECT COALESCE(MAX(sort_order), 0) AS rank FROM positions").first()).rank + 1;
       await env.DB.prepare("INSERT INTO positions (id, name, workload, default_staff_id, default_group_id, category, split_allowed, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(posId, name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, rank).run();
+        .bind(posId, name, workload, defaultSubject.staffId, defaultSubject.groupId, body.category || "", body.split_allowed ? 1 : 0, rank).run();
       return json({ success: true, pos_id: posId });
     }
     const position = url.pathname.match(/^\/api\/positions\/([^/]+)$/);
     if (position && request.method === "PUT") {
-      const body = await request.json(); const name = String(body.name || "").trim();
-      if (!name) return failure("岗位名称不能为空");
+      const body = await request.json(); let name; let workload;
+      try { name = normalizeText(body.name, "岗位名称"); workload = normalizeWorkload(body.workload); } catch (error) { return failure(error.message); }
+      if (!POSITION_CATEGORIES.has(body.category || "")) return failure("岗位类别无效");
       const subject = await subjectMaps(env.DB); const defaultSubject = subjectId(String(body.default_person || ""), subject);
       const existing = await env.DB.prepare(`
         SELECT p.id, COALESCE(s.name, g.name, '') AS default_person
@@ -379,7 +429,7 @@ export default {
       `).bind(position[1]).first();
       if (!existing) return failure("岗位不存在", 404);
       await env.DB.prepare("UPDATE positions SET name=?, workload=?, default_staff_id=?, default_group_id=?, category=?, split_allowed=? WHERE id=?")
-        .bind(name, Number(body.workload || 0), defaultSubject.staffId, defaultSubject.groupId, String(body.category || ""), body.split_allowed ? 1 : 0, position[1]).run();
+        .bind(name, workload, defaultSubject.staffId, defaultSubject.groupId, body.category || "", body.split_allowed ? 1 : 0, position[1]).run();
       const sync = await synchronizePositionFuture(env.DB, position[1], { apply: true });
       return json({ success: true, previous_default_person: existing.default_person, ...sync });
     }

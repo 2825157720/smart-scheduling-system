@@ -872,8 +872,8 @@ function renderDayPlanOffList(){
     wrap.innerHTML = G.staff.map(m => {
       const checkedAttr = offNames.has((m.name || '').trim()) ? ' checked' : '';
       return '<label class="day-plan-person">' +
-        '<input type="checkbox" value="' + m.id + '"' + checkedAttr + ' onchange="markDayPlanDirty()">' +
-        '<span class="day-plan-person-name">' + m.name + '</span>' +
+        '<input type="checkbox" value="' + escapeHtml(m.id) + '"' + checkedAttr + ' onchange="markDayPlanDirty()">' +
+        '<span class="day-plan-person-name">' + escapeHtml(m.name) + '</span>' +
         (checkedAttr ? '<span class="day-plan-person-tag">休</span>' : '') +
         '</label>';
     }).join('');
@@ -1036,13 +1036,16 @@ function renderTable(){
   let html='';
   for(const pos of G.positions){
     const dp = pos.default_person || '';
+    const safePositionId = escapeHtml(pos.id);
+    const safePositionName = escapeHtml(pos.name);
+    const safeDefaultPerson = escapeHtml(dp);
     let catBadge='';
     if(pos.category==='次品') catBadge='<span class="tag tag-cpin">次品</span>';
     if(pos.category==='京东') catBadge='<span class="tag tag-jd">京东</span>';
-    html+=`<tr data-pid="${pos.id}" draggable="true">
-      <td class="col-pos"><span class="drag-handle" title="拖动排序">↕</span><b>${pos.name}</b>${catBadge}</td>
-      <td class="col-def" style="font-size:11px">${dp||'<span style="color:#999">--</span>'}</td>
-      <td class="col-wl">${pos.workload}</td>`;
+    html+=`<tr data-pid="${safePositionId}" draggable="true">
+      <td class="col-pos"><span class="drag-handle" title="拖动排序">↕</span><b>${safePositionName}</b>${catBadge}</td>
+      <td class="col-def" style="font-size:11px">${dp ? safeDefaultPerson : '<span style="color:#999">--</span>'}</td>
+      <td class="col-wl">${escapeHtml(pos.workload)}</td>`;
     for(let d=1;d<=days;d++){
       if(hidden.has(d)) continue;
       const wd=getWeekday(G.year,G.month,d);
@@ -1354,7 +1357,9 @@ function renderSplitSlot(pid, day, slot, slotCell, isPast){
   const safePerson = escapeHtml(person);
   const safeTitle = escapeHtml(title);
   const safeDisplay = escapeHtml(display);
-  return `<div class="split-slot slot-${slot} ${slotClass} ${statusCls}${pastCls}" data-pid="${pid}" data-day="${day}" data-slot="${slot}" data-status="${status}" data-person="${safePerson}" title="${safeTitle}">
+  const safePid = escapeHtml(pid);
+  const safeStatus = escapeHtml(status);
+  return `<div class="split-slot slot-${slot} ${slotClass} ${statusCls}${pastCls}" data-pid="${safePid}" data-day="${day}" data-slot="${slot}" data-status="${safeStatus}" data-person="${safePerson}" title="${safeTitle}">
     <span class="sr-only">${safeTitle}</span>
     <span class="slot-person" aria-hidden="true">${safeDisplay}</span>
   </div>`;
@@ -1371,7 +1376,8 @@ function renderCell(pos, day, cell, isPast, isSat, isSun){
     const pm = getSplitSlotCell(cell, 'pm');
     const title = `${getSplitSlotTitle('上午', am)} / ${getSplitSlotTitle('下午', pm)}`;
     const splitPerson = escapeHtml(cell.person || am.person || pm.person || '');
-    return `<div class="cell cell-split${pastCls}" data-pid="${pid}" data-day="${day}" data-status="split" data-person="${splitPerson}" title="${escapeHtml(title)}">
+    const splitPid = escapeHtml(pid);
+    return `<div class="cell cell-split${pastCls}" data-pid="${splitPid}" data-day="${day}" data-status="split" data-person="${splitPerson}" title="${escapeHtml(title)}">
       ${renderSplitSlot(pid, day, 'am', am, isPast)}
       ${renderSplitSlot(pid, day, 'pm', pm, isPast)}
     </div>`;
@@ -1379,25 +1385,27 @@ function renderCell(pos, day, cell, isPast, isSat, isSun){
 
   // 鍒ゆ柇榛樿浜烘槸鍚︽槸灏忕粍锛堣€岄潪涓汉锛?
   const isGroupDefault = !!G.groups.find(g => g.name === person);
+  const safePid = escapeHtml(pid);
+  const safeStatus = escapeHtml(status);
   const safePerson = escapeHtml(person);
 
   if(status==='on'){
     if(isGroupDefault){
       // 灏忕粍榛樿浜?鈫?鏄剧ず灏忕粍鍚嶏紙娴呰摑锛屽畬鏁存樉绀猴級
-      return `<div class="cell cell-group-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${safePerson}" title="${safePerson} 在班">${safePerson}</div>`;
+      return `<div class="cell cell-group-on${pastCls}" data-pid="${safePid}" data-day="${day}" data-status="on" data-person="${safePerson}" title="${safePerson} 在班">${safePerson}</div>`;
     }
-    return `<div class="cell cell-on${pastCls}" data-pid="${pid}" data-day="${day}" data-status="on" data-person="${safePerson}" title="${safePerson} 在班">
+    return `<div class="cell cell-on${pastCls}" data-pid="${safePid}" data-day="${day}" data-status="on" data-person="${safePerson}" title="${safePerson} 在班">
       <span class="check-icon">✓</span></div>`;
   }
   if(status==='off'){
-    return `<div class="cell cell-off${pastCls}" data-pid="${pid}" data-day="${day}" data-status="off" data-person="${safePerson}" title="${safePerson} 休假">
+    return `<div class="cell cell-off${pastCls}" data-pid="${safePid}" data-day="${day}" data-status="off" data-person="${safePerson}" title="${safePerson} 休假">
       <span class="cross-icon">✕</span></div>`;
   }
   if(status==='substitute'){
-    return `<div class="cell cell-sub${pastCls}" data-pid="${pid}" data-day="${day}" data-status="substitute" data-person="${safePerson}" title="替班: ${safePerson}">${safePerson||'--'}</div>`;
+    return `<div class="cell cell-sub${pastCls}" data-pid="${safePid}" data-day="${day}" data-status="substitute" data-person="${safePerson}" title="替班: ${safePerson}">${safePerson||'--'}</div>`;
   }
   // pending
-  return `<div class="cell cell-pending${pastCls}" data-pid="${pid}" data-day="${day}" data-status="pending" data-person="" title="待定（需设置替班人）">待</div>`;
+  return `<div class="cell cell-pending${pastCls}" data-pid="${safePid}" data-day="${day}" data-status="${safeStatus}" data-person="" title="待定（需设置替班人）">待</div>`;
 }
 
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
@@ -1983,8 +1991,8 @@ function onCellRightClick(e){
   let html=`<div style="padding:4px 12px;font-size:11px;color:#999">${slotLabel ? slotLabel + '槽位替班人：' : '选择替班人：'}</div>`;
   for(const m of candidates){
     const busy = busyToday.has(m.name);
-    html+=`<div class="ctx-staff-item"${busy?' style="opacity:.4"':''} onclick="ctxSetSub('${pid}',${day},'${m.name}'${slot ? `,'${slot}'` : ''})">
-      ${m.name}${busy?'（已排班）':''}
+    html+=`<div class="ctx-staff-item"${busy?' style="opacity:.4"':''} data-action="set-sub" data-person="${escapeHtml(m.name)}">
+      ${escapeHtml(m.name)}${busy?'（已排班）':''}
     </div>`;
   }
   if(candidates.length===0){
@@ -1992,15 +2000,20 @@ function onCellRightClick(e){
   }
   if(pos.default_person){
     html+=`<div class="ctx-sep"></div>
-      <div class="ctx-item" onclick="ctxRestoreDefault('${pid}',${day}${slot ? `,'${slot}'` : ''})">
-        <span>↺</span><span>恢复默认人员（${pos.default_person}）</span></div>`;
+      <div class="ctx-item" data-action="restore-default">
+        <span>↺</span><span>恢复默认人员（${escapeHtml(pos.default_person)}）</span></div>`;
   }
   if(pos.split_allowed){
     html+=`<div class="ctx-sep"></div>
-      <div class="ctx-item split-action" onclick="toggleCellSplit('${pid}',${day})">
+      <div class="ctx-item split-action" data-action="toggle-split">
         <span>▣</span><span>${status === 'split' ? '合并为单岗' : '拆分上午/下午'}</span></div>`;
   }
   menu.innerHTML=html;
+  menu.querySelectorAll('[data-action="set-sub"]').forEach((item)=>{
+    item.addEventListener('click',()=>ctxSetSub(pid,day,item.dataset.person||'',slot));
+  });
+  menu.querySelector('[data-action="restore-default"]')?.addEventListener('click',()=>ctxRestoreDefault(pid,day,slot));
+  menu.querySelector('[data-action="toggle-split"]')?.addEventListener('click',()=>toggleCellSplit(pid,day));
   menu.style.display='block';
   menu.style.left=Math.min(e.clientX, window.innerWidth-160)+'px';
   menu.style.top=Math.min(e.clientY, window.innerHeight-300)+'px';
@@ -2354,7 +2367,7 @@ function renderDayStat(){
   const colors=['#C7363E','#2358A5','#A95D11','#245C34','#5A3B73','#595750'];
   $('day-stat-list').innerHTML = entries.map(([name,val],i)=>`
     <li class="stat-item">
-      <span class="stat-name">${name}</span>
+      <span class="stat-name">${escapeHtml(name)}</span>
       <div class="stat-bar-wrap">
         <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
       </div>
@@ -2388,7 +2401,7 @@ function renderWeekStat(){
   const colors=['#C7363E','#2358A5','#A95D11','#245C34','#5A3B73','#595750'];
   $('week-stat-list').innerHTML=entries.map(([name,val],i)=>`
     <li class="stat-item">
-      <span class="stat-name">${name}</span>
+      <span class="stat-name">${escapeHtml(name)}</span>
       <div class="stat-bar-wrap">
         <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
       </div>
@@ -2420,7 +2433,7 @@ function renderMonthStat(){
   const colors=['#C7363E','#2358A5','#A95D11','#245C34','#5A3B73','#595750'];
   $('month-stat-list').innerHTML=entries.map(([name,val],i)=>`
     <li class="stat-item">
-      <span class="stat-name">${name}</span>
+      <span class="stat-name">${escapeHtml(name)}</span>
       <div class="stat-bar-wrap">
         <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
       </div>
@@ -2465,39 +2478,46 @@ function switchMgrTab(tab, el){
 }
 
 function renderStaffTable(){
-  $('staff-tbody').innerHTML = G.staff.map(m=>`
+  const table = $('staff-tbody');
+  table.innerHTML = G.staff.map(m=>`
     <tr>
-      <td>${m.name}</td>
+      <td>${escapeHtml(m.name)}</td>
       <td style="text-align:center">${m.can_cpin?'<span class="tag tag-cpin">次品</span>':'—'}</td>
       <td style="text-align:center">${m.can_jd?'<span class="tag tag-jd">京东</span>':'—'}</td>
       <td style="text-align:center">${m.saturday_only?'<span class="tag tag-sat">仅周六</span>':'—'}</td>
       <td style="text-align:center">${m.weekend_only?'<span class="tag tag-weekend">仅周末</span>':'—'}</td>
       <td style="text-align:center">${m.no_substitute?'<span class="tag" style="background:#ef9a9a;color:#b71c1c;border:1px solid #e57373">不替班</span>':'—'}</td>
       <td>
-        <button class="action-btn edit" onclick="editStaff('${m.id}')">编辑</button>
-        <button class="action-btn del" onclick="delStaff('${m.id}','${m.name}')">删除</button>
+        <button class="action-btn edit" data-action="edit-staff" data-id="${escapeHtml(m.id)}">编辑</button>
+        <button class="action-btn del" data-action="delete-staff" data-id="${escapeHtml(m.id)}">删除</button>
       </td>
     </tr>`).join('');
+  table.querySelectorAll('[data-action="edit-staff"]').forEach((button)=>button.addEventListener('click',()=>editStaff(button.dataset.id)));
+  table.querySelectorAll('[data-action="delete-staff"]').forEach((button)=>button.addEventListener('click',()=>delStaff(button.dataset.id)));
 }
 
 function renderPosTable(){
-  $('pos-tbody').innerHTML = G.positions.map(p=>{
+  const table = $('pos-tbody');
+  table.innerHTML = G.positions.map(p=>{
     let cat='—';
     if(p.category==='次品') cat='<span class="tag tag-cpin">次品</span>';
     if(p.category==='京东') cat='<span class="tag tag-jd">京东</span>';
     const splitTag = p.split_allowed ? '<span class="tag tag-split">双槽位</span>' : '';
     return `<tr>
-      <td><b>${p.name}</b>${splitTag}</td>
-      <td style="text-align:center">${p.workload}</td>
-      <td>${p.default_person||'<span style="color:#999">-- 无默认人员 --</span>'}</td>
+      <td><b>${escapeHtml(p.name)}</b>${splitTag}</td>
+      <td style="text-align:center">${escapeHtml(p.workload)}</td>
+      <td>${p.default_person ? escapeHtml(p.default_person) : '<span style="color:#999">-- 无默认人员 --</span>'}</td>
       <td>${cat}</td>
       <td>
-        <button class="action-btn edit" onclick="editPos('${p.id}')">编辑</button>
-        <button class="action-btn" onclick="syncPosSchedule('${p.id}','${p.name}')">同步排班</button>
-        <button class="action-btn del" onclick="delPos('${p.id}','${p.name}')">删除</button>
+        <button class="action-btn edit" data-action="edit-position" data-id="${escapeHtml(p.id)}">编辑</button>
+        <button class="action-btn" data-action="sync-position" data-id="${escapeHtml(p.id)}">同步排班</button>
+        <button class="action-btn del" data-action="delete-position" data-id="${escapeHtml(p.id)}">删除</button>
       </td>
     </tr>`;
   }).join('');
+  table.querySelectorAll('[data-action="edit-position"]').forEach((button)=>button.addEventListener('click',()=>editPos(button.dataset.id)));
+  table.querySelectorAll('[data-action="sync-position"]').forEach((button)=>button.addEventListener('click',()=>syncPosSchedule(button.dataset.id)));
+  table.querySelectorAll('[data-action="delete-position"]').forEach((button)=>button.addEventListener('click',()=>delPos(button.dataset.id)));
 }
 
 // 鈹€鈹€ 浜哄憳寮圭獥 鈹€鈹€
@@ -2559,7 +2579,8 @@ async function saveStaff(){
   }catch(e){ toast('保存失败: '+e.message,3000); }
   finally{ loading(false); }
 }
-async function delStaff(id,name){
+async function delStaff(id){
+  const name = G.staff.find((item)=>item.id===id)?.name || '';
   if(!confirm(`确定要删除人员“${name}”吗？`)) return;
   loading(true);
   try{
@@ -2629,7 +2650,8 @@ async function applyLegacyPositionSync(id, legacyDays){
   if(!confirm(message)) return null;
   return api('/api/positions/'+id+'/sync-schedule','POST',{action:'apply',include_legacy:true});
 }
-async function syncPosSchedule(id,name){
+async function syncPosSchedule(id){
+  const name = G.positions.find((item)=>item.id===id)?.name || '';
   loading(true);
   try{
     const preview=await api('/api/positions/'+id+'/sync-schedule','POST',{action:'preview',include_legacy:false});
@@ -2706,7 +2728,8 @@ async function savePos(){
   }catch(e){ toast('保存失败: '+e.message,3000); }
   finally{ loading(false); }
 }
-async function delPos(id,name){
+async function delPos(id){
+  const name = G.positions.find((item)=>item.id===id)?.name || '';
   if(!confirm(`确定要删除岗位“${name}”吗？`)) return;
   loading(true);
   try{
@@ -2768,22 +2791,23 @@ function showPollIndicator(){
 // 鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲鈺愨晲
 async function renderGroupTable(){
   const groups = G.groups || [];
-  const staff = G.staff || [];
-  
-  $('group-tbody').innerHTML = groups.map(g => {
+  const table = $('group-tbody');
+  table.innerHTML = groups.map(g => {
     const members = g.member_names || [];
-    const membersStr = members.length > 0 ? members.join('、') : '<span style="color:#999">暂无成员</span>';
+    const membersStr = members.length > 0 ? members.map(escapeHtml).join('、') : '<span style="color:#999">暂无成员</span>';
 
     
     return `<tr>
-      <td><b>${g.name}</b></td>
+      <td><b>${escapeHtml(g.name)}</b></td>
       <td>${membersStr}</td>
       <td>
-        <button class="action-btn edit" onclick="editGroup('${g.id}')">编辑</button>
-        <button class="action-btn del" onclick="delGroup('${g.id}','${g.name}')">删除</button>
+        <button class="action-btn edit" data-action="edit-group" data-id="${escapeHtml(g.id)}">编辑</button>
+        <button class="action-btn del" data-action="delete-group" data-id="${escapeHtml(g.id)}">删除</button>
       </td>
     </tr>`;
   }).join('');
+  table.querySelectorAll('[data-action="edit-group"]').forEach((button)=>button.addEventListener('click',()=>editGroup(button.dataset.id)));
+  table.querySelectorAll('[data-action="delete-group"]').forEach((button)=>button.addEventListener('click',()=>delGroup(button.dataset.id)));
 }
 function showAddGroup(){
   G.editingGroupId = null;
@@ -2819,12 +2843,12 @@ function buildGroupMembersSel(groupId){
     const isInOtherGroup = m.group_id && m.group_id !== groupId;
     
     return `<div style="padding:4px 0;display:flex;align-items:center;gap:6px">
-      <input type="checkbox" id="member-${m.id}" value="${m.id}" 
+      <input type="checkbox" id="member-${escapeHtml(m.id)}" value="${escapeHtml(m.id)}"
         ${isSelected ? 'checked' : ''} 
         ${isInOtherGroup ? 'disabled' : ''}
         style="cursor:pointer">
-      <label for="member-${m.id}" style="font-size:12px;cursor:pointer">
-        ${m.name}
+      <label for="member-${escapeHtml(m.id)}" style="font-size:12px;cursor:pointer">
+        ${escapeHtml(m.name)}
         ${isInOtherGroup ? '<span style="color:#999;font-size:11px">（已在其他小组）</span>' : ''}
       </label>
     </div>`;
@@ -2897,7 +2921,8 @@ async function updateGroupMembers(groupId, memberIds){
   }
 }
 
-async function delGroup(id, name){
+async function delGroup(id){
+  const name = G.groups.find((item)=>item.id===id)?.name || '';
   if(!confirm(`确定要删除小组“${name}”吗？\n删除后成员将变为未分组状态。`)) return;
   
   loading(true);

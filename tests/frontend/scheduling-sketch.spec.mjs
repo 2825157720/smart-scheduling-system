@@ -91,6 +91,30 @@ test("人员管理的三项替班限制互斥，手工候选遵守周五至周�
   await expect(page.locator("#ctx-menu")).not.toContainText("沈禾");
 });
 
+test("API 返回的人员、岗位和小组名称只作为文本渲染", async ({ page }) => {
+  const xss = '<img src=x onerror="window.__xssProbe=1">';
+  const untrusted = structuredClone(fixture);
+  untrusted.staff[0].name = xss;
+  untrusted.groups[0].name = xss;
+  untrusted.groups[0].member_names[0] = xss;
+  untrusted.positions[0].name = xss;
+  untrusted.positions[0].default_person = xss;
+  untrusted.schedule["1"][untrusted.positions[0].id] = { status: "substitute", person: xss };
+
+  await page.addInitScript(() => { window.__xssProbe = 0; });
+  await installStableClock(page);
+  await installApiFixture(page, untrusted);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator("#tbl-body")).toContainText(xss);
+  await expect(page.locator("#tbl-body img")).toHaveCount(0);
+  await page.getByRole("button", { name: "人员/岗位管理" }).click();
+  await expect(page.locator("#staff-tbody")).toContainText(xss);
+  await page.getByRole("button", { name: "小组管理" }).click();
+  await expect(page.locator("#group-tbody")).toContainText(xss);
+  await expect(page.evaluate(() => window.__xssProbe)).resolves.toBe(0);
+});
+
 test("手绘纸张主题在固定排班数据下稳定呈现", async ({ page }) => {
   const pageErrors = [];
   const consoleErrors = [];

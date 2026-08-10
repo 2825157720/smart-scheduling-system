@@ -67,7 +67,7 @@ test("staff API preserves omitted legacy fields and enforces the three-way restr
     INSERT INTO staff (id, name, group_id, can_cpin, can_jd, weekend_only)
     VALUES ('s1', '甲', 'g1', 1, 1, 1);
   `);
-  const env = { DB };
+  const env = { DB, WRITE_MODE: "enabled" };
 
   const legacyUpdate = await worker.fetch(request("/api/staff/s1", "PUT", {
     name: "甲更新",
@@ -111,7 +111,7 @@ test("staff create normalizes conflicting weekend and Saturday values before D1 
     saturday_only: true,
     weekend_only: true,
     no_substitute: false,
-  }), { DB });
+  }), { DB, WRITE_MODE: "enabled" });
 
   assert.equal(response.status, 200);
   const row = DB.database.prepare(
@@ -122,4 +122,17 @@ test("staff create normalizes conflicting weekend and Saturday values before D1 
     weekend_only: 1,
     no_substitute: 0,
   });
+});
+
+test("staff names are normalized and reject control or bidi characters", async () => {
+  const DB = new TestD1();
+  const env = { DB, WRITE_MODE: "enabled" };
+
+  const normalized = await worker.fetch(request("/api/staff", "POST", { name: "  张三  " }), env);
+  assert.equal(normalized.status, 200);
+  assert.equal(DB.database.prepare("SELECT name FROM staff").get().name, "张三");
+
+  const rejected = await worker.fetch(request("/api/staff", "POST", { name: "李\u202e四" }), env);
+  assert.equal(rejected.status, 400);
+  assert.match((await rejected.json()).msg, /控制字符/);
 });
