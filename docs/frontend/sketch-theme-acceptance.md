@@ -137,3 +137,18 @@ Playwright 固定截图：
 - [x] 正式浏览器：排班表可见，8 月 8 日 `p19` 显示“赵创 / 在班”，字体状态 `loaded`，页面级横向溢出为 0。
 - [x] 缓存与域名：首页和主题 CSS 使用 `must-revalidate`；版本化 WOFF2 使用一年 `immutable`；`www` 对带路径和查询参数的请求返回 301 并完整跳转到正式根域名。
 - [x] Worker 回滚命令：`npx --no-install wrangler rollback a1f069fd-2182-47c3-a3be-4860ff10c404 --config .\wrangler.jsonc --env production`。Worker 回滚不会移除 `assignment_source` 列，也不会撤销 8 月 8 日单格数据修复；需要恢复数据时使用本次 D1 备份并另行核验。
+
+## 2026-08-10 排休导入完整姓名匹配 Production
+
+- [x] 用户确认 Preview 验收通过并授权发布 Production；实现提交 `f7fa80a fix(import): prefer exact staff names before aliases` 已推送并与 `origin/dev` 同步。
+- [x] 根因是旧别名在精确匹配前生效，导致系统改为“潘岐峰 / 覃丽彬 / 陆显鹏 / 吴绍基”等完整姓名后反而被转换成旧短名并判为表外人员。
+- [x] 修复后先匹配当前系统姓名，仅在精确匹配失败时回退旧别名；旧姓名兼容仍保留，真正不在系统的表外人员继续忽略。
+- [x] Preview version：`d3ee8f20-3ed7-4c3c-ad77-f1c0d3eff849`。
+- [x] 发布前 Production version / Worker 回滚目标：`bd7d4b19-1c36-4bd8-a94e-2837d656d8d9`。
+- [x] 发布后 Production version：`ff5f53ee-bb77-45c2-828b-75d853477afb`，控制面确认承载 100% 流量；仅上传 `/schedule-import.js`。
+- [x] 自动化门禁：Python `98 passed`；Worker `37 passed`；三项 `node --check`、Production dry-run 和 `git diff --check` 通过。
+- [x] 正式脚本返回 200，包含 `staffByName.get(sourceName)` 精确匹配和 `NAME_ALIASES` 回退，使用 `must-revalidate` 缓存策略。
+- [x] 正式只读接口：主页、`/api/live`、`/api/storage-info` 和人员接口正常；D1 可用，人员仍为 14 名，四个完整姓名均存在。
+- [x] `www` 对带路径与查询参数的脚本请求返回 301，并完整跳转到正式根域名。
+- [x] 本次未执行 D1 migration、backup/restore 或业务数据写入；Worker 回滚不会改变任何排班数据。
+- [x] 回滚命令：`npx --no-install wrangler rollback bd7d4b19-1c36-4bd8-a94e-2837d656d8d9 --config .\wrangler.jsonc --env production`。
