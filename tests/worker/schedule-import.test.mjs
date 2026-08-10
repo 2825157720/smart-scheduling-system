@@ -32,6 +32,38 @@ test("parses the selected month across a month boundary and applies name aliases
   assert.deepEqual(parsed.days, [1, 2]);
 });
 
+test("prefers an exact current staff name before applying a legacy alias", () => {
+  const currentStaff = [
+    { id: "s1", name: "潘岐峰" },
+    { id: "s2", name: "覃丽彬" },
+    { id: "s3", name: "陆显鹏" },
+    { id: "s4", name: "吴绍基" },
+  ];
+  const matrix = [
+    [],
+    ["", "", "", "8月"],
+    ["小组", "序号", "工号姓名", 1],
+    [],
+    [],
+    ["管控组", 1, "潘岐峰", "休"],
+    ["管控组", 2, "覃丽彬", "休"],
+    ["管控组", 3, "陆显鹏", "休"],
+    ["管控组", 4, "吴绍基", "休"],
+    ["加盟组", 5, "表外人员", "休"],
+  ];
+
+  const parsed = parseScheduleMatrix(matrix, "商品部2026年", 2026, 8, currentStaff);
+
+  assert.deepEqual(parsed.matched.map((item) => item.source_name), ["潘岐峰", "覃丽彬", "陆显鹏", "吴绍基"]);
+  assert.deepEqual(parsed.staff_off_days, [
+    { staff_id: "s1", off_days: [1] },
+    { staff_id: "s2", off_days: [1] },
+    { staff_id: "s3", off_days: [1] },
+    { staff_id: "s4", off_days: [1] },
+  ]);
+  assert.deepEqual(parsed.ignored, ["表外人员"]);
+});
+
 test("accepts a merged month label anchored one column after day one", () => {
   const matrix = [
     [],

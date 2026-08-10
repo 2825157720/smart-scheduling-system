@@ -78,13 +78,13 @@ export function parseScheduleMatrix(matrix, sheetName, targetYear, targetMonth, 
     const sourceName = norm(values[header.column]);
     if (!sourceName || !dateColumns.some(({ column }) => norm(values[column]))) continue;
     if (/人数|合计|总计/.test(sourceName)) continue;
-    const systemName = NAME_ALIASES[sourceName] || sourceName;
-    const member = staffByName.get(norm(systemName));
+    const member = staffByName.get(sourceName)
+      || staffByName.get(norm(NAME_ALIASES[sourceName]));
     if (!member) {
       if (!ignored.includes(sourceName)) ignored.push(sourceName);
       continue;
     }
-    if (seenStaff.has(String(member.id))) throw new Error(`文件中存在重复人员：${systemName}`);
+    if (seenStaff.has(String(member.id))) throw new Error(`文件中存在重复人员：${member.name}`);
     seenStaff.add(String(member.id));
     const offDays = dateColumns
       .filter(({ column }) => OFF_MARKERS.has(norm(values[column])))
