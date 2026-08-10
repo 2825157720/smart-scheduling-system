@@ -236,20 +236,48 @@ function insertDayStatements(db, date, data, subjects) {
 function replaceDayStatements(db, datesAndData, subjects) {
   const statements = [];
   for (const { date, data } of datesAndData) {
-    const dayId = `day_${date}`;
     statements.push(
-      db.prepare("DELETE FROM schedule_slots WHERE schedule_cell_id IN (SELECT id FROM schedule_cells WHERE schedule_day_id = ?)").bind(dayId),
-      db.prepare("DELETE FROM schedule_day_off_staff WHERE schedule_day_id = ?").bind(dayId),
-      db.prepare("DELETE FROM schedule_day_off_groups WHERE schedule_day_id = ?").bind(dayId),
-      db.prepare("DELETE FROM schedule_cells WHERE schedule_day_id = ?").bind(dayId),
-      db.prepare("DELETE FROM schedule_days WHERE id = ?").bind(dayId),
+      db.prepare("DELETE FROM schedule_slots WHERE schedule_cell_id IN (SELECT c.id FROM schedule_cells c JOIN schedule_days d ON d.id = c.schedule_day_id WHERE d.schedule_date = ?)").bind(date),
+      db.prepare("DELETE FROM schedule_day_off_staff WHERE schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date = ?)").bind(date),
+      db.prepare("DELETE FROM schedule_day_off_groups WHERE schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date = ?)").bind(date),
+      db.prepare("DELETE FROM schedule_cells WHERE schedule_day_id IN (SELECT id FROM schedule_days WHERE schedule_date = ?)").bind(date),
+      db.prepare("DELETE FROM schedule_days WHERE schedule_date = ?").bind(date),
       ...insertDayStatements(db, date, data, subjects),
     );
   }
   return statements;
 }
 
-async function saveMonth(db, year, month, monthData) {
+function monthDayLimit(year, month) {
+  const parsedYear = Number(year); const parsedMonth = Number(month);
+  if (!Number.isInteger(parsedYear) || !Number.isInteger(parsedMonth) || parsedMonth < 1 || parsedMonth > 12) throw new Error("年月无效");
+  return new Date(parsedYear, parsedMonth, 0).getDate();
+}
+
+function mutationAuditStatements(db, action) {
+  const createdAt = now();
+  return [
+    db.prepare("UPDATE app_revision SET revision = revision + 1, updated_at = ? WHERE id = 1").bind(createdAt),
+    db.prepare("INSERT INTO mutation_audit (id, revision, action, created_at) SELECT ?, revision, ?, ? FROM app_revision WHERE id = 1")
+      .bind(crypto.randomUUID(), action, createdAt),
+  ];
+}
+
+async function saveDay(db, year, month, day, data, action = "schedule-day") {
+  const parsedDay = Number(day);
+  const maxDay = monthDayLimit(year, month);
+  if (!Number.isInteger(parsedDay) || parsedDay < 1 || parsedDay > maxDay || !data || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("日期或排班数据无效");
+  }
+  const date = `${year}-${String(month).padStart(2, "0")}-${String(parsedDay).padStart(2, "0")}`;
+  const subjects = await subjectMaps(db);
+  await db.batch([
+    ...replaceDayStatements(db, [{ date, data }], subjects),
+    ...mutationAuditStatements(db, action),
+  ]);
+}
+
+async function restoreMonth(db, year, month, monthData) {
   const prefix = `${year}-${String(month).padStart(2, "0")}`;
   const subjects = await subjectMaps(db);
   const statements = [
@@ -455,21 +483,13 @@ export default {
     const schedule = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})$/);
     if (request.method === "GET" && schedule) return json(await getSchedule(env.DB, schedule[1], schedule[2]));
     if (request.method === "POST" && schedule) {
-      const body = await request.json();
-      const monthData = body?.schedule ?? body;
-      if (!monthData || Array.isArray(monthData) || typeof monthData !== "object") return json({ success: false, msg: "排班数据格式错误" }, { status: 400 });
-      try {
-        await saveMonth(env.DB, schedule[1], schedule[2], monthData);
-      } catch (error) {
-        return json({ success: false, msg: error.message || "保存排班失败" }, { status: 400 });
-      }
-      return json({ success: true, schedule: monthData });
+      return failure("整月保存接口已停用，请使用单日排班接口", 410);
     }
     const scheduleDay = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/day$/);
     if (request.method === "POST" && scheduleDay) {
       const body = await request.json();
       const day = Number(body.day);
-      if (!Number.isInteger(day) || day < 1 || !body.pos_id) return json({ success: false, msg: "日期或岗位无效" }, { status: 400 });
+      if (!Number.isInteger(day) || day < 1 || day > monthDayLimit(scheduleDay[1], scheduleDay[2]) || !body.pos_id) return json({ success: false, msg: "日期或岗位无效" }, { status: 400 });
       const monthData = await getSchedule(env.DB, scheduleDay[1], scheduleDay[2]);
       const dayData = monthData[String(day)] ||= {};
       const source = assignmentSource(body.assignment_source, "manual");
@@ -483,7 +503,7 @@ export default {
       } else dayData[body.pos_id] = { status: body.status || "pending", person: body.person || "", _source: source };
       if (body.status === "off" && body.person) dayData._off_persons = [...new Set([...(dayData._off_persons || []), body.person])];
       if (body.status === "on" && body.person) dayData._off_persons = (dayData._off_persons || []).filter((name) => name !== body.person);
-      try { await saveMonth(env.DB, scheduleDay[1], scheduleDay[2], monthData); }
+      try { await saveDay(env.DB, scheduleDay[1], scheduleDay[2], day, dayData, "schedule-day"); }
       catch (error) { return json({ success: false, msg: error.message || "保存排班失败" }, { status: 400 }); }
       return json({ success: true, schedule: monthData, cleared_positions: [] });
     }
@@ -496,7 +516,7 @@ export default {
       const offIds = new Set(body.off_person_ids || []); const supplied = [...(body.off_persons || []), ...staff.filter((item) => offIds.has(item.id)).map((item) => item.name)];
       const saved = current[String(day)]?._off_persons || []; const offPersons = body.use_saved_off_persons || (!("off_person_ids" in body) && !("off_persons" in body) && saved.length) ? saved : supplied;
       const result = planDaySchedule(positions, staff, groups, { year: Number(planDay[1]), month: Number(planDay[2]), day, offPersons, scatterGroups: Boolean(body.scatter_groups), monthSchedule: current });
-      markDayAssignments(result.day_data); current[String(day)] = result.day_data; await saveMonth(env.DB, planDay[1], planDay[2], current);
+      markDayAssignments(result.day_data); current[String(day)] = result.day_data; await saveDay(env.DB, planDay[1], planDay[2], day, result.day_data, "plan-day");
       return json({ success: true, ...result });
     }
     const importOffDays = url.pathname.match(/^\/api\/schedule\/(\d{4})\/(\d{1,2})\/import-off-days$/);
@@ -586,14 +606,16 @@ export default {
         else if (cell.person === person && cell.status === "substitute") { dayData[pos.id] = { status: "pending", person: "", _source: "automatic" }; updated.push({ pos_id: pos.id, person: "", status: "pending", pos_name: pos.name }); }
         else if (cell.person === person && body.person_is_off && ["on", "pending", ""].includes(cell.status)) { dayData[pos.id] = { status: "off", person, _source: "automatic" }; updated.push({ pos_id: pos.id, person, status: "off", pos_name: pos.name }); }
       }
-      await saveMonth(env.DB, year, month, current); return json({ success: true, updated });
+      try { await saveDay(env.DB, year, month, day, dayData, "cascade-off"); }
+      catch (error) { return failure(error.message || "保存排班失败"); }
+      return json({ success: true, updated });
     }
     if (request.method === "POST" && url.pathname === "/api/auto-fill-all") {
       const body = await request.json(); const { year, month, day } = body;
       if (!(year && month && day)) return failure("参数无效");
       const [positions, staff, groups, current] = await Promise.all([getPositions(env.DB), getStaff(env.DB), getGroups(env.DB), getSchedule(env.DB, year, month)]);
       const result = planDaySchedule(positions, staff, groups, { year: Number(year), month: Number(month), day: Number(day), offPersons: current[String(day)]?._off_persons || [], scatterGroups: Boolean(body.scatter_groups), monthSchedule: current });
-      markDayAssignments(result.day_data); current[String(day)] = result.day_data; await saveMonth(env.DB, year, month, current);
+      markDayAssignments(result.day_data); current[String(day)] = result.day_data; await saveDay(env.DB, year, month, day, result.day_data, "auto-fill-all");
       return json({ success: true, ...result });
     }
     const hiddenDays = url.pathname.match(/^\/api\/hidden-days\/(\d{4})\/(\d{1,2})$/);
@@ -645,7 +667,7 @@ export default {
       const record = await env.DB.prepare("SELECT created_at, payload FROM schedule_backups WHERE year=? AND month=? ORDER BY created_at DESC LIMIT 1")
         .bind(Number(restore[1]), Number(restore[2])).first();
       if (!record) return failure("未找到备份文件，请先备份", 404);
-      const scheduleData = JSON.parse(record.payload); await saveMonth(env.DB, restore[1], restore[2], scheduleData);
+      const scheduleData = JSON.parse(record.payload); await restoreMonth(env.DB, restore[1], restore[2], scheduleData);
       return json({ success: true, schedule: scheduleData, backup_time: record.created_at });
     }
     if (request.method === "GET" && url.pathname === "/api/memo") return json(await getMemo(env.DB));
