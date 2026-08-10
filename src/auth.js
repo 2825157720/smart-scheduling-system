@@ -62,9 +62,9 @@ async function passwordKey(password, credential) {
     encoder.encode(password),
     "PBKDF2",
     false,
-    ["deriveKey"],
+    ["deriveBits"],
   );
-  return crypto.subtle.deriveKey(
+  const bits = await crypto.subtle.deriveBits(
     {
       name: "PBKDF2",
       salt: fromBase64Url(credential.salt),
@@ -72,7 +72,12 @@ async function passwordKey(password, credential) {
       hash: "SHA-256",
     },
     material,
-    { name: "HMAC", hash: "SHA-256", length: 256 },
+    256,
+  );
+  return crypto.subtle.importKey(
+    "raw",
+    bits,
+    { name: "HMAC", hash: "SHA-256" },
     false,
     ["verify"],
   );

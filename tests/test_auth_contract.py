@@ -28,6 +28,7 @@ class AuthenticationContractTests(unittest.TestCase):
         self.assertIn("privateAssetResponse", worker)
         self.assertIn('HttpOnly; Secure; SameSite=Strict', auth)
         self.assertIn('request.headers.get("Origin") === url.origin', auth)
+        self.assertIn('crypto.subtle.deriveBits', auth)
 
     def test_authentication_secrets_are_required_in_both_remote_environments(self):
         config = json.loads((ROOT / "wrangler.jsonc").read_text(encoding="utf-8"))
