@@ -29,7 +29,7 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertFalse(config["preview_urls"])
         self.assertTrue(config["env"]["preview"]["workers_dev"])
         self.assertFalse(config["env"]["preview"]["preview_urls"])
-        self.assertTrue(config["env"]["production"]["workers_dev"])
+        self.assertFalse(config["env"]["production"]["workers_dev"])
         self.assertFalse(config["env"]["production"]["preview_urls"])
 
     def test_production_worker_uses_short_public_name(self):

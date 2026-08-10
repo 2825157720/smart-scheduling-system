@@ -232,7 +232,7 @@ class SketchThemeContractTests(unittest.TestCase):
                 )
         global_header_block = self.headers.split("\n\n", 1)[0]
         self.assertNotIn("immutable", global_header_block)
-        self.assertNotIn("Content-Security-Policy", self.headers)
+        self.assertIn("Content-Security-Policy", self.headers)
 
     def test_critical_dom_ids_and_handlers_remain(self) -> None:
         critical_ids = {
