@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "auth:generate": "node scripts/generate-auth-secrets.mjs",
     "dev": "wrangler dev --env preview --local --ip 127.0.0.1 --port 3001",
+    "dev:test": "wrangler d1 migrations apply smart-scheduling-preview --local --env preview && wrangler dev --env preview --local --ip 127.0.0.1 --port 3001",
     "test:frontend": "playwright test",
     "test:frontend:update": "playwright test --update-snapshots"
   },

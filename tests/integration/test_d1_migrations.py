@@ -17,7 +17,7 @@ class D1MigrationTests(unittest.TestCase):
         self.assertTrue({
             "groups", "staff", "positions", "schedule_days", "schedule_day_off_staff",
             "schedule_day_off_groups", "schedule_cells", "schedule_slots", "hidden_days", "memos", "schedule_backups",
-            "app_revision", "mutation_audit",
+            "app_revision", "mutation_audit", "auth_login_attempts",
         }.issubset(tables))
         connection.execute("INSERT INTO groups (id, name) VALUES ('g1', '测试组')")
         with self.assertRaises(sqlite3.IntegrityError):
@@ -47,6 +47,7 @@ class D1MigrationTests(unittest.TestCase):
         indexes = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='index'")}
         self.assertIn("idx_schedule_cells_day_position", indexes)
         self.assertIn("idx_schedule_cells_position_source", indexes)
+        self.assertIn("idx_auth_login_attempts_updated_at", indexes)
         connection.execute("INSERT INTO positions (id, name, workload) VALUES ('p1', '岗位', 1)")
         connection.execute("INSERT INTO schedule_days (id, schedule_date) VALUES ('d1', '2026-08-08')")
         connection.execute("INSERT INTO schedule_cells (id, schedule_day_id, position_id, status) VALUES ('c1', 'd1', 'p1', 'pending')")

@@ -1,0 +1,167 @@
+@font-face {
+  font-family: "Kalam Local";
+  src: url("/fonts/kalam/5.3.0/kalam-latin-400-normal.95441060.woff2") format("woff2");
+  font-display: swap;
+  font-weight: 400;
+}
+
+:root {
+  --paper: #f6f0e4;
+  --card: #fffdf7;
+  --ink: #252522;
+  --muted: #595750;
+  --red: #c7363e;
+  --blue: #2358a5;
+  --yellow: #fff1a8;
+}
+
+* { box-sizing: border-box; }
+
+html, body { min-height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  font-family: "LXGW WenKai Screen", "Microsoft YaHei", system-ui, sans-serif;
+  background-color: var(--paper);
+  background-image: radial-gradient(circle, rgba(37, 37, 34, 0.14) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.login-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 32px 18px;
+}
+
+.login-card {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 46px 38px 32px;
+  background: var(--card);
+  border: 3px solid var(--ink);
+  border-radius: 12px 8px 14px 7px / 8px 13px 7px 12px;
+  box-shadow: 6px 6px 0 var(--ink);
+  transform: rotate(-0.4deg);
+}
+
+.tape {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 58px;
+  height: 18px;
+  transform: translateX(-50%) rotate(1deg);
+  background: rgba(225, 221, 210, 0.78);
+  border-left: 1px solid rgba(89, 87, 80, 0.18);
+  border-right: 1px solid rgba(89, 87, 80, 0.18);
+}
+
+.brand-mark {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 12px;
+  color: var(--card);
+  background: var(--red);
+  border: 3px solid var(--ink);
+  border-radius: 50% 46% 52% 45%;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.brand-mark svg { width: 27px; height: 27px; }
+
+.eyebrow {
+  margin: 0 0 2px;
+  color: var(--blue);
+  font-family: "Kalam Local", cursive;
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+h1 {
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
+  font-family: "Kalam Local", "LXGW WenKai Screen", cursive;
+  font-size: clamp(28px, 7vw, 38px);
+  line-height: 1.2;
+  text-decoration: underline wavy var(--red) 2px;
+  text-underline-offset: 7px;
+}
+
+.intro {
+  margin: 20px 0 24px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+form { display: grid; gap: 9px; }
+
+label { font-weight: 700; }
+
+input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 2px solid var(--ink);
+  border-radius: 8px 12px 7px 10px / 10px 7px 12px 8px;
+  background: #fffef9;
+  color: var(--ink);
+  font: 16px system-ui, sans-serif;
+  outline: none;
+}
+
+input:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.login-error {
+  min-height: 22px;
+  margin: 3px 0 0;
+  color: #862831;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+button {
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 2px solid var(--ink);
+  border-radius: 9px 12px 8px 14px / 12px 8px 14px 9px;
+  background: var(--yellow);
+  color: var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  font: 700 16px "LXGW WenKai Screen", system-ui, sans-serif;
+  cursor: pointer;
+}
+
+button:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+button:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+button:focus-visible { outline: 3px solid var(--blue); outline-offset: 4px; }
+button:disabled { cursor: wait; opacity: 0.65; transform: none; }
+
+.security-note {
+  margin: 22px 0 0;
+  padding: 10px 12px;
+  background: #dceaf8;
+  border-left: 4px solid var(--blue);
+  color: #204e7c;
+  font-size: 13px;
+  transform: rotate(0.4deg);
+}
+
+@media (max-width: 480px) {
+  .login-shell { padding: 18px 12px; }
+  .login-card { padding: 40px 24px 26px; transform: none; box-shadow: 4px 4px 0 var(--ink); }
+  .tape { width: 52px; height: 14px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; }
+  button:hover, button:active { transform: none; }
+}

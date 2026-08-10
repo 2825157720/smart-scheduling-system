@@ -1,4 +1,5 @@
 import { defineConfig } from "@playwright/test";
+import { TEST_AUTH_CREDENTIAL, TEST_AUTH_SESSION_SECRET, TEST_AUTH_STORAGE_STATE } from "./tests/frontend/fixtures/auth-fixture.mjs";
 
 const baseURL = "http://127.0.0.1:3001";
 const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
@@ -29,15 +30,21 @@ export default defineConfig({
     reducedMotion: "reduce",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
+    storageState: TEST_AUTH_STORAGE_STATE,
     launchOptions: executablePath ? { executablePath } : {}
   },
   webServer: {
-    command: "npm run dev",
+    command: "npm run dev:test",
     url: `${baseURL}/api/live`,
     reuseExistingServer: process.env.CI !== "true",
     timeout: 120_000,
     stdout: "pipe",
-    stderr: "pipe"
+    stderr: "pipe",
+    env: {
+      AUTH_CREDENTIAL: TEST_AUTH_CREDENTIAL,
+      AUTH_SESSION_SECRET: TEST_AUTH_SESSION_SECRET,
+      CLOUDFLARE_INCLUDE_PROCESS_ENV: "true"
+    }
   },
   projects: [
     {

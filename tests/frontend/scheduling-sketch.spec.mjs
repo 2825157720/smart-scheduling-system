@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { buildFrontendFixture, FIXED_NOW } from "./fixtures/schedule-fixture.mjs";
+import { TEST_AUTH_STORAGE_STATE } from "./fixtures/auth-fixture.mjs";
 
 const fixture = buildFrontendFixture();
 const allowedHosts = new Set(["127.0.0.1:3001", "localhost:3001"]);
@@ -608,7 +609,8 @@ test("1366、320、200% 等效视口与字体失败回退保持可用", async ({
       viewport: acceptanceCase.viewport,
       locale: "zh-CN",
       timezoneId: "Asia/Shanghai",
-      reducedMotion: "reduce"
+      reducedMotion: "reduce",
+      storageState: TEST_AUTH_STORAGE_STATE
     });
     const page = await context.newPage();
     await installStableClock(page);

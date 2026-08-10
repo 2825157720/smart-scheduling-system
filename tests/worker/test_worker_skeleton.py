@@ -31,6 +31,13 @@ class WorkerSkeletonTests(unittest.TestCase):
         self.assertFalse(config["env"]["preview"]["preview_urls"])
         self.assertFalse(config["env"]["production"]["workers_dev"])
         self.assertFalse(config["env"]["production"]["preview_urls"])
+        for environment in ("preview", "production"):
+            self.assertEqual(config["env"][environment]["vars"]["AUTH_MODE"], "enabled")
+            self.assertEqual(config["env"][environment]["vars"]["WRITE_MODE"], "enabled")
+            self.assertEqual(
+                set(config["env"][environment]["secrets"]["required"]),
+                {"AUTH_CREDENTIAL", "AUTH_SESSION_SECRET"},
+            )
 
     def test_production_worker_uses_short_public_name(self):
         config_path = __import__("pathlib").Path(__file__).resolve().parents[2] / "wrangler.jsonc"
@@ -54,6 +61,15 @@ class WorkerSkeletonTests(unittest.TestCase):
 
         self.assertNotIn("verifyAccessRequest", source)
         self.assertNotIn("ACCESS_AUD", source)
+
+    def test_login_gate_runs_before_protected_html_assets(self):
+        root = __import__("pathlib").Path(__file__).resolve().parents[2]
+        config = __import__("json").loads((root / "wrangler.jsonc").read_text(encoding="utf-8"))
+
+        self.assertEqual(
+            set(config["assets"]["run_worker_first"]),
+            {"/api/*", "/", "/index.html", "/login", "/login.html"},
+        )
 
     def test_destructive_actions_use_server_side_admin_secret(self):
         root = __import__("pathlib").Path(__file__).resolve().parents[2]

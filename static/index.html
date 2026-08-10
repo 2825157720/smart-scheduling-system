@@ -46,6 +46,7 @@
   <button type="button" class="btn btn-teal" onclick="openColSettings()">📅 列设置</button>
   <button type="button" class="btn btn-blue" onclick="backupSchedule()">💾 备份休假</button>
   <button type="button" class="btn btn-orange" onclick="restoreBackup()">♻️ 恢复备份</button>
+  <button type="button" class="btn btn-gray" id="logout-btn" aria-label="退出登录" title="退出登录" onclick="logoutSession()">退出</button>
   <span class="ip-hint" id="ip-hint">● 单格微调，顶部可按日期整天排班</span>
   <span id="poll-indicator" title="每10秒自动同步" aria-live="polite">✓ 已同步</span>
   </div>
@@ -421,8 +422,24 @@ async function api(url, method='GET', body=null){
   const r = await fetch(targetUrl, opts);
   let data = null;
   try{ data = await r.json(); }catch(e){}
+  if(r.status === 401 && location.protocol !== 'file:'){
+    const next = `${location.pathname}${location.search}`;
+    location.replace(`/login?next=${encodeURIComponent(next)}`);
+    throw new Error('登录已失效，请重新登录');
+  }
   if(!r.ok) throw new Error(data?.msg || `HTTP ${r.status}`);
   return data;
+}
+
+async function logoutSession(){
+  const response = await fetch('/api/auth/logout', { method:'POST' });
+  if(!response.ok){
+    let data = null;
+    try{ data = await response.json(); }catch(e){}
+    toast(data?.msg || '退出失败');
+    return;
+  }
+  location.replace('/login');
 }
 
 function openScheduleImportModal(){

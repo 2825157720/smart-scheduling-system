@@ -5,8 +5,8 @@
 - 正式地址：<https://ief666.top/>
 - `www.ief666.top`：跳转至正式根域名。
 - `paiban.2825157720.workers.dev`：仅作为故障诊断备用入口，不作为日常分享地址。
-- 正式环境公开读取，默认处于 `WRITE_MODE=readonly`；整月保存接口永久停用。临时开放写入必须遵循 Cloudflare 运维手册的维护门禁。
-- 预览环境由 Cloudflare Access 限制访问，数据与正式 D1 隔离。
+- 正式环境启用应用登录；登录后允许业务写入，`WRITE_MODE=readonly` 保留为维护和事故止血开关，整月保存接口永久停用。
+- 预览环境同时受 Cloudflare Access 与应用登录保护，数据与正式 D1 隔离。
 - Worker secret、D1 数据和本地导出文件不得提交到仓库。
 
 ## 本地开发
@@ -28,13 +28,13 @@ npx --no-install playwright install chromium
 npx --no-install wrangler d1 migrations apply DB --local --env preview
 ```
 
-启动本地 Worker：
+本地功能开发可使用只存在于测试 fixture 中的凭据启动 Worker：
 
 ```powershell
-npm run dev
+npm run dev:test
 ```
 
-本地入口固定为 <http://127.0.0.1:3001/>。前端验收不再使用历史 Flask 或 `file://` 入口。
+`npm run dev` 用于接入自行配置的本地 `AUTH_CREDENTIAL` 与 `AUTH_SESSION_SECRET`。本地入口固定为 <http://127.0.0.1:3001/>。前端验收不再使用历史 Flask 或 `file://` 入口。
 
 ## 测试
 
@@ -42,8 +42,10 @@ npm run dev
 uv run pytest -q
 node --test tests/worker/*.test.mjs
 node --check src/index.js
+node --check src/auth.js
 node --check src/schedule-core.js
 node --check src/import-off-days.js
+node --check static/login.js
 npm run test:frontend
 git diff --check
 ```

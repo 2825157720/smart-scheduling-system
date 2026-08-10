@@ -4,8 +4,8 @@
 
 | 环境 | Worker | D1 | 访问方式 |
 | --- | --- | --- | --- |
-| 正式 | `paiban`（`ief666.top`） | `smart-scheduling-production` | 公开读取；默认禁止写入 |
-| 预览 | `smart-scheduling-system-preview` | `smart-scheduling-preview` | Cloudflare Access 限制 |
+| 正式 | `paiban`（`ief666.top`） | `smart-scheduling-production` | 应用登录；登录后可读写 |
+| 预览 | `smart-scheduling-system-preview` | `smart-scheduling-preview` | Cloudflare Access + 应用登录 |
 | 旧地址跳转 | `smart-scheduling-system-production` | 无 | 公开，仅返回到正式地址的 308 跳转 |
 | 基础配置 | `smart-scheduling-system-base` | 无 | `workers.dev` 和 preview URL 均关闭 |
 
@@ -23,15 +23,17 @@ npm ci
 uv run pytest -q
 node --test tests/worker/*.test.mjs
 node --check src/index.js
+node --check src/auth.js
 node --check src/schedule-core.js
 node --check src/import-off-days.js
+node --check static/login.js
 npm run test:frontend
 git diff --check
 npx --no-install wrangler deploy --env preview --dry-run
 npx --no-install wrangler deploy --env preview
 ```
 
-本地前端入口固定为 `http://127.0.0.1:3001/`，使用 `npm run dev` 启动 Worker。不得再用历史 Flask 入口或 `file://` 页面作为前端验收路径。
+本地前端入口固定为 `http://127.0.0.1:3001/`，测试 fixture 使用 `npm run dev:test` 启动；`npm run dev` 仅用于已自行配置本地认证 Secret 的环境。不得再用历史 Flask 入口或 `file://` 页面作为前端验收路径。
 
 Preview 必须完成 Access 浏览器验收和视觉确认。发布 production 前，还必须满足：
 
@@ -47,25 +49,46 @@ npx --no-install wrangler deploy --env production --dry-run
 npx --no-install wrangler deploy --env production
 $base = 'https://ief666.top'
 Invoke-RestMethod "$base/api/live"
-Invoke-RestMethod "$base/api/storage-info"
+curl.exe -sS -o NUL -w "%{http_code}`n" "$base/api/storage-info"
 ```
 
-正式验收只做读取：打开首页并确认当前月份、人员、岗位、备忘录、同步状态和健康接口，不执行导入、保存、重置、恢复或任何 D1 写入。同时检查字体响应与缓存头，以及 `www.ief666.top` 到根域名的跳转。
+预期 `/api/live` 为 `200`，未登录的 `/api/storage-info` 为 `401`。正式验收先验证未登录跳转，再登录后只做读取：确认当前月份、人员、岗位、备忘录、同步状态和健康接口，不执行导入、保存、重置、恢复或任何 D1 写入。同时检查字体响应与缓存头，以及 `www.ief666.top` 到根域名的跳转。
 
 ## 正式写入维护门禁
 
-`wrangler.jsonc` 的 production 环境默认 `WRITE_MODE=readonly`。Worker 对所有修改请求先返回 `503`，且历史整月保存接口永久返回 `410`；这既是事故止血开关，也是恢复前的必经状态。
+production 正常运行时为 `AUTH_MODE=enabled`、`WRITE_MODE=enabled`：未登录业务 API 返回 `401`，登录后才允许读写。`WRITE_MODE=readonly` 是维护和事故止血开关；开启后即使已经登录，所有修改请求仍返回 `503`，历史整月保存接口永久返回 `410`。
 
-只有在以下条件全部满足时，才允许将生产配置临时改为 `WRITE_MODE=enabled` 并发布：已完成并校验当前 SQL 导出、Preview 使用同一提交完成浏览器验收、明确记录变更窗口和回滚 version、两名责任人复核。完成业务写入后，必须立即将配置恢复为 `readonly` 并再次发布。不得在 Dashboard 临时修改变量来绕过这条流程。
+进入数据维护或发现异常时，将生产配置改为 `WRITE_MODE=readonly` 并发布；恢复写入前必须完成当前 SQL 导出校验、Preview 同提交验收、回滚 version 记录和责任人复核。不得在 Dashboard 临时修改变量来绕过这条流程。
 
-匿名暴露面也是发布门禁：正式环境必须返回 200，预览环境必须跳转到 Access 登录页或拒绝访问。
+匿名暴露面也是发布门禁：正式环境只有 `/api/live` 可匿名返回业务 JSON，首页应跳转到 `/login`，业务 API 应返回 `401`；预览环境必须先跳转到 Access 登录页或拒绝访问。
 
 ```powershell
 curl.exe -sS -o NUL -w "%{http_code}`n" 'https://ief666.top/api/live'
 curl.exe -sS -o NUL -w "%{http_code} %{redirect_url}`n" --max-redirs 0 'https://smart-scheduling-system-preview.2825157720.workers.dev/api/live'
 ```
 
-预期：正式为 `200`；预览不得为 `200`，应返回指向 `cloudflareaccess.com` 的跳转。若预览匿名返回业务 JSON，立即停止发布并恢复 Access 策略。
+预期：正式健康接口为 `200`；预览不得为 `200`，应返回指向 `cloudflareaccess.com` 的跳转。若预览匿名返回业务 JSON，立即停止发布并恢复 Access 策略。
+
+## 应用登录与凭据轮换
+
+账号和密码不得写入 `wrangler.jsonc`、前端、测试、文档或命令参数。`AUTH_CREDENTIAL` 只保存 PBKDF2 派生签名，`AUTH_SESSION_SECRET` 使用独立随机值；Preview 与 Production 的会话密钥必须不同。登录 Cookie 为 `HttpOnly`、`Secure`、`SameSite=Strict`，有效期 12 小时；同一来源连续失败 5 次会冻结 15 分钟。
+
+在交互式终端分别生成两个临时 Secret 文件（密码输入会显示为掩码）：
+
+```powershell
+npm run auth:generate -- --out="$env:TEMP\paiban-auth-preview.json"
+npm run auth:generate -- --out="$env:TEMP\paiban-auth-production.json"
+```
+
+部署时使用 `--secrets-file` 原子写入对应环境；文件用完立即删除，不得加入 Git：
+
+```powershell
+npx --no-install wrangler deploy --env preview --secrets-file "$env:TEMP\paiban-auth-preview.json"
+npx --no-install wrangler deploy --env production --secrets-file "$env:TEMP\paiban-auth-production.json"
+Remove-Item -LiteralPath "$env:TEMP\paiban-auth-preview.json", "$env:TEMP\paiban-auth-production.json"
+```
+
+轮换密码会同时更换会话密钥，使现有登录立即失效。Secret 丢失不能从 Cloudflare 读回，只能生成新值并重新部署；因此无需备份明文密码或 Secret 文件。
 
 ## 短网址与旧地址兼容
 
@@ -156,7 +179,7 @@ npx wrangler rollback --config wrangler.legacy-redirect.jsonc
 
 ## 访问策略
 
-正式环境当前按用户确认设置为公开。预览环境必须保持 `Restricted`，两个环境的版本 preview URL 都保持关闭。若未来改回登录访问，应同时配置 Cloudflare Access 和 Worker 端 JWT 验证，防止仅靠边缘策略产生绕过风险。
+正式环境使用 Worker 应用登录，预览环境额外保持 Cloudflare Access `Restricted`；两个环境的版本 preview URL 都保持关闭。`AUTH_MODE=enabled` 时如果任一认证 Secret 缺失，Worker 必须 fail closed 返回 `503`，不得回退为匿名访问。
 
 整月 reset/restore 使用 `ADMIN_PASSWORD` Worker secret；不得把密码写入 `wrangler.jsonc`、前端、测试或文档。轮换方式：
 

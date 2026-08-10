@@ -11,6 +11,16 @@
 /index.html
   Cache-Control: public, max-age=0, must-revalidate
 
+/login.html
+  Cache-Control: private, no-store
+  X-Robots-Tag: noindex, nofollow
+
+/login.css
+  Cache-Control: public, max-age=0, must-revalidate
+
+/login.js
+  Cache-Control: public, max-age=0, must-revalidate
+
 /sketch-theme.css
   Cache-Control: public, max-age=0, must-revalidate
 

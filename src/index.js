@@ -1,5 +1,6 @@
 import { buildFairnessContext, buildFutureResetSchedule, canCoverMember, groupMemberNames, planDaySchedule, planPositionAssignment, rankFairCandidates } from "./schedule-core.js";
 import { buildImportPreview, createImportToken, normalizeImportPayload, shanghaiBusinessDate, verifyAdminPassword } from "./import-off-days.js";
+import { authConfigured, authEnabled, authenticatedSession, authUnavailable, handleAuthRoute, privateAssetResponse, redirectToLogin, sameOrigin, unauthorizedApi } from "./auth.js";
 
 const json = (body, init = {}) => Response.json(body, init);
 const rows = async (statement) => (await statement.all()).results;
@@ -358,6 +359,24 @@ export default {
     if (url.pathname === "/api/live") {
       return json({ ok: true });
     }
+    const authResponse = await handleAuthRoute(request, env, url);
+    if (authResponse) return authResponse;
+    if (url.pathname === "/login" || url.pathname === "/login.html" || url.pathname === "/login.js") {
+      if ((url.pathname === "/login" || url.pathname === "/login.html") && await authenticatedSession(request, env)) {
+        return new Response(null, { status: 302, headers: { Location: "/", "Cache-Control": "private, no-store" } });
+      }
+      return privateAssetResponse(await env.ASSETS.fetch(request));
+    }
+    const protectedPage = url.pathname === "/" || url.pathname === "/index.html";
+    if (authEnabled(env)) {
+      if (!authConfigured(env)) return authUnavailable();
+      const session = await authenticatedSession(request, env);
+      if (!session && protectedPage) return redirectToLogin(url);
+      if (!session && url.pathname.startsWith("/api/")) return unauthorizedApi();
+      if (session && MUTATING_METHODS.has(request.method) && !sameOrigin(request, url)) {
+        return failure("请求来源无效", 403);
+      }
+    }
     const legacyMonthWrite = url.pathname.match(/^\/api\/schedule\/\d{4}\/\d{1,2}$/);
     if (request.method === "POST" && legacyMonthWrite) {
       return failure("整月保存接口已停用，请使用单日排班接口", 410);
@@ -691,6 +710,7 @@ export default {
     if (url.pathname.startsWith("/api/")) {
       return json({ success: false, msg: "接口不存在" }, { status: 404 });
     }
-    return env.ASSETS.fetch(request);
+    const assetResponse = await env.ASSETS.fetch(request);
+    return authEnabled(env) && protectedPage ? privateAssetResponse(assetResponse) : assetResponse;
   },
 };

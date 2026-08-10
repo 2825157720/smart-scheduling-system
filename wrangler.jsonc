@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./static",
     "binding": "ASSETS",
-    "run_worker_first": ["/api/*"]
+    "run_worker_first": ["/api/*", "/", "/index.html", "/login", "/login.html"]
   },
   "env": {
     "preview": {
@@ -16,7 +16,11 @@
       "workers_dev": true,
       "preview_urls": false,
       "vars": {
-        "WRITE_MODE": "enabled"
+        "WRITE_MODE": "enabled",
+        "AUTH_MODE": "enabled"
+      },
+      "secrets": {
+        "required": ["AUTH_CREDENTIAL", "AUTH_SESSION_SECRET"]
       },
       "observability": {
         "enabled": true,
@@ -35,7 +39,11 @@
       "workers_dev": false,
       "preview_urls": false,
       "vars": {
-        "WRITE_MODE": "readonly"
+        "WRITE_MODE": "enabled",
+        "AUTH_MODE": "enabled"
+      },
+      "secrets": {
+        "required": ["AUTH_CREDENTIAL", "AUTH_SESSION_SECRET"]
       },
       "observability": {
         "enabled": true,
