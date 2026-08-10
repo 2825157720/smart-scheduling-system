@@ -1027,6 +1027,7 @@ def auto_substitute():
         positions,
         staff,
         groups,
+        pos=pos,
         preferred_names=preferred_names,
         fairness_context=core_build_fairness_context(month_data, positions, day=day),
     )

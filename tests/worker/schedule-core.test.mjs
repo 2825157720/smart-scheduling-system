@@ -9,6 +9,7 @@ import {
   canCoverMember,
   planDaySchedule,
   planPositionAssignment,
+  personDayWorkload,
   rankFairCandidates,
 } from "../../src/schedule-core.js";
 
@@ -293,6 +294,40 @@ test("low workload positions use each eligible substitute once before repeating"
     ["p-京东中", "p-京东北", "p-京东南", "p-京东西"].map((id) => result.day_data[id].person),
     ["A", "B", "C", "A"],
   );
+});
+
+test("repeat rounds stay balanced after every eligible substitute has already worked", () => {
+  const staff = ["A", "B", "C"].map(member);
+  const positions = [
+    position("A", 10), position("B", 10), position("C", 10),
+    position("A-1", 10), position("A-2", 8),
+    position("B-1", 10), position("B-2", 10), position("B-3", 12),
+    position("C-1", 10), position("C-2", 10),
+    position("京东中", 2, { category: "京东" }),
+    position("京东北", 2, { category: "京东" }),
+    position("京东南", 2, { category: "京东" }),
+  ];
+  const dayData = Object.fromEntries(positions.map((pos) => [pos.id, { status: "pending", person: "" }]));
+  for (const name of ["A", "B", "C"]) dayData[`p-${name}`] = { status: "on", person: name };
+  for (const [id, name] of [["A-1", "A"], ["A-2", "A"], ["B-1", "B"], ["B-2", "B"], ["B-3", "B"], ["C-1", "C"], ["C-2", "C"]]) {
+    dayData[`p-${id}`] = { status: "substitute", person: name };
+  }
+  const fairnessContext = {
+    previousDaySubstitutes: new Set(["A", "B"]),
+    substituteWorkloads: new Map(),
+  };
+  const assignments = [];
+  for (const id of ["京东中", "京东北", "京东南"]) {
+    const pos = positions.find((item) => item.id === `p-${id}`);
+    const chosen = rankFairCandidates(staff, pos, dayData, positions, staff, [], { fairnessContext })[0].name;
+    dayData[pos.id] = { status: "substitute", person: chosen };
+    assignments.push(chosen);
+  }
+
+  assert.deepEqual(assignments, ["A", "C", "B"]);
+  assert.equal(new Set(assignments).size, 3);
+  assert.equal(personDayWorkload("A", dayData, positions, staff, []), 30);
+  assert.equal(personDayWorkload("C", dayData, positions, staff, []), 32);
 });
 
 test("a sole fair candidate remains available even after substituting yesterday", () => {

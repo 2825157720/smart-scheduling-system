@@ -226,14 +226,16 @@ def _position_assignments(day_data, pos):
     return [{**normalized, "workload": workload}]
 
 
-def _day_substitute_names(day_data, positions) -> set[str]:
-    names = set()
+def _day_substitute_counts(day_data, positions, category: str = "") -> dict[str, int]:
+    counts: dict[str, int] = {}
     for pos in _positions_iter(positions):
+        if category and _normalize_name((pos or {}).get("category")) != category:
+            continue
         for assignment in _position_assignments(day_data, pos):
             name = _normalize_name(assignment.get("person"))
             if assignment.get("status") == "substitute" and name:
-                names.add(name)
-    return names
+                counts[name] = counts.get(name, 0) + 1
+    return counts
 
 
 def _split_person_names(day_data) -> set[str]:
@@ -344,6 +346,7 @@ def rank_fair_candidates(
     staff,
     groups,
     *,
+    pos=None,
     preferred_names=None,
     fairness_context=None,
     tolerance: float = FAIRNESS_LOAD_TOLERANCE,
@@ -353,14 +356,29 @@ def rank_fair_candidates(
     if not candidate_list:
         return []
 
-    current_substitutes = _day_substitute_names(day_data, positions)
-    fresh_candidates = [
+    substitute_counts = _day_substitute_counts(day_data, positions)
+    minimum_substitute_count = min(
+        substitute_counts.get(_normalize_name(member.get("name")), 0)
+        for member in candidate_list
+    )
+    candidate_list = [
         member
         for member in candidate_list
-        if _normalize_name(member.get("name")) not in current_substitutes
+        if substitute_counts.get(_normalize_name(member.get("name")), 0) == minimum_substitute_count
     ]
-    if fresh_candidates:
-        candidate_list = fresh_candidates
+    category = _normalize_name((pos or {}).get("category"))
+    category_counts = _day_substitute_counts(day_data, positions, category) if category else {}
+    if category:
+        minimum_category_count = min(
+            category_counts.get(_normalize_name(member.get("name")), 0)
+            for member in candidate_list
+        )
+        candidate_list = [
+            member
+            for member in candidate_list
+            if category_counts.get(_normalize_name(member.get("name")), 0) == minimum_category_count
+        ]
+    repeating_round = minimum_substitute_count > 0
 
     loads = {
         _normalize_name(member.get("name")): person_day_workload(
@@ -414,7 +432,10 @@ def rank_fair_candidates(
         previous_day_bias = 1 if name in previous_substitutes else 0
         load_band = 0 if loads.get(name, 0.0) <= minimum_load + float(tolerance) + 1e-9 else 1
         month_load = float(month_substitute_workloads.get(name, 0) or 0)
-        return (group_bias, previous_day_bias, load_band, month_load, loads.get(name, 0.0), name)
+        day_load = loads.get(name, 0.0)
+        if repeating_round:
+            return (group_bias, load_band, day_load, previous_day_bias, month_load, name)
+        return (group_bias, previous_day_bias, load_band, month_load, day_load, name)
 
     return sorted(fair_pool, key=_sort_key)
 
@@ -502,6 +523,7 @@ def _apply_split_positions(
             position_list,
             staff,
             groups,
+            pos=pos,
             preferred_names=preferred_names,
             fairness_context=fairness_context,
         )
@@ -615,6 +637,7 @@ def plan_position_assignment(
         position_list,
         staff,
         groups,
+        pos=pos,
         preferred_names=members if is_group and scatter_groups else [],
         fairness_context=build_fairness_context(month_schedule, position_list, day=day),
     )
@@ -698,6 +721,7 @@ def plan_day_schedule(
             position_list,
             staff,
             groups,
+            pos=pos,
             preferred_names=preferred_group_members,
             fairness_context=fairness_context,
         )

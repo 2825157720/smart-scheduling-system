@@ -20,13 +20,16 @@ function assignments(data, pos) {
   if (isSplit(cell)) { const half = workload / 2; return ["am", "pm"].map((key) => ({ ...slot(cell, key), workload: slot(cell, key).workload || half })); }
   return [{ ...cellFor(data, pos), workload }];
 }
-function daySubstituteNames(data, positions) {
-  const names = new Set();
-  for (const pos of posList(positions)) for (const item of assignments(data, pos)) {
-    const name = norm(item.person);
-    if (item.status === "substitute" && name) names.add(name);
+function daySubstituteCounts(data, positions, category = "") {
+  const counts = new Map();
+  for (const pos of posList(positions)) {
+    if (category && norm(pos?.category) !== category) continue;
+    for (const item of assignments(data, pos)) {
+      const name = norm(item.person);
+      if (item.status === "substitute" && name) counts.set(name, (counts.get(name) || 0) + 1);
+    }
   }
-  return names;
+  return counts;
 }
 function active(name, data, positions) {
   return posList(positions).some((pos) => assignments(data, pos).some((item) => norm(item.person) === norm(name) && ["on", "substitute"].includes(item.status)));
@@ -97,15 +100,26 @@ export function rankFairCandidates(candidates, pos, dayData, positions, staff, g
     name: norm(member?.name),
     dayLoad: personDayWorkload(member?.name, dayData, positions, staff, groups),
   }));
-  const currentSubstitutes = daySubstituteNames(dayData, positions);
-  const freshRows = allRows.filter((item) => !currentSubstitutes.has(item.name));
-  const rows = freshRows.length ? freshRows : allRows;
-  if (!rows.length) return [];
-  const minLoad = Math.min(...rows.map((item) => item.dayLoad));
-  const baseRows = rows.filter((item) => item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON);
+  const substituteCounts = daySubstituteCounts(dayData, positions);
+  const minimumSubstituteCount = allRows.length
+    ? Math.min(...allRows.map((item) => Number(substituteCounts.get(item.name) || 0)))
+    : 0;
+  const rows = allRows.filter((item) => Number(substituteCounts.get(item.name) || 0) === minimumSubstituteCount);
+  const category = norm(pos?.category);
+  const categoryCounts = category ? daySubstituteCounts(dayData, positions, category) : new Map();
+  const minimumCategoryCount = category && rows.length
+    ? Math.min(...rows.map((item) => Number(categoryCounts.get(item.name) || 0)))
+    : 0;
+  const categoryRows = category
+    ? rows.filter((item) => Number(categoryCounts.get(item.name) || 0) === minimumCategoryCount)
+    : rows;
+  const repeatingRound = minimumSubstituteCount > 0;
+  if (!categoryRows.length) return [];
+  const minLoad = Math.min(...categoryRows.map((item) => item.dayLoad));
+  const baseRows = categoryRows.filter((item) => item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON);
   const pool = baseRows.some((item) => !previous.has(item.name))
     ? baseRows
-    : rows.filter((item) => (
+    : categoryRows.filter((item) => (
       item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON
       || (!previous.has(item.name) && item.dayLoad <= minLoad + FAIRNESS_ROTATION_LOAD_TOLERANCE + FLOAT_EPSILON)
     ));
@@ -113,8 +127,9 @@ export function rankFairCandidates(candidates, pos, dayData, positions, staff, g
     .map((item) => ({ ...item, loadBand: item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON ? 0 : 1 }))
     .sort((a, b) => (
       (preferred.has(a.name) ? 0 : 1) - (preferred.has(b.name) ? 0 : 1)
-      || (previous.has(a.name) ? 1 : 0) - (previous.has(b.name) ? 1 : 0)
-      || a.loadBand - b.loadBand
+      || (repeatingRound ? a.loadBand - b.loadBand : (previous.has(a.name) ? 1 : 0) - (previous.has(b.name) ? 1 : 0))
+      || (repeatingRound ? a.dayLoad - b.dayLoad : 0)
+      || (repeatingRound ? (previous.has(a.name) ? 1 : 0) - (previous.has(b.name) ? 1 : 0) : a.loadBand - b.loadBand)
       || historicalLoad(a.name) - historicalLoad(b.name)
       || a.dayLoad - b.dayLoad
       || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0)

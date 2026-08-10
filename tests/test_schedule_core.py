@@ -906,6 +906,54 @@ class ScheduleCoreTests(unittest.TestCase):
             ["A", "B", "C", "A"],
         )
 
+    def test_repeat_rounds_stay_balanced_after_every_eligible_substitute_has_worked(self):
+        staff = [
+            {
+                "id": f"s_{name}", "name": name, "group_id": "", "can_cpin": True, "can_jd": True,
+                "saturday_only": False, "weekend_only": False, "no_substitute": False,
+            }
+            for name in ("A", "B", "C")
+        ]
+        position_specs = [
+            ("A", 10), ("B", 10), ("C", 10), ("A-1", 10), ("A-2", 8),
+            ("B-1", 10), ("B-2", 10), ("B-3", 12), ("C-1", 10), ("C-2", 10),
+            ("JD-middle", 2), ("JD-north", 2), ("JD-south", 2),
+        ]
+        positions = [
+            {
+                "id": f"p_{name}", "name": name, "workload": workload,
+                "default_person": name if name in {"A", "B", "C"} else "",
+                "category": "京东" if name.startswith("JD-") else "", "split_allowed": False,
+            }
+            for name, workload in position_specs
+        ]
+        day_data = {position["id"]: {"status": "pending", "person": ""} for position in positions}
+        for name in ("A", "B", "C"):
+            day_data[f"p_{name}"] = {"status": "on", "person": name}
+        for position_name, name in (
+            ("A-1", "A"), ("A-2", "A"), ("B-1", "B"), ("B-2", "B"),
+            ("B-3", "B"), ("C-1", "C"), ("C-2", "C"),
+        ):
+            day_data[f"p_{position_name}"] = {"status": "substitute", "person": name}
+        fairness_context = {
+            "previous_substitutes": {"A", "B"},
+            "month_substitute_workloads": {},
+        }
+        assignments = []
+        for position_name in ("JD-middle", "JD-north", "JD-south"):
+            position = next(item for item in positions if item["id"] == f"p_{position_name}")
+            chosen = rank_fair_candidates(
+                staff, day_data, positions, staff, [], fairness_context=fairness_context,
+                pos=position,
+            )[0]["name"]
+            day_data[position["id"]] = {"status": "substitute", "person": chosen}
+            assignments.append(chosen)
+
+        self.assertEqual(assignments, ["A", "C", "B"])
+        self.assertEqual(len(set(assignments)), 3)
+        self.assertEqual(person_day_workload("A", day_data, positions, staff, []), 30)
+        self.assertEqual(person_day_workload("C", day_data, positions, staff, []), 32)
+
     def test_plan_day_schedule_fair_pool_includes_plus_two_and_excludes_plus_two_point_zero_one(self):
         candidate_loads = [
             ("A10", 10),
