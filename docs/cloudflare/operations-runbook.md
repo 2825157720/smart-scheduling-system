@@ -4,7 +4,7 @@
 
 | 环境 | Worker | D1 | 访问方式 |
 | --- | --- | --- | --- |
-| 正式 | `paiban`（`ief666.top`） | `smart-scheduling-production` | 公开，无需登录 |
+| 正式 | `paiban`（`ief666.top`） | `smart-scheduling-production` | 公开读取；默认禁止写入 |
 | 预览 | `smart-scheduling-system-preview` | `smart-scheduling-preview` | Cloudflare Access 限制 |
 | 旧地址跳转 | `smart-scheduling-system-production` | 无 | 公开，仅返回到正式地址的 308 跳转 |
 | 基础配置 | `smart-scheduling-system-base` | 无 | `workers.dev` 和 preview URL 均关闭 |
@@ -52,6 +52,12 @@ Invoke-RestMethod "$base/api/storage-info"
 
 正式验收只做读取：打开首页并确认当前月份、人员、岗位、备忘录、同步状态和健康接口，不执行导入、保存、重置、恢复或任何 D1 写入。同时检查字体响应与缓存头，以及 `www.ief666.top` 到根域名的跳转。
 
+## 正式写入维护门禁
+
+`wrangler.jsonc` 的 production 环境默认 `WRITE_MODE=readonly`。Worker 对所有修改请求先返回 `503`，且历史整月保存接口永久返回 `410`；这既是事故止血开关，也是恢复前的必经状态。
+
+只有在以下条件全部满足时，才允许将生产配置临时改为 `WRITE_MODE=enabled` 并发布：已完成并校验当前 SQL 导出、Preview 使用同一提交完成浏览器验收、明确记录变更窗口和回滚 version、两名责任人复核。完成业务写入后，必须立即将配置恢复为 `readonly` 并再次发布。不得在 Dashboard 临时修改变量来绕过这条流程。
+
 匿名暴露面也是发布门禁：正式环境必须返回 200，预览环境必须跳转到 Access 登录页或拒绝访问。
 
 ```powershell
@@ -77,15 +83,15 @@ npx wrangler deploy --config wrangler.legacy-redirect.jsonc
 新增 schema migration 后先在预览应用：
 
 ```powershell
-npx wrangler d1 migrations apply smart-scheduling-preview --remote
+npx --no-install wrangler d1 migrations apply smart-scheduling-preview --remote --env preview
 npx --no-install wrangler deploy --env preview
 ```
 
 预览通过后再应用正式库：
 
 ```powershell
-npx wrangler d1 export smart-scheduling-production --remote --output '.migration\before-migration.sql'
-npx wrangler d1 migrations apply smart-scheduling-production --remote
+npx --no-install wrangler d1 export smart-scheduling-production --remote --env production --output '.migration\before-migration.sql'
+npx --no-install wrangler d1 migrations apply smart-scheduling-production --remote --env production
 npx --no-install wrangler deploy --env production
 ```
 
@@ -97,7 +103,7 @@ npx --no-install wrangler deploy --env production
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $path = ".migration\backups\smart-scheduling-production-$stamp.sql"
 New-Item -ItemType Directory -Path (Split-Path $path) -Force | Out-Null
-npx wrangler d1 export smart-scheduling-production --remote --output $path
+npx --no-install wrangler d1 export smart-scheduling-production --remote --env production --output $path
 Get-FileHash -LiteralPath $path -Algorithm SHA256
 ```
 
@@ -108,17 +114,17 @@ Get-FileHash -LiteralPath $path -Algorithm SHA256
 Workers Free 计划的 Time Travel 可恢复最近 7 天内任一分钟的数据状态；它始终开启，但不能代替长期 SQL 导出。恢复前先记录当前 bookmark：
 
 ```powershell
-npx wrangler d1 time-travel info smart-scheduling-production
-npx wrangler d1 time-travel info smart-scheduling-production --timestamp '2026-07-13T15:00:00Z'
+npx --no-install wrangler d1 time-travel info smart-scheduling-production --env production
+npx --no-install wrangler d1 time-travel info smart-scheduling-production --env production --timestamp '2026-07-13T15:00:00Z'
 ```
 
 确认恢复点后再执行以下破坏性命令，必须保存命令返回的“恢复前 bookmark”，以便撤销本次恢复：
 
 ```powershell
-npx wrangler d1 time-travel restore smart-scheduling-production --bookmark '<已核对的-bookmark>'
+npx --no-install wrangler d1 time-travel restore smart-scheduling-production --env production --bookmark '<已核对的-bookmark>'
 ```
 
-恢复会覆盖正式 D1 并中断进行中的查询；执行前必须暂停业务写入并另做当前 SQL 导出。
+恢复会覆盖正式 D1 并中断进行中的查询；执行前必须确认 production 仍为 `WRITE_MODE=readonly` 并另做当前 SQL 导出。
 
 ## 代码回滚
 

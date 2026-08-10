@@ -5,7 +5,7 @@
 - 正式地址：<https://ief666.top/>
 - `www.ief666.top`：跳转至正式根域名。
 - `paiban.2825157720.workers.dev`：仅作为故障诊断备用入口，不作为日常分享地址。
-- 正式环境公开访问；整月重置和恢复仍需管理员密码。
+- 正式环境公开读取，默认处于 `WRITE_MODE=readonly`；整月保存接口永久停用。临时开放写入必须遵循 Cloudflare 运维手册的维护门禁。
 - 预览环境由 Cloudflare Access 限制访问，数据与正式 D1 隔离。
 - Worker secret、D1 数据和本地导出文件不得提交到仓库。
 
