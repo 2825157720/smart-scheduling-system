@@ -406,7 +406,7 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertEqual(day_data["_off_persons"], ["Alice"])
         self.assertEqual(day_data["p1"], {"status": "substitute", "person": "Carol"})
         self.assertEqual(day_data["p2"], {"status": "on", "person": "Bob"})
-        self.assertEqual(day_data["p3"], {"status": "substitute", "person": "Carol"})
+        self.assertEqual(day_data["p3"], {"status": "substitute", "person": "Bob"})
         self.assertEqual(result["assigned"], 3)
         self.assertEqual(result["failed"], 0)
 
@@ -845,6 +845,65 @@ class ScheduleCoreTests(unittest.TestCase):
         self.assertEqual(
             [member["name"] for member in ranked],
             ["Fresh12", "Old10"],
+        )
+
+    def test_low_workload_positions_use_each_eligible_substitute_once_before_repeating(self):
+        staff = [
+            {
+                "id": f"s_{name}",
+                "name": name,
+                "group_id": "",
+                "can_cpin": True,
+                "can_jd": True,
+                "saturday_only": False,
+                "weekend_only": False,
+                "no_substitute": False,
+            }
+            for name in ("A", "B", "C")
+        ]
+        positions = [
+            {
+                "id": f"p_{name}",
+                "name": f"{name} base",
+                "workload": workload,
+                "default_person": name,
+                "category": "",
+                "split_allowed": False,
+            }
+            for name, workload in (("A", 10), ("B", 12), ("C", 12))
+        ]
+        positions.extend([
+            {
+                "id": f"p_jd_{suffix}",
+                "name": f"JD {suffix}",
+                "workload": 2,
+                "default_person": "",
+                "category": "京东",
+                "split_allowed": False,
+            }
+            for suffix in ("middle", "north", "south", "west")
+        ])
+
+        result = plan_day_schedule(
+            positions,
+            staff,
+            [],
+            year=2026,
+            month=8,
+            day=2,
+            month_schedule={
+                "1": {
+                    "p_jd_middle": {"status": "substitute", "person": "B"},
+                    "p_jd_north": {"status": "substitute", "person": "C"},
+                },
+            },
+        )
+
+        self.assertEqual(
+            [result["day_data"][position_id]["person"] for position_id in (
+                "p_jd_middle", "p_jd_north", "p_jd_south", "p_jd_west",
+            )],
+            ["A", "B", "C", "A"],
         )
 
     def test_plan_day_schedule_fair_pool_includes_plus_two_and_excludes_plus_two_point_zero_one(self):

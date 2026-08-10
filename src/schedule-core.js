@@ -20,6 +20,14 @@ function assignments(data, pos) {
   if (isSplit(cell)) { const half = workload / 2; return ["am", "pm"].map((key) => ({ ...slot(cell, key), workload: slot(cell, key).workload || half })); }
   return [{ ...cellFor(data, pos), workload }];
 }
+function daySubstituteNames(data, positions) {
+  const names = new Set();
+  for (const pos of posList(positions)) for (const item of assignments(data, pos)) {
+    const name = norm(item.person);
+    if (item.status === "substitute" && name) names.add(name);
+  }
+  return names;
+}
 function active(name, data, positions) {
   return posList(positions).some((pos) => assignments(data, pos).some((item) => norm(item.person) === norm(name) && ["on", "substitute"].includes(item.status)));
 }
@@ -84,11 +92,14 @@ export function rankFairCandidates(candidates, pos, dayData, positions, staff, g
   const previous = fairnessContext?.previousDaySubstitutes || new Set();
   const historical = fairnessContext?.substituteWorkloads || new Map();
   const historicalLoad = (name) => historical instanceof Map ? Number(historical.get(name) || 0) : Number(historical?.[name] || 0);
-  const rows = (candidates || []).map((member) => ({
+  const allRows = (candidates || []).map((member) => ({
     member,
     name: norm(member?.name),
     dayLoad: personDayWorkload(member?.name, dayData, positions, staff, groups),
   }));
+  const currentSubstitutes = daySubstituteNames(dayData, positions);
+  const freshRows = allRows.filter((item) => !currentSubstitutes.has(item.name));
+  const rows = freshRows.length ? freshRows : allRows;
   if (!rows.length) return [];
   const minLoad = Math.min(...rows.map((item) => item.dayLoad));
   const baseRows = rows.filter((item) => item.dayLoad <= minLoad + FAIRNESS_LOAD_TOLERANCE + FLOAT_EPSILON);

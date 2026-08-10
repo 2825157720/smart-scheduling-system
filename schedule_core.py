@@ -226,6 +226,16 @@ def _position_assignments(day_data, pos):
     return [{**normalized, "workload": workload}]
 
 
+def _day_substitute_names(day_data, positions) -> set[str]:
+    names = set()
+    for pos in _positions_iter(positions):
+        for assignment in _position_assignments(day_data, pos):
+            name = _normalize_name(assignment.get("person"))
+            if assignment.get("status") == "substitute" and name:
+                names.add(name)
+    return names
+
+
 def _split_person_names(day_data) -> set[str]:
     split_names = set()
     for cell in (day_data or {}).values():
@@ -342,6 +352,15 @@ def rank_fair_candidates(
     candidate_list = list(candidates or [])
     if not candidate_list:
         return []
+
+    current_substitutes = _day_substitute_names(day_data, positions)
+    fresh_candidates = [
+        member
+        for member in candidate_list
+        if _normalize_name(member.get("name")) not in current_substitutes
+    ]
+    if fresh_candidates:
+        candidate_list = fresh_candidates
 
     loads = {
         _normalize_name(member.get("name")): person_day_workload(

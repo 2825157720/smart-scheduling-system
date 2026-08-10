@@ -266,6 +266,35 @@ test("ranking prefers group members, then fresh and historically lighter substit
   assert.deepEqual(second.map((item) => item.name), first.map((item) => item.name));
 });
 
+test("low workload positions use each eligible substitute once before repeating", () => {
+  const staff = ["A", "B", "C"].map(member);
+  const positions = [
+    position("A", 10),
+    position("B", 12),
+    position("C", 12),
+    position("京东中", 2, { default_person: "", category: "京东" }),
+    position("京东北", 2, { default_person: "", category: "京东" }),
+    position("京东南", 2, { default_person: "", category: "京东" }),
+    position("京东西", 2, { default_person: "", category: "京东" }),
+  ];
+  const result = planDaySchedule(positions, staff, [], {
+    year: 2026,
+    month: 8,
+    day: 2,
+    monthSchedule: {
+      1: {
+        "p-京东中": { status: "substitute", person: "B" },
+        "p-京东北": { status: "substitute", person: "C" },
+      },
+    },
+  });
+
+  assert.deepEqual(
+    ["p-京东中", "p-京东北", "p-京东南", "p-京东西"].map((id) => result.day_data[id].person),
+    ["A", "B", "C", "A"],
+  );
+});
+
 test("a sole fair candidate remains available even after substituting yesterday", () => {
   const staff = [member("甲")];
   const positions = [position("甲", 10)];
