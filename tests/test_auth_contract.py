@@ -38,6 +38,10 @@ class AuthenticationContractTests(unittest.TestCase):
                 {"AUTH_CREDENTIAL", "AUTH_SESSION_SECRET"},
             )
 
+    def test_secret_generator_uses_runtime_verified_iteration_budget(self):
+        generator = (ROOT / "scripts" / "generate-auth-secrets.mjs").read_text(encoding="utf-8")
+        self.assertIn("const ITERATIONS = 50_000;", generator)
+
 
 if __name__ == "__main__":
     unittest.main()

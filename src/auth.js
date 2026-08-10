@@ -89,16 +89,13 @@ async function verifyCredential(username, password, serializedCredential) {
   if (!username || username.length > 80 || !password || password.length > 128) return false;
   try {
     const key = await passwordKey(password, credential);
-    const valid = await crypto.subtle.verify(
+    return crypto.subtle.verify(
       "HMAC",
       key,
       fromBase64Url(credential.signature),
       encoder.encode(`${CREDENTIAL_CONTEXT}${username}`),
     );
-    if (!valid) console.warn("Authentication credential verification mismatch");
-    return valid;
-  } catch (error) {
-    console.error("Authentication credential verification error", error?.name || "Error");
+  } catch {
     return false;
   }
 }

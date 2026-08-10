@@ -71,7 +71,7 @@ curl.exe -sS -o NUL -w "%{http_code} %{redirect_url}`n" --max-redirs 0 'https://
 
 ## 应用登录与凭据轮换
 
-账号和密码不得写入 `wrangler.jsonc`、前端、测试、文档或命令参数。`AUTH_CREDENTIAL` 只保存 PBKDF2 派生签名，`AUTH_SESSION_SECRET` 使用独立随机值；Preview 与 Production 的会话密钥必须不同。登录 Cookie 为 `HttpOnly`、`Secure`、`SameSite=Strict`，有效期 12 小时；同一来源连续失败 5 次会冻结 15 分钟。
+账号和密码不得写入 `wrangler.jsonc`、前端、测试、文档或命令参数。`AUTH_CREDENTIAL` 只保存 50,000 次 PBKDF2-SHA-256 派生签名，`AUTH_SESSION_SECRET` 使用独立随机值；Preview 与 Production 的会话密钥必须不同。登录 Cookie 为 `HttpOnly`、`Secure`、`SameSite=Strict`，有效期 12 小时；同一来源连续失败 5 次会冻结 15 分钟。
 
 在交互式终端分别生成两个临时 Secret 文件（密码输入会显示为掩码）：
 
@@ -80,15 +80,19 @@ npm run auth:generate -- --out="$env:TEMP\paiban-auth-preview.json"
 npm run auth:generate -- --out="$env:TEMP\paiban-auth-production.json"
 ```
 
-部署时使用 `--secrets-file` 原子写入对应环境；文件用完立即删除，不得加入 Git：
+凭据内含嵌套 JSON，必须从文件读取后通过标准输入逐项写入；不要使用本项目已验证会破坏该值的 `deploy --secrets-file`。文件用完立即删除，不得加入 Git：
 
 ```powershell
-npx --no-install wrangler deploy --env preview --secrets-file "$env:TEMP\paiban-auth-preview.json"
-npx --no-install wrangler deploy --env production --secrets-file "$env:TEMP\paiban-auth-production.json"
+$previewSecrets = Get-Content "$env:TEMP\paiban-auth-preview.json" -Raw | ConvertFrom-Json
+$previewSecrets.AUTH_CREDENTIAL | npx --no-install wrangler secret put AUTH_CREDENTIAL --env preview
+$previewSecrets.AUTH_SESSION_SECRET | npx --no-install wrangler secret put AUTH_SESSION_SECRET --env preview
+$productionSecrets = Get-Content "$env:TEMP\paiban-auth-production.json" -Raw | ConvertFrom-Json
+$productionSecrets.AUTH_CREDENTIAL | npx --no-install wrangler secret put AUTH_CREDENTIAL --env production
+$productionSecrets.AUTH_SESSION_SECRET | npx --no-install wrangler secret put AUTH_SESSION_SECRET --env production
 Remove-Item -LiteralPath "$env:TEMP\paiban-auth-preview.json", "$env:TEMP\paiban-auth-production.json"
 ```
 
-轮换密码会同时更换会话密钥，使现有登录立即失效。Secret 丢失不能从 Cloudflare 读回，只能生成新值并重新部署；因此无需备份明文密码或 Secret 文件。
+轮换密码会同时更换会话密钥，使现有登录立即失效。50,000 次是当前 Cloudflare 请求预算下经过正式环境验证的上限，离线抗破解强度低于更高迭代数；补偿措施是 Secret 不落库、不进 Git、在线限流和短会话。Secret 丢失不能从 Cloudflare 读回，只能生成新值并重新部署；因此无需备份明文密码或 Secret 文件。
 
 ## 短网址与旧地址兼容
 

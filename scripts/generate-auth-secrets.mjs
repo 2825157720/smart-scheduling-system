@@ -2,7 +2,7 @@ import { createHmac, pbkdf2Sync, randomBytes } from "node:crypto";
 import { chmodSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const ITERATIONS = 150_000;
+const ITERATIONS = 50_000;
 const outputArgument = process.argv.find((argument) => argument.startsWith("--out="));
 const outputPath = resolve(outputArgument?.slice("--out=".length) || ".auth-secrets.json");
 
