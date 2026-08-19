@@ -2371,6 +2371,10 @@ function calcDayWorkload(day){
   return result;
 }
 
+function formatStatWorkload(value){
+  return Math.round(Number(value) || 0);
+}
+
 function renderDayStat(){
   const day = +($('day-sel-day')?.value||new Date().getDate());
   const wl = calcDayWorkload(day);
@@ -2388,7 +2392,7 @@ function renderDayStat(){
       <div class="stat-bar-wrap">
         <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
       </div>
-      <span class="stat-val">${val}</span>
+      <span class="stat-val">${formatStatWorkload(val)}</span>
     </li>`).join('');
 }
 
@@ -2422,7 +2426,7 @@ function renderWeekStat(){
       <div class="stat-bar-wrap">
         <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
       </div>
-      <span class="stat-val">${val.toFixed(1)}</span>
+      <span class="stat-val">${formatStatWorkload(val)}</span>
     </li>`).join('');
 }
 
@@ -2454,7 +2458,7 @@ function renderMonthStat(){
       <div class="stat-bar-wrap">
         <div class="stat-bar" style="width:${(val/maxWl*100).toFixed(1)}%;background:${colors[i%colors.length]}"></div>
       </div>
-      <span class="stat-val">${val.toFixed(1)}</span>
+      <span class="stat-val">${formatStatWorkload(val)}</span>
     </li>`).join('');
 }
 

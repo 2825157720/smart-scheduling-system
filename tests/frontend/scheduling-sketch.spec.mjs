@@ -195,6 +195,41 @@ test("手绘纸张主题在固定排班数据下稳定呈现", async ({ page }) 
   expect(externalRequests).toEqual([]);
 });
 
+test("工作量统计显示值统一四舍五入为整数", async ({ page }) => {
+  const workloadFixture = buildFrontendFixture();
+  const dayData = workloadFixture.schedule["15"];
+  const groupPosition = workloadFixture.positions[0];
+  groupPosition.workload = 1;
+  dayData[groupPosition.id] = { status: "on", person: workloadFixture.groups[0].name };
+  workloadFixture.groups[0].member_names.forEach((name, index) => {
+    const position = workloadFixture.positions[index + 1];
+    dayData[position.id] = { status: "on", person: name };
+  });
+
+  await installStableClock(page);
+  await installApiFixture(page, workloadFixture);
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  await expect.poll(() => page.locator("#day-stat-list .stat-val").count()).toBeGreaterThan(0);
+  expect(await page.evaluate(() => [
+    formatStatWorkload(15.33333),
+    formatStatWorkload(15.5)
+  ])).toEqual([15, 16]);
+
+  const expectIntegerValues = async (selector) => {
+    const locator = page.locator(`${selector} .stat-val`);
+    await expect.poll(() => locator.count()).toBeGreaterThan(0);
+    const values = await locator.allTextContents();
+    expect(values.every((value) => /^\d+$/.test(value))).toBe(true);
+  };
+
+  await expectIntegerValues("#day-stat-list");
+  await page.getByRole("button", { name: "周汇总" }).click();
+  await expectIntegerValues("#week-stat-list");
+  await page.getByRole("button", { name: "月汇总" }).click();
+  await expectIntegerValues("#month-stat-list");
+});
+
 test("只显示 5 天时列宽稳定且普通格与拆分格统一", async ({ page }) => {
   await installStableClock(page);
   await installApiFixture(page);
