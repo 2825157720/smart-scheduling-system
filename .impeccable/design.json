@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-07-28T19:20:00+08:00",
+  "generatedAt": "2026-08-19T00:00:00+08:00",
   "title": "Design System: 智能排班系统",
   "extensions": {
     "colorMeta": {
@@ -61,6 +61,10 @@
       "label": {
         "displayName": "高密度标签",
         "purpose": "按钮、姓名、日期、数字、表格和表单。"
+      },
+      "dense-data": {
+        "displayName": "极高密度数据",
+        "purpose": "拆分槽姓名等空间受限的数据；仅在动态列宽可保证内容完整显示时使用。"
       }
     },
     "shadows": [
@@ -145,6 +149,14 @@
       "description": "统计与备忘录之间切换的语义化标签按钮。",
       "html": "<nav class=\"ds-tabs\" aria-label=\"侧栏\"><button class=\"ds-tab is-active\">统计</button><button class=\"ds-tab\">备忘录</button></nav>",
       "css": ".ds-tabs{display:flex;gap:8px}.ds-tab{min-height:32px;padding:6px 10px;color:#252522;background:#FFFDF7;border:2px solid #252522;border-radius:8px;box-shadow:1px 1px 0 #252522;font:600 13px/1.35 system-ui,sans-serif}.ds-tab.is-active{background:#FFF1A8}.ds-tab:hover{background:#F1E6D3}.ds-tab:focus-visible{outline:3px solid #2358A5;outline-offset:3px}"
+    },
+    {
+      "name": "Schedule Grid",
+      "kind": "table",
+      "refersTo": "status-on-bg",
+      "description": "高密度排班表使用统一日期列宽；拆分槽各占一半并完整显示姓名，只有表容器允许横向滚动。",
+      "html": "<div class=\"ds-schedule-wrap\"><table class=\"ds-schedule\"><tbody><tr><th>岗位</th><td class=\"ds-day\"><span class=\"ds-split\"><span>赵创</span><span>谢玉兰</span></span></td></tr></tbody></table></div>",
+      "css": ".ds-schedule-wrap{max-width:100%;overflow-x:auto}.ds-schedule{width:max-content;border-collapse:collapse;color:#252522;background:#FFFDF7;font:600 13px/1.35 system-ui,sans-serif;font-variant-numeric:tabular-nums}.ds-schedule th,.ds-schedule td{border:1px solid #595750}.ds-schedule th{width:108px;padding:6px 8px;text-align:left}.ds-day{width:var(--schedule-day-width,56px);min-width:var(--schedule-day-width,56px);padding:0}.ds-split{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}.ds-split>span{min-width:0;padding:5px 2px;text-align:center;white-space:nowrap}.ds-split>span+span{border-left:1px solid #595750}"
     }
   ],
   "narrative": {
@@ -170,6 +182,16 @@
         "name": "The Hard Shadow Rule",
         "body": "阴影只做纯偏移且无模糊；排班单元格、表头和表单字段不得使用纸卡硬阴影。",
         "section": "elevation"
+      },
+      {
+        "name": "The Uniform Date Column Rule",
+        "body": "所有可见日期列按当月最长姓名统一扩宽；隐藏日期不重新分配空余宽度，拆分槽固定各占 50%，姓名不得省略。",
+        "section": "layout"
+      },
+      {
+        "name": "The Assignment Provenance Rule",
+        "body": "岗位同步只重算今天及未来的自动格；人工格保持原值，legacy 格须经用户确认后才能转为自动格。",
+        "section": "components"
       }
     ],
     "dos": [
