@@ -2609,7 +2609,7 @@ async function delStaff(id){
     G.staff=await api('/api/staff');
     renderStaffTable();
     toast('已删除');
-  }catch(e){ toast('删除失败',3000); }
+  }catch(e){ toast('删除失败: '+e.message,3000); }
   finally{ loading(false); }
 }
 
@@ -2759,7 +2759,7 @@ async function delPos(id){
     renderPosTable();
     renderTable();
     toast('已删除');
-  }catch(e){ toast('删除失败',3000); }
+  }catch(e){ toast('删除失败: '+e.message,3000); }
   finally{ loading(false); }
 }
 
@@ -2954,7 +2954,7 @@ async function delGroup(id){
     renderGroupTable();
     toast('已删除');
   }catch(e){
-    toast('删除失败', 3000);
+    toast('删除失败: '+e.message, 3000);
   }finally{
     loading(false);
   }
